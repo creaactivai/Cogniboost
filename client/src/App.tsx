@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import { useAuth } from "@/hooks/use-auth";
 import AdminOverview from "@/pages/admin/overview";
 import AdminCourses from "@/pages/admin/courses";
+import AdminCourseLessons from "@/pages/admin/course-lessons";
 import AdminStudents from "@/pages/admin/students";
 import AdminFinancials from "@/pages/admin/financials";
 import AdminLabs from "@/pages/admin/labs";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/dashboard/:rest*" component={Dashboard} />
       <Route path="/admin" component={AdminOverview} />
       <Route path="/admin/courses" component={AdminCourses} />
+      <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
       <Route path="/admin/students" component={AdminStudents} />
       <Route path="/admin/financials" component={AdminFinancials} />
       <Route path="/admin/labs" component={AdminLabs} />

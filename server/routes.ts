@@ -1,8 +1,21 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
+
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -270,6 +283,31 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Get single course by ID
+  app.get("/api/admin/courses/:id", requireAdmin, async (req, res) => {
+    try {
+      const course = await storage.getCourseById(req.params.id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      console.error("Error fetching course:", error);
+      res.status(500).json({ error: "Failed to fetch course" });
+    }
+  });
+
+  // Admin: Get lessons for a specific course
+  app.get("/api/admin/courses/:id/lessons", requireAdmin, async (req, res) => {
+    try {
+      const lessons = await storage.getLessonsByCourseId(req.params.id);
+      res.json(lessons);
+    } catch (error) {
+      console.error("Error fetching course lessons:", error);
+      res.status(500).json({ error: "Failed to fetch lessons" });
+    }
+  });
+
   // Admin: Create lesson
   app.post("/api/admin/lessons", requireAdmin, async (req, res) => {
     try {
@@ -303,6 +341,42 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting lesson:", error);
       res.status(500).json({ error: "Failed to delete lesson" });
+    }
+  });
+
+  // Upload PDF file (protected, for lesson materials)
+  app.post("/api/upload/pdf", requireAdmin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get presigned URL for upload
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      
+      // Upload the file buffer directly to the presigned URL
+      const response = await fetch(uploadURL, {
+        method: 'PUT',
+        body: req.file.buffer,
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload to storage');
+      }
+
+      // Get the normalized path for serving the file
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      const fileUrl = objectPath;
+
+      res.json({ url: fileUrl, name: req.file.originalname });
+    } catch (error) {
+      console.error("Error uploading PDF:", error);
+      res.status(500).json({ error: "Failed to upload PDF" });
     }
   });
 

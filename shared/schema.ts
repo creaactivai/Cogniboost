@@ -50,9 +50,12 @@ export const lessons = pgTable("lessons", {
   title: text("title").notNull(),
   description: text("description"),
   videoUrl: text("video_url"),
-  duration: integer("duration").notNull(), // in minutes
+  vimeoId: text("vimeo_id"), // Vimeo video ID for embedding
+  duration: integer("duration").notNull().default(0), // in minutes
   orderIndex: integer("order_index").notNull(),
+  pdfMaterials: text("pdf_materials").array(), // URLs to PDF files in object storage
   isPreview: boolean("is_preview").notNull().default(false),
+  isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

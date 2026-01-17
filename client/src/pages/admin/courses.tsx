@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, BookOpen, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Eye, EyeOff, FileText } from "lucide-react";
+import { Link } from "wouter";
 import type { Course } from "@shared/schema";
 
 const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -48,7 +49,7 @@ export default function AdminCourses() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/admin/courses", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/admin/courses", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso creado exitosamente" });
@@ -62,7 +63,7 @@ export default function AdminCourses() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<typeof formData> }) =>
-      apiRequest(`/api/admin/courses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      apiRequest("PATCH", `/api/admin/courses/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso actualizado exitosamente" });
@@ -75,7 +76,7 @@ export default function AdminCourses() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/admin/courses/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/courses/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso eliminado exitosamente" });
@@ -87,7 +88,7 @@ export default function AdminCourses() {
 
   const togglePublishMutation = useMutation({
     mutationFn: ({ id, isPublished }: { id: string; isPublished: boolean }) =>
-      apiRequest(`/api/admin/courses/${id}`, { method: "PATCH", body: JSON.stringify({ isPublished }) }),
+      apiRequest("PATCH", `/api/admin/courses/${id}`, { isPublished }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Estado de publicación actualizado" });
@@ -317,6 +318,16 @@ export default function AdminCourses() {
                     {course.isPremium && (
                       <Badge style={{ backgroundColor: '#FD335A' }}>Premium</Badge>
                     )}
+                    <Link href={`/admin/courses/${course.id}/lessons`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid={`button-lessons-${course.id}`}
+                      >
+                        <FileText className="w-4 h-4 mr-1" />
+                        Lecciones
+                      </Button>
+                    </Link>
                     <Button
                       size="icon"
                       variant="ghost"
