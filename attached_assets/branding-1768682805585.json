@@ -1,0 +1,81 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "GT America Mono",
+      "count": 28
+    },
+    {
+      "family": "mono",
+      "count": 28
+    },
+    {
+      "family": "Druk",
+      "count": 9
+    },
+    {
+      "family": "Impact",
+      "count": 9
+    },
+    {
+      "family": "sans-serif",
+      "count": 9
+    }
+  ],
+  "colors": {
+    "primary": "#33CBFB",
+    "accent": "#FD335A",
+    "background": "#FFFFFF",
+    "textPrimary": "#000000",
+    "link": "#FD335A"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "GT America Mono",
+      "heading": "Druk"
+    },
+    "fontStacks": {
+      "body": [
+        "GT America Mono",
+        "mono"
+      ],
+      "heading": [
+        "Druk",
+        "Impact",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "GT America Mono",
+        "mono"
+      ]
+    },
+    "fontSizes": {
+      "h1": "130px",
+      "h2": "130px",
+      "body": "18px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "0px"
+  },
+  "components": {},
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "https://www.neotribe.vc/favicons/apple-touch-icon-152x152.png",
+    "ogImage": "http://localhost:20858/share.jpg"
+  },
+  "__framework_hints": [
+    "bootstrap"
+  ],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Heuristic fallback: Moderate indicators: header logo linking to homepage, header location, visible, reasonable size, SVG format. Score: 93. May benefit from LLM validation.",
+    "confidence": 0.5
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0,
+    "overall": 0
+  }
+}
