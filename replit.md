@@ -51,8 +51,21 @@ This pattern is used in:
 ### Key Files
 - Landing page components: `client/src/components/landing/`
 - Dashboard components: `client/src/components/dashboard/`
+- Admin dashboard pages: `client/src/pages/admin/`
+- Admin components: `client/src/components/admin/`
 - Database schema: `shared/schema.ts`
 - API routes: `server/routes.ts`
+
+### Admin LMS Dashboard
+The Admin Dashboard provides platform management for the owner:
+- **Panel General** (`/admin`) - Overview with student counts, revenue, course stats
+- **Cursos** (`/admin/courses`) - Course and lesson CRUD management
+- **Estudiantes** (`/admin/students`) - Student progress tracking and analytics
+- **Finanzas** (`/admin/financials`) - Revenue, subscriptions, payment history
+- **Laboratorios** (`/admin/labs`) - Conversation lab scheduling
+- **Instructores** (`/admin/instructors`) - Instructor profiles and management
+
+Admin API routes are under `/api/admin/*` namespace and are protected by authentication middleware that checks if the user has `isAdmin: true` in the users table.
 
 ### Subscription Tiers
 - Free: Basic access
@@ -60,6 +73,9 @@ This pattern is used in:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)
+- 2026-01-17: Added admin API routes for CRUD operations and analytics (/api/admin/*)
+- 2026-01-17: Extended database schema with admin fields (isPremium, tier, instructor details)
 - 2026-01-17: Complete Spanish translation of all UI components
 - 2026-01-17: Implemented bilingual topic filtering (English keys, Spanish labels)
 - 2026-01-17: Fixed language selector in settings (Inglés, Español, Portugués)

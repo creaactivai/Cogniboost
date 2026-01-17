@@ -9,6 +9,7 @@ import {
   instructors,
   payments,
   lessonProgress,
+  users,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -28,6 +29,7 @@ import {
   type Payment,
   type InsertPayment,
   type LessonProgress,
+  type User,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count } from "drizzle-orm";
@@ -100,6 +102,9 @@ export interface IStorage {
     totalRevenue: string;
     activeSubscriptions: number;
   }>;
+  
+  // Users
+  getUser(userId: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -335,6 +340,12 @@ export class DatabaseStorage implements IStorage {
       totalRevenue: revenueResult?.total || "0",
       activeSubscriptions: subsResult?.count || 0,
     };
+  }
+
+  // Users
+  async getUser(userId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user;
   }
 }
 

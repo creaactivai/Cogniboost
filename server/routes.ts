@@ -197,8 +197,23 @@ export async function registerRoutes(
 
   // ============== ADMIN API ROUTES ==============
 
+  // Admin middleware - check if user is authenticated and is an admin
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - Login required" });
+    }
+    
+    // Check if user is an admin
+    const user = await storage.getUser(userId);
+    if (!user?.isAdmin) {
+      return res.status(403).json({ error: "Forbidden - Admin access required" });
+    }
+    next();
+  };
+
   // Admin: Get dashboard stats
-  app.get("/api/admin/stats", async (req, res) => {
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
       const stats = await storage.getAdminStats();
       res.json(stats);
@@ -209,7 +224,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all courses (including unpublished)
-  app.get("/api/admin/courses", async (req, res) => {
+  app.get("/api/admin/courses", requireAdmin, async (req, res) => {
     try {
       const courses = await storage.getAllCourses();
       res.json(courses);
@@ -220,7 +235,7 @@ export async function registerRoutes(
   });
 
   // Admin: Create course
-  app.post("/api/admin/courses", async (req, res) => {
+  app.post("/api/admin/courses", requireAdmin, async (req, res) => {
     try {
       const course = await storage.createCourse(req.body);
       res.status(201).json(course);
@@ -231,7 +246,7 @@ export async function registerRoutes(
   });
 
   // Admin: Update course
-  app.patch("/api/admin/courses/:id", async (req, res) => {
+  app.patch("/api/admin/courses/:id", requireAdmin, async (req, res) => {
     try {
       const course = await storage.updateCourse(req.params.id, req.body);
       if (!course) {
@@ -245,7 +260,7 @@ export async function registerRoutes(
   });
 
   // Admin: Delete course
-  app.delete("/api/admin/courses/:id", async (req, res) => {
+  app.delete("/api/admin/courses/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteCourse(req.params.id);
       res.status(204).send();
@@ -256,7 +271,7 @@ export async function registerRoutes(
   });
 
   // Admin: Create lesson
-  app.post("/api/admin/lessons", async (req, res) => {
+  app.post("/api/admin/lessons", requireAdmin, async (req, res) => {
     try {
       const lesson = await storage.createLesson(req.body);
       res.status(201).json(lesson);
@@ -267,7 +282,7 @@ export async function registerRoutes(
   });
 
   // Admin: Update lesson
-  app.patch("/api/admin/lessons/:id", async (req, res) => {
+  app.patch("/api/admin/lessons/:id", requireAdmin, async (req, res) => {
     try {
       const lesson = await storage.updateLesson(req.params.id, req.body);
       if (!lesson) {
@@ -281,7 +296,7 @@ export async function registerRoutes(
   });
 
   // Admin: Delete lesson
-  app.delete("/api/admin/lessons/:id", async (req, res) => {
+  app.delete("/api/admin/lessons/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteLesson(req.params.id);
       res.status(204).send();
@@ -292,7 +307,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all enrollments
-  app.get("/api/admin/enrollments", async (req, res) => {
+  app.get("/api/admin/enrollments", requireAdmin, async (req, res) => {
     try {
       const enrollments = await storage.getAllEnrollments();
       res.json(enrollments);
@@ -303,7 +318,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all user stats (student progress)
-  app.get("/api/admin/user-stats", async (req, res) => {
+  app.get("/api/admin/user-stats", requireAdmin, async (req, res) => {
     try {
       const stats = await storage.getAllUserStats();
       res.json(stats);
@@ -314,7 +329,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all lesson progress
-  app.get("/api/admin/lesson-progress", async (req, res) => {
+  app.get("/api/admin/lesson-progress", requireAdmin, async (req, res) => {
     try {
       const progress = await storage.getAllLessonProgress();
       res.json(progress);
@@ -325,7 +340,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all subscriptions
-  app.get("/api/admin/subscriptions", async (req, res) => {
+  app.get("/api/admin/subscriptions", requireAdmin, async (req, res) => {
     try {
       const subscriptions = await storage.getAllSubscriptions();
       res.json(subscriptions);
@@ -336,7 +351,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all payments
-  app.get("/api/admin/payments", async (req, res) => {
+  app.get("/api/admin/payments", requireAdmin, async (req, res) => {
     try {
       const payments = await storage.getPayments();
       res.json(payments);
@@ -347,7 +362,7 @@ export async function registerRoutes(
   });
 
   // Admin: Create conversation lab
-  app.post("/api/admin/labs", async (req, res) => {
+  app.post("/api/admin/labs", requireAdmin, async (req, res) => {
     try {
       const lab = await storage.createConversationLab(req.body);
       res.status(201).json(lab);
@@ -358,7 +373,7 @@ export async function registerRoutes(
   });
 
   // Admin: Update conversation lab
-  app.patch("/api/admin/labs/:id", async (req, res) => {
+  app.patch("/api/admin/labs/:id", requireAdmin, async (req, res) => {
     try {
       const lab = await storage.updateConversationLab(req.params.id, req.body);
       if (!lab) {
@@ -372,7 +387,7 @@ export async function registerRoutes(
   });
 
   // Admin: Delete conversation lab
-  app.delete("/api/admin/labs/:id", async (req, res) => {
+  app.delete("/api/admin/labs/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteConversationLab(req.params.id);
       res.status(204).send();
@@ -383,7 +398,7 @@ export async function registerRoutes(
   });
 
   // Admin: Get all lab bookings
-  app.get("/api/admin/lab-bookings", async (req, res) => {
+  app.get("/api/admin/lab-bookings", requireAdmin, async (req, res) => {
     try {
       const bookings = await storage.getAllLabBookings();
       res.json(bookings);
@@ -394,7 +409,7 @@ export async function registerRoutes(
   });
 
   // Admin: Create instructor
-  app.post("/api/admin/instructors", async (req, res) => {
+  app.post("/api/admin/instructors", requireAdmin, async (req, res) => {
     try {
       const instructor = await storage.createInstructor(req.body);
       res.status(201).json(instructor);
@@ -405,7 +420,7 @@ export async function registerRoutes(
   });
 
   // Admin: Update instructor
-  app.patch("/api/admin/instructors/:id", async (req, res) => {
+  app.patch("/api/admin/instructors/:id", requireAdmin, async (req, res) => {
     try {
       const instructor = await storage.updateInstructor(req.params.id, req.body);
       if (!instructor) {
@@ -419,7 +434,7 @@ export async function registerRoutes(
   });
 
   // Admin: Delete instructor
-  app.delete("/api/admin/instructors/:id", async (req, res) => {
+  app.delete("/api/admin/instructors/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteInstructor(req.params.id);
       res.status(204).send();
