@@ -444,5 +444,150 @@ export async function registerRoutes(
     }
   });
 
+  // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
+
+  // Get all live sessions (public - for student calendar)
+  app.get("/api/live-sessions", async (req, res) => {
+    try {
+      const sessions = await storage.getLiveSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching live sessions:", error);
+      res.status(500).json({ error: "Failed to fetch live sessions" });
+    }
+  });
+
+  // Get live session by ID with rooms
+  app.get("/api/live-sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.getLiveSessionById(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      const rooms = await storage.getSessionRooms(req.params.id);
+      res.json({ ...session, rooms });
+    } catch (error) {
+      console.error("Error fetching live session:", error);
+      res.status(500).json({ error: "Failed to fetch live session" });
+    }
+  });
+
+  // Get rooms for a session
+  app.get("/api/live-sessions/:id/rooms", async (req, res) => {
+    try {
+      const rooms = await storage.getSessionRooms(req.params.id);
+      res.json(rooms);
+    } catch (error) {
+      console.error("Error fetching session rooms:", error);
+      res.status(500).json({ error: "Failed to fetch session rooms" });
+    }
+  });
+
+  // Book a room (student action)
+  app.post("/api/room-bookings", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { roomId } = req.body;
+      if (!roomId) {
+        return res.status(400).json({ error: "Room ID is required" });
+      }
+      const booking = await storage.createRoomBooking({ userId, roomId });
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating room booking:", error);
+      res.status(500).json({ error: "Failed to book room" });
+    }
+  });
+
+  // Get user's room bookings
+  app.get("/api/room-bookings", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const bookings = await storage.getRoomBookingsByUserId(userId);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching room bookings:", error);
+      res.status(500).json({ error: "Failed to fetch room bookings" });
+    }
+  });
+
+  // Admin: Create live session
+  app.post("/api/admin/live-sessions", requireAdmin, async (req, res) => {
+    try {
+      const session = await storage.createLiveSession(req.body);
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error creating live session:", error);
+      res.status(500).json({ error: "Failed to create live session" });
+    }
+  });
+
+  // Admin: Update live session
+  app.patch("/api/admin/live-sessions/:id", requireAdmin, async (req, res) => {
+    try {
+      const session = await storage.updateLiveSession(req.params.id, req.body);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Error updating live session:", error);
+      res.status(500).json({ error: "Failed to update live session" });
+    }
+  });
+
+  // Admin: Delete live session
+  app.delete("/api/admin/live-sessions/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteLiveSession(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting live session:", error);
+      res.status(500).json({ error: "Failed to delete live session" });
+    }
+  });
+
+  // Admin: Create session room
+  app.post("/api/admin/session-rooms", requireAdmin, async (req, res) => {
+    try {
+      const room = await storage.createSessionRoom(req.body);
+      res.status(201).json(room);
+    } catch (error) {
+      console.error("Error creating session room:", error);
+      res.status(500).json({ error: "Failed to create session room" });
+    }
+  });
+
+  // Admin: Update session room
+  app.patch("/api/admin/session-rooms/:id", requireAdmin, async (req, res) => {
+    try {
+      const room = await storage.updateSessionRoom(req.params.id, req.body);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+      res.json(room);
+    } catch (error) {
+      console.error("Error updating session room:", error);
+      res.status(500).json({ error: "Failed to update session room" });
+    }
+  });
+
+  // Admin: Delete session room
+  app.delete("/api/admin/session-rooms/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteSessionRoom(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting session room:", error);
+      res.status(500).json({ error: "Failed to delete session room" });
+    }
+  });
+
   return httpServer;
 }

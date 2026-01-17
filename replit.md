@@ -73,12 +73,26 @@ Admin API routes are under `/api/admin/*` namespace and are protected by authent
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-17: Implemented new Live Sessions breakout rooms model (live_sessions, session_rooms, room_bookings)
+- 2026-01-17: Added API routes for students to view sessions and book rooms by topic
 - 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)
 - 2026-01-17: Added admin API routes for CRUD operations and analytics (/api/admin/*)
 - 2026-01-17: Extended database schema with admin fields (isPremium, tier, instructor details)
 - 2026-01-17: Complete Spanish translation of all UI components
 - 2026-01-17: Implemented bilingual topic filtering (English keys, Spanish labels)
 - 2026-01-17: Fixed language selector in settings (Inglés, Español, Portugués)
+
+### Conversation Labs (Breakout Rooms Model)
+The new model supports multiple topic rooms within each live session:
+- **Live Sessions** - Main container (date, time, instructor, meeting URL)
+- **Session Rooms** - Breakout rooms by topic within each session (topic, level, max participants)
+- **Room Bookings** - Students book specific rooms
+
+API Endpoints:
+- `GET /api/live-sessions` - List all upcoming sessions
+- `GET /api/live-sessions/:id` - Get session with rooms
+- `POST /api/room-bookings` - Book a room (authenticated)
+- Admin CRUD: `/api/admin/live-sessions/*`, `/api/admin/session-rooms/*`
 
 ## Development Notes
 - Frontend runs on port 5000

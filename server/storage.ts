@@ -10,6 +10,9 @@ import {
   payments,
   lessonProgress,
   users,
+  liveSessions,
+  sessionRooms,
+  roomBookings,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -30,9 +33,15 @@ import {
   type InsertPayment,
   type LessonProgress,
   type User,
+  type LiveSession,
+  type InsertLiveSession,
+  type SessionRoom,
+  type InsertSessionRoom,
+  type RoomBooking,
+  type InsertRoomBooking,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, count } from "drizzle-orm";
+import { eq, desc, sql, count, and } from "drizzle-orm";
 
 export interface IStorage {
   // Courses
@@ -105,6 +114,25 @@ export interface IStorage {
   
   // Users
   getUser(userId: string): Promise<User | undefined>;
+  
+  // Live Sessions (new breakout rooms model)
+  getLiveSessions(): Promise<LiveSession[]>;
+  getLiveSessionById(id: string): Promise<LiveSession | undefined>;
+  createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
+  updateLiveSession(id: string, session: Partial<InsertLiveSession>): Promise<LiveSession | undefined>;
+  deleteLiveSession(id: string): Promise<boolean>;
+  
+  // Session Rooms
+  getSessionRooms(sessionId: string): Promise<SessionRoom[]>;
+  getSessionRoomById(id: string): Promise<SessionRoom | undefined>;
+  createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom>;
+  updateSessionRoom(id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined>;
+  deleteSessionRoom(id: string): Promise<boolean>;
+  
+  // Room Bookings
+  getRoomBookingsByUserId(userId: string): Promise<RoomBooking[]>;
+  getRoomBookingsByRoomId(roomId: string): Promise<RoomBooking[]>;
+  createRoomBooking(booking: InsertRoomBooking): Promise<RoomBooking>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -173,8 +201,7 @@ export class DatabaseStorage implements IStorage {
 
   async getEnrollmentByUserAndCourse(userId: string, courseId: string): Promise<Enrollment | undefined> {
     const [enrollment] = await db.select().from(enrollments)
-      .where(eq(enrollments.userId, userId))
-      .where(eq(enrollments.courseId, courseId));
+      .where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId)));
     return enrollment;
   }
 
@@ -219,8 +246,7 @@ export class DatabaseStorage implements IStorage {
 
   async getLabBookingByUserAndLab(userId: string, labId: string): Promise<LabBooking | undefined> {
     const [booking] = await db.select().from(labBookings)
-      .where(eq(labBookings.userId, userId))
-      .where(eq(labBookings.labId, labId));
+      .where(and(eq(labBookings.userId, userId), eq(labBookings.labId, labId)));
     return booking;
   }
 
@@ -346,6 +372,70 @@ export class DatabaseStorage implements IStorage {
   async getUser(userId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     return user;
+  }
+
+  // Live Sessions
+  async getLiveSessions(): Promise<LiveSession[]> {
+    return db.select().from(liveSessions).orderBy(desc(liveSessions.scheduledAt));
+  }
+
+  async getLiveSessionById(id: string): Promise<LiveSession | undefined> {
+    const [session] = await db.select().from(liveSessions).where(eq(liveSessions.id, id));
+    return session;
+  }
+
+  async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
+    const [newSession] = await db.insert(liveSessions).values(session).returning();
+    return newSession;
+  }
+
+  async updateLiveSession(id: string, session: Partial<InsertLiveSession>): Promise<LiveSession | undefined> {
+    const [updated] = await db.update(liveSessions).set(session).where(eq(liveSessions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLiveSession(id: string): Promise<boolean> {
+    await db.delete(liveSessions).where(eq(liveSessions.id, id));
+    return true;
+  }
+
+  // Session Rooms
+  async getSessionRooms(sessionId: string): Promise<SessionRoom[]> {
+    return db.select().from(sessionRooms).where(eq(sessionRooms.sessionId, sessionId));
+  }
+
+  async getSessionRoomById(id: string): Promise<SessionRoom | undefined> {
+    const [room] = await db.select().from(sessionRooms).where(eq(sessionRooms.id, id));
+    return room;
+  }
+
+  async createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom> {
+    const [newRoom] = await db.insert(sessionRooms).values(room).returning();
+    return newRoom;
+  }
+
+  async updateSessionRoom(id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined> {
+    const [updated] = await db.update(sessionRooms).set(room).where(eq(sessionRooms.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSessionRoom(id: string): Promise<boolean> {
+    await db.delete(sessionRooms).where(eq(sessionRooms.id, id));
+    return true;
+  }
+
+  // Room Bookings
+  async getRoomBookingsByUserId(userId: string): Promise<RoomBooking[]> {
+    return db.select().from(roomBookings).where(eq(roomBookings.userId, userId));
+  }
+
+  async getRoomBookingsByRoomId(roomId: string): Promise<RoomBooking[]> {
+    return db.select().from(roomBookings).where(eq(roomBookings.roomId, roomId));
+  }
+
+  async createRoomBooking(booking: InsertRoomBooking): Promise<RoomBooking> {
+    const [newBooking] = await db.insert(roomBookings).values(booking).returning();
+    return newBooking;
   }
 }
 

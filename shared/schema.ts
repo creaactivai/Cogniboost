@@ -75,7 +75,7 @@ export const lessonProgress = pgTable("lesson_progress", {
   lastWatchedAt: timestamp("last_watched_at").defaultNow(),
 });
 
-// Conversation Labs table
+// Conversation Labs table (legacy - keeping for backwards compatibility)
 export const conversationLabs = pgTable("conversation_labs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
@@ -93,7 +93,43 @@ export const conversationLabs = pgTable("conversation_labs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Lab bookings table
+// Live Sessions table - main container for live classes
+export const liveSessions = pgTable("live_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  instructorId: varchar("instructor_id").references(() => instructors.id).notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  duration: integer("duration").notNull().default(60), // in minutes
+  status: labStatusEnum("status").notNull().default("scheduled"),
+  meetingUrl: text("meeting_url"),
+  isPremium: boolean("is_premium").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Session Rooms table - breakout rooms within a live session
+export const sessionRooms = pgTable("session_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => liveSessions.id).notNull(),
+  topic: text("topic").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  maxParticipants: integer("max_participants").notNull().default(6),
+  currentParticipants: integer("current_participants").notNull().default(0),
+  roomUrl: text("room_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Room Bookings table - students book specific rooms
+export const roomBookings = pgTable("room_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  roomId: varchar("room_id").references(() => sessionRooms.id).notNull(),
+  bookedAt: timestamp("booked_at").defaultNow(),
+  attendedAt: timestamp("attended_at"),
+  cancelledAt: timestamp("cancelled_at"),
+});
+
+// Lab bookings table (legacy - keeping for backwards compatibility)
 export const labBookings = pgTable("lab_bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -187,6 +223,30 @@ export const labBookingsRelations = relations(labBookings, ({ one }) => ({
   }),
 }));
 
+// Live Sessions Relations
+export const liveSessionsRelations = relations(liveSessions, ({ one, many }) => ({
+  instructor: one(instructors, {
+    fields: [liveSessions.instructorId],
+    references: [instructors.id],
+  }),
+  rooms: many(sessionRooms),
+}));
+
+export const sessionRoomsRelations = relations(sessionRooms, ({ one, many }) => ({
+  session: one(liveSessions, {
+    fields: [sessionRooms.sessionId],
+    references: [liveSessions.id],
+  }),
+  bookings: many(roomBookings),
+}));
+
+export const roomBookingsRelations = relations(roomBookings, ({ one }) => ({
+  room: one(sessionRooms, {
+    fields: [roomBookings.roomId],
+    references: [sessionRooms.id],
+  }),
+}));
+
 // Insert schemas
 export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, createdAt: true });
 export const insertInstructorSchema = createInsertSchema(instructors).omit({ id: true, createdAt: true });
@@ -198,6 +258,9 @@ export const insertLabBookingSchema = createInsertSchema(labBookings).omit({ id:
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserStatsSchema = createInsertSchema(userStats).omit({ id: true, updatedAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertLiveSessionSchema = createInsertSchema(liveSessions).omit({ id: true, createdAt: true });
+export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ id: true, createdAt: true, currentParticipants: true });
+export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({ id: true, bookedAt: true });
 
 // Types
 export type Course = typeof courses.$inferSelect;
@@ -220,6 +283,12 @@ export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type LiveSession = typeof liveSessions.$inferSelect;
+export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
+export type SessionRoom = typeof sessionRooms.$inferSelect;
+export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
+export type RoomBooking = typeof roomBookings.$inferSelect;
+export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
 
 // Course levels array for UI
 export const courseLevels = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
