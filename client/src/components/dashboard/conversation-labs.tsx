@@ -15,16 +15,18 @@ import {
   Clock, 
   Users, 
   Video,
-  MapPin,
-  ChevronLeft,
   ChevronRight,
   Sparkles,
   CheckCircle2,
-  XCircle
+  XCircle,
+  MessageSquare
 } from "lucide-react";
 import { courseLevels } from "@shared/schema";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { LiveSession, SessionRoom, RoomBooking } from "@shared/schema";
 
-// Spanish translations for course topics
 const courseTopicsEs: Record<string, string> = {
   "Business English": "Inglés de Negocios",
   "Travel & Tourism": "Viajes y Turismo",
@@ -38,260 +40,244 @@ const courseTopicsEs: Record<string, string> = {
 
 const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
 
-interface LabCardProps {
-  id: string;
-  title: string;
-  description: string;
-  topic: string;
-  level: string;
-  date: string;
-  time: string;
-  duration: number;
-  instructor: string;
-  maxParticipants: number;
-  currentParticipants: number;
-  isBooked?: boolean;
-  isPast?: boolean;
-  attended?: boolean;
+type SessionWithRooms = LiveSession & { rooms: SessionRoom[] };
+
+function formatDate(dateStr: string): { dayName: string; dayNum: string; month: string; time: string } {
+  const date = new Date(dateStr);
+  const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  let dayName = days[date.getDay()];
+  if (date.toDateString() === today.toDateString()) {
+    dayName = "Hoy";
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    dayName = "Mañana";
+  }
+  
+  return {
+    dayName,
+    dayNum: date.getDate().toString(),
+    month: months[date.getMonth()],
+    time: date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true })
+  };
 }
 
-function LabCard({
-  id,
-  title,
-  description,
-  topic,
-  level,
-  date,
-  time,
-  duration,
-  instructor,
-  maxParticipants,
-  currentParticipants,
-  isBooked,
-  isPast,
-  attended,
-}: LabCardProps) {
-  const spotsLeft = maxParticipants - currentParticipants;
+interface RoomCardProps {
+  room: SessionRoom;
+  isBooked: boolean;
+  onBook: () => void;
+  isBooking: boolean;
+}
+
+function RoomCard({ room, isBooked, onBook, isBooking }: RoomCardProps) {
+  const spotsLeft = room.maxParticipants - room.currentParticipants;
   const isFull = spotsLeft <= 0;
-
+  
   return (
-    <Card className={`p-6 border-border hover-elevate ${isPast ? "opacity-75" : ""}`}>
-      <div className="flex flex-col md:flex-row md:items-start gap-4">
-        {/* Date block */}
-        <div className="w-20 h-20 bg-primary/10 flex flex-col items-center justify-center flex-shrink-0">
-          <span className="text-xs font-mono text-muted-foreground uppercase">{date.split(" ")[0]}</span>
-          <span className="text-2xl font-display">{date.split(" ")[1]}</span>
-        </div>
-
-        {/* Content */}
+    <div className={`p-4 border border-border hover-elevate ${isBooked ? "bg-primary/5 border-primary/30" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="font-mono text-xs">{level}</Badge>
-            <Badge variant="secondary" className="font-mono text-xs">{getTopicLabel(topic)}</Badge>
-            {isBooked && !isPast && (
+            <Badge variant="outline" className="font-mono text-xs">{room.level}</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">{getTopicLabel(room.topic)}</Badge>
+            {isBooked && (
               <Badge className="bg-primary text-primary-foreground font-mono text-xs">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
                 Reservado
               </Badge>
             )}
-            {isPast && attended && (
-              <Badge className="bg-green-500 text-white font-mono text-xs">Asistió</Badge>
-            )}
-            {isPast && !attended && isBooked && (
-              <Badge variant="destructive" className="font-mono text-xs">No Asistió</Badge>
+          </div>
+          <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              <span>{room.currentParticipants}/{room.maxParticipants}</span>
+            </div>
+            <span className={isFull ? "text-destructive" : "text-muted-foreground"}>
+              {isFull ? "Lleno" : `${spotsLeft} lugares`}
+            </span>
+          </div>
+        </div>
+        <div>
+          {isBooked ? (
+            <Button 
+              size="sm"
+              className="bg-accent text-accent-foreground font-mono text-xs"
+              data-testid={`button-join-room-${room.id}`}
+            >
+              Unirse
+            </Button>
+          ) : (
+            <Button 
+              size="sm"
+              variant="outline"
+              disabled={isFull || isBooking}
+              onClick={onBook}
+              className="font-mono text-xs"
+              data-testid={`button-book-room-${room.id}`}
+            >
+              {isBooking ? "..." : "Reservar"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface LiveSessionCardProps {
+  session: SessionWithRooms;
+  bookedRoomIds: Set<string>;
+  onBookRoom: (roomId: string) => void;
+  isBooking: boolean;
+  bookingRoomId: string | null;
+}
+
+function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookingRoomId }: LiveSessionCardProps) {
+  const dateInfo = formatDate(session.scheduledAt as unknown as string);
+  const hasBookedRoom = session.rooms.some(r => bookedRoomIds.has(r.id));
+  
+  return (
+    <Card className="border-border overflow-hidden">
+      <div className="flex">
+        <div className="w-24 bg-primary/10 flex flex-col items-center justify-center py-6 px-4 flex-shrink-0">
+          <span className="text-xs font-mono text-muted-foreground uppercase">{dateInfo.dayName}</span>
+          <span className="text-3xl font-display">{dateInfo.dayNum}</span>
+          <span className="text-xs font-mono text-muted-foreground">{dateInfo.month}</span>
+        </div>
+        
+        <div className="flex-1 p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-mono font-semibold text-lg mb-1">{session.title}</h3>
+              {session.description && (
+                <p className="text-sm font-mono text-muted-foreground line-clamp-1">{session.description}</p>
+              )}
+            </div>
+            {hasBookedRoom && (
+              <Badge className="bg-primary text-primary-foreground font-mono">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Inscrito
+              </Badge>
             )}
           </div>
           
-          <h3 className="font-mono font-semibold text-lg mb-1">{title}</h3>
-          <p className="text-sm font-mono text-muted-foreground mb-3 line-clamp-2">{description}</p>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-4 mb-4 text-xs font-mono text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>{time}</span>
+              <span>{dateInfo.time}</span>
             </div>
             <div className="flex items-center gap-1">
               <Video className="w-3 h-3" />
-              <span>{duration} min</span>
+              <span>{session.duration} min</span>
             </div>
             <div className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              <span>{currentParticipants}/{maxParticipants} unidos</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              <span>{instructor}</span>
+              <MessageSquare className="w-3 h-3" />
+              <span>{session.rooms.length} salas por tema</span>
             </div>
           </div>
-        </div>
-
-        {/* Action */}
-        <div className="flex flex-col items-end gap-2">
-          {!isPast && (
-            <>
-              {isBooked ? (
-                <div className="flex flex-col gap-2">
-                  <Button className="bg-accent text-accent-foreground font-mono uppercase tracking-wider" data-testid={`button-join-${id}`}>
-                    Unirse al Lab
-                  </Button>
-                  <Button variant="ghost" className="font-mono text-xs text-muted-foreground" data-testid={`button-cancel-${id}`}>
-                    Cancelar Reserva
-                  </Button>
-                </div>
-              ) : (
-                <Button 
-                  className="font-mono uppercase tracking-wider"
-                  disabled={isFull}
-                  data-testid={`button-book-${id}`}
-                >
-                  {isFull ? "Lleno" : "Reservar Lugar"}
-                </Button>
-              )}
-              {!isFull && !isBooked && (
-                <span className="text-xs font-mono text-muted-foreground">
-                  {spotsLeft} lugares
-                </span>
-              )}
-            </>
-          )}
-          {isPast && (
-            <span className="text-xs font-mono text-muted-foreground">Completado</span>
-          )}
+          
+          <div className="space-y-2">
+            <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
+              Selecciona una sala por tema:
+            </p>
+            <div className="grid gap-2">
+              {session.rooms.map(room => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  isBooked={bookedRoomIds.has(room.id)}
+                  onBook={() => onBookRoom(room.id)}
+                  isBooking={isBooking && bookingRoomId === room.id}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </Card>
   );
 }
 
-// Mock data - topics use English keys for filtering, displayed with getTopicLabel()
-const mockLabs: LabCardProps[] = [
-  {
-    id: "1",
-    title: "Martes de Tecnología",
-    description: "Discute lo último en IA, machine learning y cómo la tecnología está cambiando nuestro mundo. Practica explicar conceptos tech complejos.",
-    topic: "Technology",
-    level: "B2",
-    date: "Mar 21",
-    time: "6:00 PM EST",
-    duration: 60,
-    instructor: "Prof. Sarah Chen",
-    maxParticipants: 12,
-    currentParticipants: 8,
-    isBooked: true,
-  },
-  {
-    id: "2",
-    title: "Taller de Negociaciones",
-    description: "Practica negociaciones de salario, discusiones de contratos y aprende lenguaje persuasivo para entornos profesionales.",
-    topic: "Business English",
-    level: "B1",
-    date: "Mié 22",
-    time: "7:00 PM EST",
-    duration: 60,
-    instructor: "Mark Thompson",
-    maxParticipants: 12,
-    currentParticipants: 6,
-  },
-  {
-    id: "3",
-    title: "Historias de Viajes",
-    description: "Comparte tus experiencias de viaje y aprende vocabulario para reservas, transporte y encuentros culturales.",
-    topic: "Travel & Tourism",
-    level: "A2",
-    date: "Jue 23",
-    time: "5:00 PM EST",
-    duration: 45,
-    instructor: "Ana Martínez",
-    maxParticipants: 10,
-    currentParticipants: 10,
-  },
-  {
-    id: "4",
-    title: "Charla Casual de Viernes",
-    description: "Práctica de conversación relajada sobre cualquier tema. Perfecto para ganar confianza en situaciones casuales.",
-    topic: "Everyday Conversations",
-    level: "A1",
-    date: "Vie 24",
-    time: "4:00 PM EST",
-    duration: 45,
-    instructor: "David Lee",
-    maxParticipants: 8,
-    currentParticipants: 3,
-  },
-  {
-    id: "5",
-    title: "Vocabulario Médico Intensivo",
-    description: "Terminología médica, comunicación con pacientes y conversaciones de la industria de la salud.",
-    topic: "Healthcare",
-    level: "B1",
-    date: "Sáb 25",
-    time: "10:00 AM EST",
-    duration: 60,
-    instructor: "Dra. Rachel Kim",
-    maxParticipants: 10,
-    currentParticipants: 5,
-  },
-];
-
-const pastLabs: LabCardProps[] = [
-  {
-    id: "p1",
-    title: "Motivación del Lunes",
-    description: "Comienza la semana con energía positiva y vocabulario de establecimiento de metas.",
-    topic: "Everyday Conversations",
-    level: "A2",
-    date: "Lun 13",
-    time: "6:00 PM EST",
-    duration: 45,
-    instructor: "Ana Martínez",
-    maxParticipants: 12,
-    currentParticipants: 12,
-    isPast: true,
-    isBooked: true,
-    attended: true,
-  },
-  {
-    id: "p2",
-    title: "Fundamentos de Finanzas",
-    description: "Vocabulario de inversiones y discusión de tendencias del mercado.",
-    topic: "Finance",
-    level: "B2",
-    date: "Mar 14",
-    time: "7:00 PM EST",
-    duration: 60,
-    instructor: "James Wilson",
-    maxParticipants: 10,
-    currentParticipants: 10,
-    isPast: true,
-    isBooked: true,
-    attended: false,
-  },
-];
-
 export function ConversationLabs() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [topicFilter, setTopicFilter] = useState<string>("all");
+  const [bookingRoomId, setBookingRoomId] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const filteredUpcoming = mockLabs.filter((lab) => {
-    const matchesLevel = levelFilter === "all" || lab.level === levelFilter;
-    const matchesTopic = topicFilter === "all" || lab.topic === topicFilter;
-    return matchesLevel && matchesTopic;
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery<LiveSession[]>({
+    queryKey: ["/api/live-sessions"],
   });
 
-  const bookedLabs = mockLabs.filter((lab) => lab.isBooked);
+  const { data: bookings = [] } = useQuery<RoomBooking[]>({
+    queryKey: ["/api/room-bookings"],
+  });
+
+  const bookedRoomIds = new Set(bookings.map(b => b.roomId));
+
+  const bookRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      setBookingRoomId(roomId);
+      return apiRequest("POST", "/api/room-bookings", { roomId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/room-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/live-sessions"] });
+      toast({
+        title: "¡Sala reservada!",
+        description: "Tu lugar en la sala ha sido confirmado.",
+      });
+      setBookingRoomId(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo reservar la sala. Intenta de nuevo.",
+        variant: "destructive",
+      });
+      setBookingRoomId(null);
+    },
+  });
+
+  const sessionsWithRooms: SessionWithRooms[] = sessions.map(session => ({
+    ...session,
+    rooms: (session as any).rooms || [],
+  }));
+
+  const now = new Date();
+  const upcomingSessions = sessionsWithRooms.filter(s => new Date(s.scheduledAt) > now);
+  const pastSessions = sessionsWithRooms.filter(s => new Date(s.scheduledAt) <= now);
+
+  const filteredUpcoming = upcomingSessions.filter((session) => {
+    if (levelFilter === "all" && topicFilter === "all") return true;
+    
+    return session.rooms.some(room => {
+      const matchesLevel = levelFilter === "all" || room.level === levelFilter;
+      const matchesTopic = topicFilter === "all" || room.topic === topicFilter;
+      return matchesLevel && matchesTopic;
+    });
+  });
+
+  const bookedSessions = upcomingSessions.filter(session => 
+    session.rooms.some(room => bookedRoomIds.has(room.id))
+  );
+
+  const bookedRoomsCount = bookings.filter(b => !b.cancelledAt).length;
+  const attendedCount = bookings.filter(b => b.attendedAt).length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-display uppercase mb-2">Labs de Conversación</h1>
         <p className="font-mono text-muted-foreground">
-          Practica inglés hablado con compañeros de tu nivel
+          Únete a sesiones en vivo y elige la sala por tema que más te interese
         </p>
       </div>
 
-      {/* Quick stats */}
       <div className="grid sm:grid-cols-3 gap-4">
         <Card className="p-4 border-border">
           <div className="flex items-center gap-3">
@@ -299,8 +285,8 @@ export function ConversationLabs() {
               <CalendarIcon className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-display">{bookedLabs.length}</p>
-              <p className="text-xs font-mono text-muted-foreground">Próximos Reservados</p>
+              <p className="text-2xl font-display">{bookedRoomsCount}</p>
+              <p className="text-xs font-mono text-muted-foreground">Salas Reservadas</p>
             </div>
           </div>
         </Card>
@@ -310,7 +296,7 @@ export function ConversationLabs() {
               <CheckCircle2 className="w-5 h-5 text-accent" />
             </div>
             <div>
-              <p className="text-2xl font-display">12</p>
+              <p className="text-2xl font-display">{attendedCount}</p>
               <p className="text-xs font-mono text-muted-foreground">Labs Asistidos</p>
             </div>
           </div>
@@ -318,23 +304,22 @@ export function ConversationLabs() {
         <Card className="p-4 border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-muted flex items-center justify-center">
-              <Clock className="w-5 h-5 text-muted-foreground" />
+              <MessageSquare className="w-5 h-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-display">8.5h</p>
-              <p className="text-xs font-mono text-muted-foreground">Tiempo Hablando</p>
+              <p className="text-2xl font-display">{upcomingSessions.length}</p>
+              <p className="text-xs font-mono text-muted-foreground">Sesiones Próximas</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Tabs and Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted">
-            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Próximos</TabsTrigger>
+            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Próximas</TabsTrigger>
             <TabsTrigger value="booked" className="font-mono" data-testid="tab-booked">Mis Reservas</TabsTrigger>
-            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Labs Pasados</TabsTrigger>
+            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Pasadas</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -366,40 +351,78 @@ export function ConversationLabs() {
         )}
       </div>
 
-      {/* Labs list */}
       <div className="space-y-4">
-        {activeTab === "upcoming" && (
+        {sessionsLoading && (
+          <div className="text-center py-16">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin mx-auto mb-4"></div>
+            <p className="font-mono text-muted-foreground">Cargando sesiones...</p>
+          </div>
+        )}
+
+        {!sessionsLoading && activeTab === "upcoming" && (
           filteredUpcoming.length > 0 ? (
-            filteredUpcoming.map((lab) => <LabCard key={lab.id} {...lab} />)
+            filteredUpcoming.map((session) => (
+              <LiveSessionCard 
+                key={session.id} 
+                session={session}
+                bookedRoomIds={bookedRoomIds}
+                onBookRoom={(roomId) => bookRoomMutation.mutate(roomId)}
+                isBooking={bookRoomMutation.isPending}
+                bookingRoomId={bookingRoomId}
+              />
+            ))
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground">No hay labs que coincidan con tus filtros</p>
+              <p className="font-mono text-muted-foreground">
+                {sessions.length === 0 
+                  ? "No hay sesiones programadas por ahora" 
+                  : "No hay sesiones que coincidan con tus filtros"
+                }
+              </p>
             </div>
           )
         )}
 
-        {activeTab === "booked" && (
-          bookedLabs.length > 0 ? (
-            bookedLabs.map((lab) => <LabCard key={lab.id} {...lab} />)
+        {!sessionsLoading && activeTab === "booked" && (
+          bookedSessions.length > 0 ? (
+            bookedSessions.map((session) => (
+              <LiveSessionCard 
+                key={session.id} 
+                session={session}
+                bookedRoomIds={bookedRoomIds}
+                onBookRoom={(roomId) => bookRoomMutation.mutate(roomId)}
+                isBooking={bookRoomMutation.isPending}
+                bookingRoomId={bookingRoomId}
+              />
+            ))
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground mb-4">Aún no has reservado ningún lab</p>
+              <p className="font-mono text-muted-foreground mb-4">Aún no has reservado ninguna sala</p>
               <Button onClick={() => setActiveTab("upcoming")} className="font-mono">
-                Ver Labs Disponibles
+                Ver Sesiones Disponibles
               </Button>
             </div>
           )
         )}
 
-        {activeTab === "past" && (
-          pastLabs.length > 0 ? (
-            pastLabs.map((lab) => <LabCard key={lab.id} {...lab} />)
+        {!sessionsLoading && activeTab === "past" && (
+          pastSessions.length > 0 ? (
+            pastSessions.map((session) => (
+              <LiveSessionCard 
+                key={session.id} 
+                session={session}
+                bookedRoomIds={bookedRoomIds}
+                onBookRoom={() => {}}
+                isBooking={false}
+                bookingRoomId={null}
+              />
+            ))
           ) : (
             <div className="text-center py-16">
               <Clock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground">No hay labs pasados para mostrar</p>
+              <p className="font-mono text-muted-foreground">No hay sesiones pasadas para mostrar</p>
             </div>
           )
         )}

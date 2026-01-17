@@ -446,11 +446,17 @@ export async function registerRoutes(
 
   // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
 
-  // Get all live sessions (public - for student calendar)
+  // Get all live sessions with their rooms (public - for student calendar)
   app.get("/api/live-sessions", async (req, res) => {
     try {
       const sessions = await storage.getLiveSessions();
-      res.json(sessions);
+      const sessionsWithRooms = await Promise.all(
+        sessions.map(async (session) => {
+          const rooms = await storage.getSessionRooms(session.id);
+          return { ...session, rooms };
+        })
+      );
+      res.json(sessionsWithRooms);
     } catch (error) {
       console.error("Error fetching live sessions:", error);
       res.status(500).json({ error: "Failed to fetch live sessions" });

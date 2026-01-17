@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { 
   BookOpen, 
   Users, 
@@ -9,10 +10,26 @@ import {
   Play, 
   Calendar,
   ArrowRight,
-  Flame
+  Flame,
+  MessageSquare
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import type { LiveSession, SessionRoom } from "@shared/schema";
+
+const courseTopicsEs: Record<string, string> = {
+  "Business English": "Inglés de Negocios",
+  "Travel & Tourism": "Viajes y Turismo",
+  "Technology": "Tecnología",
+  "Culture & Arts": "Cultura y Artes",
+  "Healthcare": "Salud",
+  "Finance": "Finanzas",
+  "Academic English": "Inglés Académico",
+  "Everyday Conversations": "Conversaciones Cotidianas",
+};
+
+const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -70,30 +87,57 @@ function ContinueLearningCard({ title, level, progress, thumbnail }: CourseCardP
   );
 }
 
-interface UpcomingLabCardProps {
-  title: string;
-  topic: string;
-  date: string;
-  time: string;
-  spots: number;
+type SessionWithRooms = LiveSession & { rooms: SessionRoom[] };
+
+function formatSessionDate(dateStr: string): { label: string; time: string } {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  let label = `${date.getDate()} ${["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][date.getMonth()]}`;
+  if (date.toDateString() === today.toDateString()) {
+    label = "Hoy";
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    label = "Mañana";
+  }
+  
+  const time = date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true });
+  
+  return { label, time };
 }
 
-function UpcomingLabCard({ title, topic, date, time, spots }: UpcomingLabCardProps) {
+interface UpcomingSessionCardProps {
+  session: SessionWithRooms;
+}
+
+function UpcomingSessionCard({ session }: UpcomingSessionCardProps) {
+  const dateInfo = formatSessionDate(session.scheduledAt as unknown as string);
+  const totalSpots = session.rooms.reduce((sum, r) => sum + (r.maxParticipants - r.currentParticipants), 0);
+  const topicLabels = session.rooms.slice(0, 2).map(r => getTopicLabel(r.topic));
+  
   return (
     <Card className="p-4 border-border hover-elevate">
       <div className="flex items-start justify-between mb-3">
         <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
-          <Users className="w-5 h-5 text-accent" />
+          <MessageSquare className="w-5 h-5 text-accent" />
         </div>
-        <span className="text-xs font-mono text-muted-foreground">{spots} lugares</span>
+        <span className="text-xs font-mono text-muted-foreground">{totalSpots} lugares</span>
       </div>
-      <p className="font-mono text-sm font-medium mb-1">{title}</p>
-      <p className="text-xs font-mono text-muted-foreground mb-3">{topic}</p>
+      <p className="font-mono text-sm font-medium mb-1">{session.title}</p>
+      <div className="flex flex-wrap gap-1 mb-3">
+        {topicLabels.map((topic, i) => (
+          <Badge key={i} variant="secondary" className="text-xs font-mono">{topic}</Badge>
+        ))}
+        {session.rooms.length > 2 && (
+          <Badge variant="outline" className="text-xs font-mono">+{session.rooms.length - 2}</Badge>
+        )}
+      </div>
       <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
         <Calendar className="w-3 h-3" />
-        <span>{date}</span>
+        <span>{dateInfo.label}</span>
         <span>•</span>
-        <span>{time}</span>
+        <span>{dateInfo.time}</span>
       </div>
     </Card>
   );
@@ -102,7 +146,20 @@ function UpcomingLabCard({ title, topic, date, time, spots }: UpcomingLabCardPro
 export function DashboardOverview() {
   const { user } = useAuth();
 
-  // Mock data - in real app, this would come from API
+  const { data: sessions = [] } = useQuery<LiveSession[]>({
+    queryKey: ["/api/live-sessions"],
+  });
+
+  const sessionsWithRooms: SessionWithRooms[] = sessions.map(session => ({
+    ...session,
+    rooms: (session as any).rooms || [],
+  }));
+
+  const now = new Date();
+  const upcomingSessions = sessionsWithRooms
+    .filter(s => new Date(s.scheduledAt) > now)
+    .slice(0, 2);
+
   const stats = {
     hoursStudied: 24.5,
     coursesCompleted: 3,
@@ -118,14 +175,8 @@ export function DashboardOverview() {
     { title: "Gramática Esencial: Tiempos Pasados", level: "B1", progress: 20 },
   ];
 
-  const upcomingLabs = [
-    { title: "Martes de Tecnología", topic: "Inteligencia Artificial en 2025", date: "Mañana", time: "6:00 PM", spots: 4 },
-    { title: "Negociaciones de Negocios", topic: "Salario y Discusiones de Contrato", date: "Ene 20", time: "7:00 PM", spots: 6 },
-  ];
-
   return (
     <div className="space-y-8">
-      {/* Welcome section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display uppercase mb-2">
@@ -143,7 +194,6 @@ export function DashboardOverview() {
         </div>
       </div>
 
-      {/* Stats grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Clock} label="Horas Estudiadas" value={stats.hoursStudied} sublabel="Este mes" />
         <StatCard icon={BookOpen} label="Cursos Completados" value={stats.coursesCompleted} />
@@ -151,9 +201,7 @@ export function DashboardOverview() {
         <StatCard icon={TrendingUp} label="Nivel Actual" value={stats.currentLevel} sublabel={`${stats.xpPoints} XP`} />
       </div>
 
-      {/* Two column layout */}
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Continue learning */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-display uppercase">Continuar Aprendiendo</h2>
@@ -171,10 +219,9 @@ export function DashboardOverview() {
           </div>
         </div>
 
-        {/* Upcoming labs */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display uppercase">Próximos Labs</h2>
+            <h2 className="text-xl font-display uppercase">Próximas Sesiones</h2>
             <Link href="/dashboard/labs">
               <Button variant="ghost" className="font-mono text-sm" data-testid="link-view-all-labs">
                 Ver Todos
@@ -183,13 +230,22 @@ export function DashboardOverview() {
             </Link>
           </div>
           <div className="space-y-3">
-            {upcomingLabs.map((lab, index) => (
-              <UpcomingLabCard key={index} {...lab} />
-            ))}
+            {upcomingSessions.length > 0 ? (
+              upcomingSessions.map((session) => (
+                <UpcomingSessionCard key={session.id} session={session} />
+              ))
+            ) : (
+              <Card className="p-6 border-border text-center">
+                <Calendar className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs font-mono text-muted-foreground">
+                  No hay sesiones programadas
+                </p>
+              </Card>
+            )}
           </div>
           <Link href="/dashboard/labs">
             <Button className="w-full bg-accent text-accent-foreground font-mono uppercase tracking-wider" data-testid="button-book-lab">
-              Reservar un Lab
+              Reservar una Sala
             </Button>
           </Link>
         </div>
