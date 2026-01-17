@@ -3,58 +3,58 @@ import { Check, X, Sparkles } from "lucide-react";
 
 const plans = [
   {
-    name: "FREE",
+    name: "GRATIS",
     price: "$0",
-    period: "forever",
-    description: "Perfect for exploring",
+    period: "para siempre",
+    description: "Perfecto para explorar",
     features: [
-      { text: "5 intro lessons", included: true },
-      { text: "1 trial conversation lab", included: true },
-      { text: "Basic progress tracking", included: true },
-      { text: "Full course library", included: false },
-      { text: "Monthly live labs", included: false },
-      { text: "1-on-1 sessions", included: false },
-      { text: "Certificates", included: false },
-      { text: "Priority support", included: false },
+      { text: "5 lecciones introductorias", included: true },
+      { text: "1 laboratorio de prueba", included: true },
+      { text: "Seguimiento básico de progreso", included: true },
+      { text: "Biblioteca completa de cursos", included: false },
+      { text: "Labs en vivo mensuales", included: false },
+      { text: "Sesiones 1 a 1", included: false },
+      { text: "Certificados", included: false },
+      { text: "Soporte prioritario", included: false },
     ],
-    cta: "Get Started Free",
+    cta: "Comenzar Gratis",
     variant: "outline" as const,
   },
   {
-    name: "STANDARD",
+    name: "ESTÁNDAR",
     price: "$29",
-    period: "/month",
-    description: "Most popular choice",
+    period: "/mes",
+    description: "La opción más popular",
     popular: true,
     features: [
-      { text: "Full course library (100+)", included: true },
-      { text: "4 conversation labs/month", included: true },
-      { text: "Advanced progress tracking", included: true },
-      { text: "Downloadable certificates", included: true },
-      { text: "Email support", included: true },
-      { text: "1-on-1 sessions", included: false },
-      { text: "Priority support", included: false },
-      { text: "Custom learning path", included: false },
+      { text: "Biblioteca completa (100+ cursos)", included: true },
+      { text: "4 laboratorios de conversación/mes", included: true },
+      { text: "Seguimiento avanzado de progreso", included: true },
+      { text: "Certificados descargables", included: true },
+      { text: "Soporte por email", included: true },
+      { text: "Sesiones 1 a 1", included: false },
+      { text: "Soporte prioritario", included: false },
+      { text: "Ruta de aprendizaje personalizada", included: false },
     ],
-    cta: "Start 7-Day Trial",
+    cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
   },
   {
     name: "PREMIUM",
     price: "$79",
-    period: "/month",
-    description: "For serious learners",
+    period: "/mes",
+    description: "Para estudiantes serios",
     features: [
-      { text: "Everything in Standard", included: true },
-      { text: "8 conversation labs/month", included: true },
-      { text: "2 one-on-one sessions/month", included: true },
-      { text: "Priority support", included: true },
-      { text: "Custom learning path", included: true },
-      { text: "Lab recordings (30 days)", included: true },
-      { text: "LinkedIn certification", included: true },
-      { text: "Early access to features", included: true },
+      { text: "Todo lo del plan Estándar", included: true },
+      { text: "8 laboratorios de conversación/mes", included: true },
+      { text: "2 sesiones 1 a 1/mes", included: true },
+      { text: "Soporte prioritario", included: true },
+      { text: "Ruta de aprendizaje personalizada", included: true },
+      { text: "Grabaciones de labs (30 días)", included: true },
+      { text: "Certificación para LinkedIn", included: true },
+      { text: "Acceso anticipado a funciones", included: true },
     ],
-    cta: "Start 7-Day Trial",
+    cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
     accent: true,
   },
@@ -66,14 +66,14 @@ export function Pricing() {
       <div className="container mx-auto px-6">
         {/* Section header */}
         <div className="text-center mb-20">
-          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">PRICING</p>
+          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">PRECIOS</p>
           <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
-            FLEXIBLE <span className="text-accent">PLANS</span>
+            PLANES <span className="text-accent">FLEXIBLES</span>
             <br />
-            FOR EVERY LEARNER
+            PARA CADA ESTUDIANTE
           </h2>
           <p className="text-lg text-muted-foreground font-mono max-w-2xl mx-auto">
-            Choose the plan that fits your learning goals. Upgrade, downgrade, or cancel anytime.
+            Elige el plan que se adapte a tus metas de aprendizaje. Sube, baja o cancela en cualquier momento.
           </p>
         </div>
 
@@ -134,15 +134,15 @@ export function Pricing() {
         <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm font-mono text-muted-foreground">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
-            <span>No credit card required</span>
+            <span>Sin tarjeta de crédito</span>
           </div>
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
-            <span>Cancel anytime</span>
+            <span>Cancela cuando quieras</span>
           </div>
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
-            <span>7-day money back guarantee</span>
+            <span>Garantía de 7 días</span>
           </div>
         </div>
       </div>

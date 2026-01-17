@@ -24,6 +24,20 @@ import {
 } from "lucide-react";
 import { courseLevels } from "@shared/schema";
 
+// Spanish translations for course topics
+const courseTopicsEs: Record<string, string> = {
+  "Business English": "Inglés de Negocios",
+  "Travel & Tourism": "Viajes y Turismo",
+  "Technology": "Tecnología",
+  "Culture & Arts": "Cultura y Artes",
+  "Healthcare": "Salud",
+  "Finance": "Finanzas",
+  "Academic English": "Inglés Académico",
+  "Everyday Conversations": "Conversaciones Cotidianas",
+};
+
+const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
+
 interface LabCardProps {
   id: string;
   title: string;
@@ -73,18 +87,18 @@ function LabCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="outline" className="font-mono text-xs">{level}</Badge>
-            <Badge variant="secondary" className="font-mono text-xs">{topic}</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">{getTopicLabel(topic)}</Badge>
             {isBooked && !isPast && (
               <Badge className="bg-primary text-primary-foreground font-mono text-xs">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                Booked
+                Reservado
               </Badge>
             )}
             {isPast && attended && (
-              <Badge className="bg-green-500 text-white font-mono text-xs">Attended</Badge>
+              <Badge className="bg-green-500 text-white font-mono text-xs">Asistió</Badge>
             )}
             {isPast && !attended && isBooked && (
-              <Badge variant="destructive" className="font-mono text-xs">Missed</Badge>
+              <Badge variant="destructive" className="font-mono text-xs">No Asistió</Badge>
             )}
           </div>
           
@@ -102,7 +116,7 @@ function LabCard({
             </div>
             <div className="flex items-center gap-1">
               <Users className="w-3 h-3" />
-              <span>{currentParticipants}/{maxParticipants} joined</span>
+              <span>{currentParticipants}/{maxParticipants} unidos</span>
             </div>
             <div className="flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
@@ -118,10 +132,10 @@ function LabCard({
               {isBooked ? (
                 <div className="flex flex-col gap-2">
                   <Button className="bg-accent text-accent-foreground font-mono uppercase tracking-wider" data-testid={`button-join-${id}`}>
-                    Join Lab
+                    Unirse al Lab
                   </Button>
                   <Button variant="ghost" className="font-mono text-xs text-muted-foreground" data-testid={`button-cancel-${id}`}>
-                    Cancel Booking
+                    Cancelar Reserva
                   </Button>
                 </div>
               ) : (
@@ -130,18 +144,18 @@ function LabCard({
                   disabled={isFull}
                   data-testid={`button-book-${id}`}
                 >
-                  {isFull ? "Full" : "Reserve Spot"}
+                  {isFull ? "Lleno" : "Reservar Lugar"}
                 </Button>
               )}
               {!isFull && !isBooked && (
                 <span className="text-xs font-mono text-muted-foreground">
-                  {spotsLeft} spots left
+                  {spotsLeft} lugares
                 </span>
               )}
             </>
           )}
           {isPast && (
-            <span className="text-xs font-mono text-muted-foreground">Completed</span>
+            <span className="text-xs font-mono text-muted-foreground">Completado</span>
           )}
         </div>
       </div>
@@ -149,15 +163,15 @@ function LabCard({
   );
 }
 
-// Mock data
+// Mock data - topics use English keys for filtering, displayed with getTopicLabel()
 const mockLabs: LabCardProps[] = [
   {
     id: "1",
-    title: "Tech Talk Tuesday",
-    description: "Discuss the latest in AI, machine learning, and how technology is changing our world. Practice explaining complex tech concepts.",
+    title: "Martes de Tecnología",
+    description: "Discute lo último en IA, machine learning y cómo la tecnología está cambiando nuestro mundo. Practica explicar conceptos tech complejos.",
     topic: "Technology",
     level: "B2",
-    date: "Tue 21",
+    date: "Mar 21",
     time: "6:00 PM EST",
     duration: 60,
     instructor: "Prof. Sarah Chen",
@@ -167,11 +181,11 @@ const mockLabs: LabCardProps[] = [
   },
   {
     id: "2",
-    title: "Business Negotiations Workshop",
-    description: "Role-play salary negotiations, contract discussions, and learn persuasive language for professional settings.",
+    title: "Taller de Negociaciones",
+    description: "Practica negociaciones de salario, discusiones de contratos y aprende lenguaje persuasivo para entornos profesionales.",
     topic: "Business English",
     level: "B1",
-    date: "Wed 22",
+    date: "Mié 22",
     time: "7:00 PM EST",
     duration: 60,
     instructor: "Mark Thompson",
@@ -180,24 +194,24 @@ const mockLabs: LabCardProps[] = [
   },
   {
     id: "3",
-    title: "Travel Tales",
-    description: "Share your travel experiences and learn vocabulary for booking, transportation, and cultural encounters.",
+    title: "Historias de Viajes",
+    description: "Comparte tus experiencias de viaje y aprende vocabulario para reservas, transporte y encuentros culturales.",
     topic: "Travel & Tourism",
     level: "A2",
-    date: "Thu 23",
+    date: "Jue 23",
     time: "5:00 PM EST",
     duration: 45,
-    instructor: "Ana Martinez",
+    instructor: "Ana Martínez",
     maxParticipants: 10,
     currentParticipants: 10,
   },
   {
     id: "4",
-    title: "Casual Friday Chat",
-    description: "Relaxed conversation practice on any topic. Perfect for building confidence in casual settings.",
+    title: "Charla Casual de Viernes",
+    description: "Práctica de conversación relajada sobre cualquier tema. Perfecto para ganar confianza en situaciones casuales.",
     topic: "Everyday Conversations",
     level: "A1",
-    date: "Fri 24",
+    date: "Vie 24",
     time: "4:00 PM EST",
     duration: 45,
     instructor: "David Lee",
@@ -206,14 +220,14 @@ const mockLabs: LabCardProps[] = [
   },
   {
     id: "5",
-    title: "Healthcare Vocabulary Intensive",
-    description: "Medical terminology, patient communication, and healthcare industry conversations.",
+    title: "Vocabulario Médico Intensivo",
+    description: "Terminología médica, comunicación con pacientes y conversaciones de la industria de la salud.",
     topic: "Healthcare",
     level: "B1",
-    date: "Sat 25",
+    date: "Sáb 25",
     time: "10:00 AM EST",
     duration: 60,
-    instructor: "Dr. Rachel Kim",
+    instructor: "Dra. Rachel Kim",
     maxParticipants: 10,
     currentParticipants: 5,
   },
@@ -222,14 +236,14 @@ const mockLabs: LabCardProps[] = [
 const pastLabs: LabCardProps[] = [
   {
     id: "p1",
-    title: "Monday Motivation",
-    description: "Start the week with positive energy and goal-setting vocabulary.",
+    title: "Motivación del Lunes",
+    description: "Comienza la semana con energía positiva y vocabulario de establecimiento de metas.",
     topic: "Everyday Conversations",
     level: "A2",
-    date: "Mon 13",
+    date: "Lun 13",
     time: "6:00 PM EST",
     duration: 45,
-    instructor: "Ana Martinez",
+    instructor: "Ana Martínez",
     maxParticipants: 12,
     currentParticipants: 12,
     isPast: true,
@@ -238,11 +252,11 @@ const pastLabs: LabCardProps[] = [
   },
   {
     id: "p2",
-    title: "Finance Fundamentals",
-    description: "Investment vocabulary and discussing market trends.",
+    title: "Fundamentos de Finanzas",
+    description: "Vocabulario de inversiones y discusión de tendencias del mercado.",
     topic: "Finance",
     level: "B2",
-    date: "Tue 14",
+    date: "Mar 14",
     time: "7:00 PM EST",
     duration: 60,
     instructor: "James Wilson",
@@ -254,16 +268,6 @@ const pastLabs: LabCardProps[] = [
   },
 ];
 
-const topicOptions = [
-  "All Topics",
-  "Technology",
-  "Business English",
-  "Travel & Tourism",
-  "Everyday Conversations",
-  "Healthcare",
-  "Finance",
-];
-
 export function ConversationLabs() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [levelFilter, setLevelFilter] = useState<string>("all");
@@ -271,7 +275,7 @@ export function ConversationLabs() {
 
   const filteredUpcoming = mockLabs.filter((lab) => {
     const matchesLevel = levelFilter === "all" || lab.level === levelFilter;
-    const matchesTopic = topicFilter === "all" || lab.topic.toLowerCase().includes(topicFilter.toLowerCase());
+    const matchesTopic = topicFilter === "all" || lab.topic === topicFilter;
     return matchesLevel && matchesTopic;
   });
 
@@ -281,9 +285,9 @@ export function ConversationLabs() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Conversation Labs</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Labs de Conversación</h1>
         <p className="font-mono text-muted-foreground">
-          Practice speaking English with peers at your level
+          Practica inglés hablado con compañeros de tu nivel
         </p>
       </div>
 
@@ -296,7 +300,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">{bookedLabs.length}</p>
-              <p className="text-xs font-mono text-muted-foreground">Upcoming Booked</p>
+              <p className="text-xs font-mono text-muted-foreground">Próximos Reservados</p>
             </div>
           </div>
         </Card>
@@ -307,7 +311,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">12</p>
-              <p className="text-xs font-mono text-muted-foreground">Labs Attended</p>
+              <p className="text-xs font-mono text-muted-foreground">Labs Asistidos</p>
             </div>
           </div>
         </Card>
@@ -318,7 +322,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">8.5h</p>
-              <p className="text-xs font-mono text-muted-foreground">Speaking Time</p>
+              <p className="text-xs font-mono text-muted-foreground">Tiempo Hablando</p>
             </div>
           </div>
         </Card>
@@ -328,9 +332,9 @@ export function ConversationLabs() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted">
-            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="booked" className="font-mono" data-testid="tab-booked">My Bookings</TabsTrigger>
-            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Past Labs</TabsTrigger>
+            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Próximos</TabsTrigger>
+            <TabsTrigger value="booked" className="font-mono" data-testid="tab-booked">Mis Reservas</TabsTrigger>
+            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Labs Pasados</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -338,10 +342,10 @@ export function ConversationLabs() {
           <div className="flex gap-2">
             <Select value={levelFilter} onValueChange={setLevelFilter}>
               <SelectTrigger className="w-32 font-mono" data-testid="select-level">
-                <SelectValue placeholder="Level" />
+                <SelectValue placeholder="Nivel" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="all">Todos los Niveles</SelectItem>
                 {courseLevels.map((level) => (
                   <SelectItem key={level} value={level}>{level}</SelectItem>
                 ))}
@@ -349,11 +353,12 @@ export function ConversationLabs() {
             </Select>
             <Select value={topicFilter} onValueChange={setTopicFilter}>
               <SelectTrigger className="w-40 font-mono" data-testid="select-topic">
-                <SelectValue placeholder="Topic" />
+                <SelectValue placeholder="Tema" />
               </SelectTrigger>
               <SelectContent>
-                {topicOptions.map((topic) => (
-                  <SelectItem key={topic} value={topic === "All Topics" ? "all" : topic}>{topic}</SelectItem>
+                <SelectItem value="all">Todos los Temas</SelectItem>
+                {Object.entries(courseTopicsEs).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -369,7 +374,7 @@ export function ConversationLabs() {
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground">No labs matching your filters</p>
+              <p className="font-mono text-muted-foreground">No hay labs que coincidan con tus filtros</p>
             </div>
           )
         )}
@@ -380,9 +385,9 @@ export function ConversationLabs() {
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground mb-4">You haven't booked any labs yet</p>
+              <p className="font-mono text-muted-foreground mb-4">Aún no has reservado ningún lab</p>
               <Button onClick={() => setActiveTab("upcoming")} className="font-mono">
-                Browse Available Labs
+                Ver Labs Disponibles
               </Button>
             </div>
           )
@@ -394,7 +399,7 @@ export function ConversationLabs() {
           ) : (
             <div className="text-center py-16">
               <Clock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground">No past labs to show</p>
+              <p className="font-mono text-muted-foreground">No hay labs pasados para mostrar</p>
             </div>
           )
         )}

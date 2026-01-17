@@ -18,24 +18,24 @@ export function Hero() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30">
               <span className="w-2 h-2 bg-primary animate-pulse" />
-              <span className="text-sm font-mono uppercase tracking-wider">Now Available in Latin America</span>
+              <span className="text-sm font-mono uppercase tracking-wider">Disponible en Latinoamérica</span>
             </div>
 
             {/* Main headline */}
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-display uppercase leading-none tracking-tight">
-              MASTER
+              DOMINA EL
               <br />
-              <span className="text-primary">ENGLISH</span>
+              <span className="text-primary">INGLÉS</span>
               <br />
-              THROUGH REAL
+              CON
               <br />
-              <span className="text-accent">CONVERSATIONS</span>
+              <span className="text-accent">CONVERSACIONES</span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg font-mono">
-              Pre-recorded courses + live practice labs designed for Latin American adults. 
-              Learn at your pace, speak with confidence.
+              Cursos pregrabados + laboratorios de práctica en vivo diseñados para adultos latinoamericanos. 
+              Aprende a tu ritmo, habla con confianza.
             </p>
 
             {/* CTA Buttons */}
@@ -45,7 +45,7 @@ export function Hero() {
                 className="bg-accent text-accent-foreground px-8 py-6 text-lg font-mono uppercase tracking-wider"
                 data-testid="button-start-trial"
               >
-                Start Free Trial
+                Prueba Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button 
@@ -55,7 +55,7 @@ export function Hero() {
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
-                See How It Works
+                Ver Cómo Funciona
               </Button>
             </div>
 
@@ -72,7 +72,7 @@ export function Hero() {
                 ))}
               </div>
               <p className="text-sm font-mono text-muted-foreground">
-                Join <span className="text-foreground font-bold">5,000+</span> professionals improving their English
+                Únete a <span className="text-foreground font-bold">5,000+</span> profesionales mejorando su inglés
               </p>
             </div>
           </div>
@@ -83,21 +83,21 @@ export function Hero() {
               <div className="p-8 bg-card border border-card-border hover-elevate">
                 <BookOpen className="w-10 h-10 text-primary mb-4" />
                 <p className="text-4xl font-display">100+</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Courses Available</p>
+                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
               </div>
               <div className="p-8 bg-card border border-card-border hover-elevate">
                 <Users className="w-10 h-10 text-accent mb-4" />
                 <p className="text-4xl font-display">500+</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Live Labs Monthly</p>
+                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
               </div>
               <div className="p-8 bg-card border border-card-border hover-elevate">
                 <Award className="w-10 h-10 text-primary mb-4" />
                 <p className="text-4xl font-display">95%</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Satisfaction Rate</p>
+                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
               </div>
               <div className="p-8 bg-primary text-primary-foreground">
                 <p className="text-4xl font-display">A1-C2</p>
-                <p className="text-sm font-mono uppercase tracking-wider opacity-80">All Levels Covered</p>
+                <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
               </div>
             </div>
 

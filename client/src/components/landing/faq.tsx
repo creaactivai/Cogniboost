@@ -7,36 +7,36 @@ import {
 
 const faqs = [
   {
-    question: "How is CogniBoost different from Duolingo or Babbel?",
-    answer: "Unlike app-based learning that focuses on gamified exercises, CogniBoost combines structured courses with live conversation practice. You'll spend 30+ minutes speaking English in our labs, compared to the few minutes of voice exercises in typical apps. Our methodology is designed for adult professionals who need real-world fluency, not just vocabulary memorization.",
+    question: "¿En qué se diferencia CogniBoost de Duolingo o Babbel?",
+    answer: "A diferencia del aprendizaje basado en apps que se enfoca en ejercicios gamificados, CogniBoost combina cursos estructurados con práctica de conversación en vivo. Pasarás 30+ minutos hablando inglés en nuestros laboratorios, comparado con los pocos minutos de ejercicios de voz en apps típicas. Nuestra metodología está diseñada para profesionales adultos que necesitan fluidez real, no solo memorización de vocabulario.",
   },
   {
-    question: "What if I'm too shy to speak in groups?",
-    answer: "We understand this concern! Our labs are designed to be supportive, not intimidating. You practice with peers at your same level, not with advanced speakers. Breakout rooms have only 3-4 people, so it feels like chatting with friends. Plus, everyone there has the same goal—to improve through practice. Most shy students tell us they love the labs after their first session!",
+    question: "¿Qué pasa si soy muy tímido/a para hablar en grupos?",
+    answer: "¡Entendemos esta preocupación! Nuestros laboratorios están diseñados para ser de apoyo, no intimidantes. Practicas con compañeros de tu mismo nivel, no con hablantes avanzados. Las salas tienen solo 3-4 personas, así que se siente como charlar con amigos. Además, todos allí tienen el mismo objetivo: mejorar a través de la práctica. ¡La mayoría de estudiantes tímidos nos dicen que aman los labs después de su primera sesión!",
   },
   {
-    question: "Are the conversation labs recorded?",
-    answer: "Privacy is important to us. Standard plan labs are not recorded. Premium members get access to recordings of their sessions for 30 days for personal review only. All recordings are private and never shared publicly.",
+    question: "¿Se graban los laboratorios de conversación?",
+    answer: "La privacidad es importante para nosotros. Los laboratorios del plan Estándar no se graban. Los miembros Premium tienen acceso a grabaciones de sus sesiones por 30 días solo para revisión personal. Todas las grabaciones son privadas y nunca se comparten públicamente.",
   },
   {
-    question: "Can I change my subscription level?",
-    answer: "Absolutely! You can upgrade or downgrade your plan at any time. Upgrades take effect immediately, and you'll be credited for the unused portion of your current plan. Downgrades take effect at the end of your current billing period.",
+    question: "¿Puedo cambiar mi nivel de suscripción?",
+    answer: "¡Por supuesto! Puedes subir o bajar tu plan en cualquier momento. Las mejoras toman efecto inmediatamente, y recibirás crédito por la porción no utilizada de tu plan actual. Los cambios a planes menores toman efecto al final de tu período de facturación actual.",
   },
   {
-    question: "Do you offer official certificates?",
-    answer: "Yes! Standard and Premium members receive digital certificates upon completing courses and reaching new levels. These certificates include verification links and can be shared on LinkedIn or added to your resume. While not equivalent to official exams like TOEFL, they demonstrate your commitment to learning.",
+    question: "¿Ofrecen certificados oficiales?",
+    answer: "¡Sí! Los miembros Estándar y Premium reciben certificados digitales al completar cursos y alcanzar nuevos niveles. Estos certificados incluyen enlaces de verificación y pueden compartirse en LinkedIn o agregarse a tu currículum. Aunque no son equivalentes a exámenes oficiales como TOEFL, demuestran tu compromiso con el aprendizaje.",
   },
   {
-    question: "What topics are covered in conversation labs?",
-    answer: "We offer 20+ topic categories including Business English, Technology, Travel, Culture & Arts, Healthcare, Finance, and everyday conversations. You select your preferred topics when booking a lab, and we group you with others who share your interests.",
+    question: "¿Qué temas se cubren en los laboratorios de conversación?",
+    answer: "Ofrecemos 20+ categorías de temas incluyendo Inglés de Negocios, Tecnología, Viajes, Cultura y Artes, Salud, Finanzas y conversaciones cotidianas. Seleccionas tus temas preferidos al reservar un laboratorio, y te agrupamos con otros que comparten tus intereses.",
   },
   {
-    question: "How do I know which level is right for me?",
-    answer: "When you sign up, you'll take a quick assessment that evaluates your reading, listening, and speaking abilities. Based on your results, we recommend your starting level (A1 to C2). You can always adjust if you feel the level isn't right.",
+    question: "¿Cómo sé qué nivel es el correcto para mí?",
+    answer: "Cuando te registras, tomarás una evaluación rápida que analiza tus habilidades de lectura, comprensión auditiva y expresión oral. Basándose en tus resultados, te recomendamos tu nivel inicial (A1 a C2). Siempre puedes ajustarlo si sientes que el nivel no es el adecuado.",
   },
   {
-    question: "What payment methods do you accept?",
-    answer: "We accept all major credit cards worldwide. For Latin American users, we also support local payment methods through MercadoPago, including PIX in Brazil, Boleto Bancário, and local debit cards in Mexico, Argentina, and Colombia.",
+    question: "¿Qué métodos de pago aceptan?",
+    answer: "Aceptamos todas las principales tarjetas de crédito a nivel mundial. Para usuarios latinoamericanos, también aceptamos métodos de pago locales a través de MercadoPago, incluyendo PIX en Brasil, Boleto Bancário, y tarjetas de débito locales en México, Argentina y Colombia.",
   },
 ];
 
@@ -46,11 +46,11 @@ export function FAQ() {
       <div className="container mx-auto px-6 max-w-4xl">
         {/* Section header */}
         <div className="text-center mb-20">
-          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">FAQ</p>
+          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">PREGUNTAS FRECUENTES</p>
           <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
-            COMMON
+            PREGUNTAS
             <br />
-            <span className="text-accent">QUESTIONS</span>
+            <span className="text-accent">COMUNES</span>
           </h2>
         </div>
 

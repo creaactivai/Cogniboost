@@ -26,22 +26,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const menuItems = [
   {
-    title: "Overview",
+    title: "Inicio",
     url: "/dashboard",
     icon: Home,
   },
   {
-    title: "My Courses",
+    title: "Mis Cursos",
     url: "/dashboard/courses",
     icon: BookOpen,
   },
   {
-    title: "Conversation Labs",
+    title: "Labs de Conversación",
     url: "/dashboard/labs",
     icon: Users,
   },
   {
-    title: "Progress",
+    title: "Mi Progreso",
     url: "/dashboard/progress",
     icon: BarChart3,
   },
@@ -49,12 +49,12 @@ const menuItems = [
 
 const secondaryItems = [
   {
-    title: "Account Settings",
+    title: "Configuración",
     url: "/dashboard/settings",
     icon: Settings,
   },
   {
-    title: "Help & Support",
+    title: "Ayuda y Soporte",
     url: "/dashboard/help",
     icon: HelpCircle,
   },
@@ -89,7 +89,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
-            Learning
+            Aprendizaje
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -112,7 +112,7 @@ export function AppSidebar() {
 
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
-            Account
+            Cuenta
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -146,7 +146,7 @@ export function AppSidebar() {
             <p className="font-mono text-sm text-sidebar-foreground truncate">
               {user?.firstName && user?.lastName 
                 ? `${user.firstName} ${user.lastName}`
-                : user?.email || "User"
+                : user?.email || "Usuario"
               }
             </p>
             <p className="text-xs font-mono text-sidebar-foreground/60 truncate">
@@ -160,7 +160,7 @@ export function AppSidebar() {
           data-testid="button-logout"
         >
           <LogOut className="w-4 h-4" />
-          <span className="font-mono">Log Out</span>
+          <span className="font-mono">Cerrar Sesión</span>
         </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>

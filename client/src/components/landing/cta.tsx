@@ -15,17 +15,17 @@ export function FinalCTA() {
         <div className="max-w-4xl mx-auto text-center">
           {/* Headline */}
           <h2 className="text-5xl md:text-7xl font-display uppercase mb-8">
-            READY TO
+            ¿LISTO PARA
             <br />
-            <span className="text-primary">TRANSFORM</span>
+            <span className="text-primary">TRANSFORMAR</span>
             <br />
-            YOUR ENGLISH?
+            TU INGLÉS?
           </h2>
 
           {/* Subtext */}
           <p className="text-xl font-mono opacity-80 mb-12 max-w-2xl mx-auto">
-            Join thousands of Latin American professionals who are achieving 
-            real fluency through our proven methodology.
+            Únete a miles de profesionales latinoamericanos que están logrando 
+            fluidez real a través de nuestra metodología comprobada.
           </p>
 
           {/* CTA Buttons */}
@@ -35,7 +35,7 @@ export function FinalCTA() {
               className="bg-accent text-accent-foreground px-10 py-7 text-lg font-mono uppercase tracking-wider"
               data-testid="button-cta-start-trial"
             >
-              Start Free Trial
+              Comenzar Prueba Gratis
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button 
@@ -45,17 +45,17 @@ export function FinalCTA() {
               data-testid="button-cta-book-demo"
             >
               <Calendar className="mr-2 h-5 w-5" />
-              Book a Demo Call
+              Agendar Demo
             </Button>
           </div>
 
           {/* Trust badges */}
           <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm font-mono opacity-60">
-            <span>No credit card required</span>
+            <span>Sin tarjeta de crédito</span>
             <span>•</span>
-            <span>7-day free trial</span>
+            <span>7 días de prueba gratis</span>
             <span>•</span>
-            <span>Cancel anytime</span>
+            <span>Cancela cuando quieras</span>
           </div>
         </div>
       </div>

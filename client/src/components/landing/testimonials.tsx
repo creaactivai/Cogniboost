@@ -2,20 +2,20 @@ import { Quote, Star } from "lucide-react";
 
 const testimonials = [
   {
-    name: "Maria Garcia",
-    role: "Marketing Manager",
-    location: "Mexico City",
-    quote: "After 3 months with CogniBoost, I finally feel confident speaking English in meetings. The conversation labs changed everything.",
+    name: "María García",
+    role: "Gerente de Marketing",
+    location: "Ciudad de México",
+    quote: "Después de 3 meses con CogniBoost, finalmente me siento segura hablando inglés en reuniones. Los laboratorios de conversación lo cambiaron todo.",
     rating: 5,
     beforeLevel: "A2",
     afterLevel: "B2",
     avatar: "MG",
   },
   {
-    name: "Carlos Rodriguez",
-    role: "Software Engineer",
+    name: "Carlos Rodríguez",
+    role: "Ingeniero de Software",
     location: "São Paulo",
-    quote: "The flexibility to learn at my own pace combined with real practice sessions is exactly what I needed. No more textbook-only learning.",
+    quote: "La flexibilidad de aprender a mi ritmo combinada con sesiones de práctica real es exactamente lo que necesitaba. No más aprendizaje solo con libros.",
     rating: 5,
     beforeLevel: "B1",
     afterLevel: "C1",
@@ -23,29 +23,29 @@ const testimonials = [
   },
   {
     name: "Ana Silva",
-    role: "HR Director",
+    role: "Directora de RRHH",
     location: "Bogotá",
-    quote: "I tried many apps before. CogniBoost is the first one where I actually speak more than I read. The peer practice removes all the pressure.",
+    quote: "Probé muchas aplicaciones antes. CogniBoost es la primera donde realmente hablo más de lo que leo. La práctica con compañeros elimina toda la presión.",
     rating: 5,
     beforeLevel: "A2",
     afterLevel: "B1",
     avatar: "AS",
   },
   {
-    name: "Diego Fernandez",
-    role: "Sales Executive",
+    name: "Diego Fernández",
+    role: "Ejecutivo de Ventas",
     location: "Buenos Aires",
-    quote: "The business English courses are incredibly practical. I use what I learn immediately in my daily work with international clients.",
+    quote: "Los cursos de inglés de negocios son increíblemente prácticos. Uso lo que aprendo inmediatamente en mi trabajo diario con clientes internacionales.",
     rating: 5,
     beforeLevel: "B1",
     afterLevel: "B2",
     avatar: "DF",
   },
   {
-    name: "Lucia Morales",
-    role: "University Student",
+    name: "Lucía Morales",
+    role: "Estudiante Universitaria",
     location: "Lima",
-    quote: "The conversation labs are so much fun! I never thought I'd enjoy speaking English. Now I look forward to every session.",
+    quote: "¡Los laboratorios de conversación son muy divertidos! Nunca pensé que disfrutaría hablar inglés. Ahora espero cada sesión con entusiasmo.",
     rating: 5,
     beforeLevel: "A1",
     afterLevel: "B1",
@@ -53,9 +53,9 @@ const testimonials = [
   },
   {
     name: "Roberto Costa",
-    role: "Entrepreneur",
-    location: "Rio de Janeiro",
-    quote: "From barely understanding English to negotiating in it. The structured approach and live practice made all the difference.",
+    role: "Emprendedor",
+    location: "Río de Janeiro",
+    quote: "De apenas entender inglés a negociar en él. El enfoque estructurado y la práctica en vivo hicieron toda la diferencia.",
     rating: 5,
     beforeLevel: "A2",
     afterLevel: "B2",
@@ -69,11 +69,11 @@ export function Testimonials() {
       <div className="container mx-auto px-6">
         {/* Section header */}
         <div className="text-center mb-20">
-          <p className="text-sm font-mono text-accent uppercase tracking-widest mb-4">SUCCESS STORIES</p>
+          <p className="text-sm font-mono text-accent uppercase tracking-widest mb-4">HISTORIAS DE ÉXITO</p>
           <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
-            REAL <span className="text-primary">RESULTS</span>
+            RESULTADOS <span className="text-primary">REALES</span>
             <br />
-            FROM REAL LEARNERS
+            DE ESTUDIANTES REALES
           </h2>
         </div>
 
@@ -112,7 +112,7 @@ export function Testimonials() {
 
               {/* Level progression */}
               <div className="mt-6 pt-6 border-t border-border flex items-center justify-between">
-                <span className="text-xs font-mono text-muted-foreground uppercase">Progress</span>
+                <span className="text-xs font-mono text-muted-foreground uppercase">Progreso</span>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-1 bg-muted text-xs font-mono">{testimonial.beforeLevel}</span>
                   <span className="text-muted-foreground">→</span>

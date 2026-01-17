@@ -85,7 +85,7 @@ function UpcomingLabCard({ title, topic, date, time, spots }: UpcomingLabCardPro
         <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
           <Users className="w-5 h-5 text-accent" />
         </div>
-        <span className="text-xs font-mono text-muted-foreground">{spots} spots left</span>
+        <span className="text-xs font-mono text-muted-foreground">{spots} lugares</span>
       </div>
       <p className="font-mono text-sm font-medium mb-1">{title}</p>
       <p className="text-xs font-mono text-muted-foreground mb-3">{topic}</p>
@@ -113,14 +113,14 @@ export function DashboardOverview() {
   };
 
   const continueLearning = [
-    { title: "Business English: Meetings & Presentations", level: "B1", progress: 65 },
-    { title: "Everyday Conversations: At the Office", level: "A2", progress: 40 },
-    { title: "Grammar Essentials: Past Tenses", level: "B1", progress: 20 },
+    { title: "Inglés de Negocios: Reuniones y Presentaciones", level: "B1", progress: 65 },
+    { title: "Conversaciones Cotidianas: En la Oficina", level: "A2", progress: 40 },
+    { title: "Gramática Esencial: Tiempos Pasados", level: "B1", progress: 20 },
   ];
 
   const upcomingLabs = [
-    { title: "Tech Talk Tuesday", topic: "Artificial Intelligence in 2025", date: "Tomorrow", time: "6:00 PM", spots: 4 },
-    { title: "Business Negotiations", topic: "Salary & Contract Discussions", date: "Jan 20", time: "7:00 PM", spots: 6 },
+    { title: "Martes de Tecnología", topic: "Inteligencia Artificial en 2025", date: "Mañana", time: "6:00 PM", spots: 4 },
+    { title: "Negociaciones de Negocios", topic: "Salario y Discusiones de Contrato", date: "Ene 20", time: "7:00 PM", spots: 6 },
   ];
 
   return (
@@ -129,26 +129,26 @@ export function DashboardOverview() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display uppercase mb-2">
-            Welcome back, <span className="text-primary">{user?.firstName || "Learner"}</span>
+            Bienvenido/a, <span className="text-primary">{user?.firstName || "Estudiante"}</span>
           </h1>
           <p className="font-mono text-muted-foreground">
-            Continue your journey to English fluency
+            Continúa tu camino hacia la fluidez en inglés
           </p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30">
           <Flame className="w-5 h-5 text-accent" />
           <span className="font-mono text-sm">
-            <span className="font-bold">{stats.streak} day</span> streak
+            Racha de <span className="font-bold">{stats.streak} días</span>
           </span>
         </div>
       </div>
 
       {/* Stats grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Clock} label="Hours Studied" value={stats.hoursStudied} sublabel="This month" />
-        <StatCard icon={BookOpen} label="Courses Completed" value={stats.coursesCompleted} />
-        <StatCard icon={Users} label="Labs Attended" value={stats.labsAttended} color="accent" />
-        <StatCard icon={TrendingUp} label="Current Level" value={stats.currentLevel} sublabel={`${stats.xpPoints} XP`} />
+        <StatCard icon={Clock} label="Horas Estudiadas" value={stats.hoursStudied} sublabel="Este mes" />
+        <StatCard icon={BookOpen} label="Cursos Completados" value={stats.coursesCompleted} />
+        <StatCard icon={Users} label="Labs Asistidos" value={stats.labsAttended} color="accent" />
+        <StatCard icon={TrendingUp} label="Nivel Actual" value={stats.currentLevel} sublabel={`${stats.xpPoints} XP`} />
       </div>
 
       {/* Two column layout */}
@@ -156,10 +156,10 @@ export function DashboardOverview() {
         {/* Continue learning */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display uppercase">Continue Learning</h2>
+            <h2 className="text-xl font-display uppercase">Continuar Aprendiendo</h2>
             <Link href="/dashboard/courses">
               <Button variant="ghost" className="font-mono text-sm" data-testid="link-view-all-courses">
-                View All
+                Ver Todos
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -174,10 +174,10 @@ export function DashboardOverview() {
         {/* Upcoming labs */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display uppercase">Upcoming Labs</h2>
+            <h2 className="text-xl font-display uppercase">Próximos Labs</h2>
             <Link href="/dashboard/labs">
               <Button variant="ghost" className="font-mono text-sm" data-testid="link-view-all-labs">
-                View All
+                Ver Todos
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -189,7 +189,7 @@ export function DashboardOverview() {
           </div>
           <Link href="/dashboard/labs">
             <Button className="w-full bg-accent text-accent-foreground font-mono uppercase tracking-wider" data-testid="button-book-lab">
-              Book a Lab
+              Reservar un Lab
             </Button>
           </Link>
         </div>

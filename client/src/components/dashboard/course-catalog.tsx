@@ -19,7 +19,21 @@ import {
   Filter,
   GraduationCap
 } from "lucide-react";
-import { courseLevels, courseTopics } from "@shared/schema";
+import { courseLevels } from "@shared/schema";
+
+// Spanish translations for course topics
+const courseTopicsEs: Record<string, string> = {
+  "Business English": "Inglés de Negocios",
+  "Travel & Tourism": "Viajes y Turismo",
+  "Technology": "Tecnología",
+  "Culture & Arts": "Cultura y Artes",
+  "Healthcare": "Salud",
+  "Finance": "Finanzas",
+  "Academic English": "Inglés Académico",
+  "Everyday Conversations": "Conversaciones Cotidianas",
+};
+
+const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
 
 interface CourseCardProps {
   id: string;
@@ -58,7 +72,7 @@ function CourseCard({
         {/* Free badge */}
         {isFree && (
           <div className="absolute top-3 right-3 px-2 py-1 bg-accent text-accent-foreground text-xs font-mono">
-            FREE
+            GRATIS
           </div>
         )}
         {/* Play button overlay */}
@@ -71,7 +85,7 @@ function CourseCard({
 
       {/* Content */}
       <div className="p-5">
-        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">{topic}</p>
+        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">{getTopicLabel(topic)}</p>
         <h3 className="font-mono font-semibold mb-2 line-clamp-2">{title}</h3>
         <p className="text-sm font-mono text-muted-foreground line-clamp-2 mb-4">{description}</p>
 
@@ -83,7 +97,7 @@ function CourseCard({
           </div>
           <div className="flex items-center gap-1">
             <BookOpen className="w-3 h-3" />
-            <span>{lessonsCount} lessons</span>
+            <span>{lessonsCount} lecciones</span>
           </div>
         </div>
 
@@ -91,12 +105,12 @@ function CourseCard({
         {isEnrolled && progress !== undefined ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-muted-foreground">Progress</span>
+              <span className="text-muted-foreground">Progreso</span>
               <span className="text-primary">{progress}%</span>
             </div>
             <Progress value={progress} className="h-1" />
             <Button className="w-full mt-3 font-mono uppercase tracking-wider" data-testid={`button-continue-${id}`}>
-              Continue
+              Continuar
             </Button>
           </div>
         ) : (
@@ -105,7 +119,7 @@ function CourseCard({
             variant={isFree ? "default" : "outline"}
             data-testid={`button-enroll-${id}`}
           >
-            {isFree ? "Start Free" : "Enroll Now"}
+            {isFree ? "Empezar Gratis" : "Inscribirse"}
           </Button>
         )}
       </div>
@@ -113,12 +127,12 @@ function CourseCard({
   );
 }
 
-// Mock data
+// Mock data - topics use English keys for filtering, displayed with getTopicLabel()
 const mockCourses: CourseCardProps[] = [
   {
     id: "1",
-    title: "Business English: Meetings & Presentations",
-    description: "Master the vocabulary and phrases needed for effective business meetings and presentations.",
+    title: "Inglés de Negocios: Reuniones y Presentaciones",
+    description: "Domina el vocabulario y frases necesarias para reuniones y presentaciones efectivas.",
     level: "B1",
     topic: "Business English",
     duration: 180,
@@ -128,8 +142,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "2",
-    title: "Everyday Conversations: At the Office",
-    description: "Learn casual English for daily interactions with colleagues and clients.",
+    title: "Conversaciones Cotidianas: En la Oficina",
+    description: "Aprende inglés casual para interacciones diarias con colegas y clientes.",
     level: "A2",
     topic: "Everyday Conversations",
     duration: 120,
@@ -139,8 +153,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "3",
-    title: "Grammar Essentials: Past Tenses",
-    description: "Deep dive into past simple, past continuous, and past perfect tenses.",
+    title: "Gramática Esencial: Tiempos Pasados",
+    description: "Profundiza en el pasado simple, pasado continuo y pasado perfecto.",
     level: "B1",
     topic: "Academic English",
     duration: 90,
@@ -150,8 +164,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "4",
-    title: "Introduction to English",
-    description: "Start your English journey with basic vocabulary and essential phrases.",
+    title: "Introducción al Inglés",
+    description: "Comienza tu viaje en inglés con vocabulario básico y frases esenciales.",
     level: "A1",
     topic: "Everyday Conversations",
     duration: 60,
@@ -160,8 +174,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "5",
-    title: "Travel English: Airport & Hotel",
-    description: "Essential English for travelers - from booking to checking out.",
+    title: "Inglés para Viajes: Aeropuerto y Hotel",
+    description: "Inglés esencial para viajeros - desde la reserva hasta el check-out.",
     level: "A2",
     topic: "Travel & Tourism",
     duration: 90,
@@ -169,8 +183,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "6",
-    title: "Tech Industry Vocabulary",
-    description: "Master the language of technology, startups, and software development.",
+    title: "Vocabulario de la Industria Tech",
+    description: "Domina el lenguaje de la tecnología, startups y desarrollo de software.",
     level: "B2",
     topic: "Technology",
     duration: 150,
@@ -178,8 +192,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "7",
-    title: "Advanced Business Negotiations",
-    description: "High-level strategies and language for complex business negotiations.",
+    title: "Negociaciones Empresariales Avanzadas",
+    description: "Estrategias y lenguaje de alto nivel para negociaciones complejas.",
     level: "C1",
     topic: "Business English",
     duration: 200,
@@ -187,8 +201,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "8",
-    title: "Medical English Fundamentals",
-    description: "Essential vocabulary for healthcare professionals and patients.",
+    title: "Fundamentos de Inglés Médico",
+    description: "Vocabulario esencial para profesionales de la salud y pacientes.",
     level: "B1",
     topic: "Healthcare",
     duration: 120,
@@ -218,9 +232,9 @@ export function CourseCatalog() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">My Courses</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Mis Cursos</h1>
         <p className="font-mono text-muted-foreground">
-          Browse and continue your learning journey
+          Explora y continúa tu viaje de aprendizaje
         </p>
       </div>
 
@@ -229,7 +243,7 @@ export function CourseCatalog() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search courses..."
+            placeholder="Buscar cursos..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 font-mono"
@@ -239,10 +253,10 @@ export function CourseCatalog() {
         <div className="flex gap-2">
           <Select value={levelFilter} onValueChange={setLevelFilter}>
             <SelectTrigger className="w-32 font-mono" data-testid="select-level-filter">
-              <SelectValue placeholder="Level" />
+              <SelectValue placeholder="Nivel" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Levels</SelectItem>
+              <SelectItem value="all">Todos los Niveles</SelectItem>
               {courseLevels.map((level) => (
                 <SelectItem key={level} value={level}>{level}</SelectItem>
               ))}
@@ -250,12 +264,12 @@ export function CourseCatalog() {
           </Select>
           <Select value={topicFilter} onValueChange={setTopicFilter}>
             <SelectTrigger className="w-40 font-mono" data-testid="select-topic-filter">
-              <SelectValue placeholder="Topic" />
+              <SelectValue placeholder="Tema" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Topics</SelectItem>
-              {courseTopics.map((topic) => (
-                <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+              <SelectItem value="all">Todos los Temas</SelectItem>
+              {Object.entries(courseTopicsEs).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -265,9 +279,9 @@ export function CourseCatalog() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted">
-          <TabsTrigger value="all" className="font-mono" data-testid="tab-all-courses">All Courses</TabsTrigger>
-          <TabsTrigger value="enrolled" className="font-mono" data-testid="tab-enrolled">In Progress</TabsTrigger>
-          <TabsTrigger value="completed" className="font-mono" data-testid="tab-completed">Completed</TabsTrigger>
+          <TabsTrigger value="all" className="font-mono" data-testid="tab-all-courses">Todos los Cursos</TabsTrigger>
+          <TabsTrigger value="enrolled" className="font-mono" data-testid="tab-enrolled">En Progreso</TabsTrigger>
+          <TabsTrigger value="completed" className="font-mono" data-testid="tab-completed">Completados</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -281,7 +295,7 @@ export function CourseCatalog() {
       ) : (
         <div className="text-center py-20">
           <Filter className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">No courses found matching your criteria</p>
+          <p className="font-mono text-muted-foreground">No se encontraron cursos con estos criterios</p>
           <Button 
             variant="outline" 
             className="mt-4 font-mono"
@@ -291,7 +305,7 @@ export function CourseCatalog() {
               setTopicFilter("all");
             }}
           >
-            Clear Filters
+            Limpiar Filtros
           </Button>
         </div>
       )}

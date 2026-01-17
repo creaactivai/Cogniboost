@@ -2,21 +2,21 @@ import { SiLinkedin, SiInstagram, SiYoutube, SiX } from "react-icons/si";
 
 const footerLinks = {
   product: [
-    { label: "Features", href: "#methodology" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
-    { label: "Success Stories", href: "#testimonials" },
+    { label: "Características", href: "#methodology" },
+    { label: "Precios", href: "#pricing" },
+    { label: "Preguntas Frecuentes", href: "#faq" },
+    { label: "Historias de Éxito", href: "#testimonials" },
   ],
   company: [
-    { label: "About Us", href: "#" },
-    { label: "Careers", href: "#" },
+    { label: "Sobre Nosotros", href: "#" },
+    { label: "Trabaja con Nosotros", href: "#" },
     { label: "Blog", href: "#" },
-    { label: "Contact", href: "#" },
+    { label: "Contacto", href: "#" },
   ],
   legal: [
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
-    { label: "Cookie Policy", href: "#" },
+    { label: "Política de Privacidad", href: "#" },
+    { label: "Términos de Servicio", href: "#" },
+    { label: "Política de Cookies", href: "#" },
   ],
 };
 
@@ -43,8 +43,8 @@ export function Footer() {
               </span>
             </div>
             <p className="font-mono text-sm text-muted-foreground mb-6 max-w-sm">
-              Master English through real conversations. Pre-recorded courses + live practice 
-              labs designed for Latin American professionals.
+              Domina el inglés a través de conversaciones reales. Cursos pregrabados + laboratorios 
+              de práctica en vivo diseñados para profesionales latinoamericanos.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => (
@@ -63,7 +63,7 @@ export function Footer() {
 
           {/* Product links */}
           <div>
-            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Product</h4>
+            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Producto</h4>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
@@ -80,7 +80,7 @@ export function Footer() {
 
           {/* Company links */}
           <div>
-            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Company</h4>
+            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Empresa</h4>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
@@ -116,10 +116,10 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="font-mono text-sm text-muted-foreground">
-            © {new Date().getFullYear()} CogniBoost. All rights reserved.
+            © {new Date().getFullYear()} CogniBoost. Todos los derechos reservados.
           </p>
           <p className="font-mono text-sm text-muted-foreground">
-            Made with ❤️ for Latin America
+            Hecho con amor para Latinoamérica
           </p>
         </div>
       </div>

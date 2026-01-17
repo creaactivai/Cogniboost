@@ -5,9 +5,9 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
 const navLinks = [
-  { label: "How It Works", href: "#methodology" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Cómo Funciona", href: "#methodology" },
+  { label: "Precios", href: "#pricing" },
+  { label: "Preguntas", href: "#faq" },
 ];
 
 export function Header() {
@@ -54,7 +54,7 @@ export function Header() {
                   className="font-mono uppercase tracking-wider"
                   data-testid="button-dashboard"
                 >
-                  Dashboard
+                  Mi Panel
                 </Button>
               </a>
             ) : (
@@ -65,7 +65,7 @@ export function Header() {
                     className="font-mono uppercase tracking-wider"
                     data-testid="button-login"
                   >
-                    Log In
+                    Iniciar Sesión
                   </Button>
                 </a>
                 <a href="/api/login">
@@ -73,7 +73,7 @@ export function Header() {
                     className="bg-accent text-accent-foreground font-mono uppercase tracking-wider"
                     data-testid="button-signup"
                   >
-                    Sign Up
+                    Registrarse
                   </Button>
                 </a>
               </div>
@@ -111,12 +111,12 @@ export function Header() {
                   <hr className="border-border" />
                   <a href="/api/login">
                     <Button variant="outline" className="w-full font-mono uppercase tracking-wider">
-                      Log In
+                      Iniciar Sesión
                     </Button>
                   </a>
                   <a href="/api/login">
                     <Button className="w-full bg-accent text-accent-foreground font-mono uppercase tracking-wider">
-                      Sign Up
+                      Registrarse
                     </Button>
                   </a>
                 </>

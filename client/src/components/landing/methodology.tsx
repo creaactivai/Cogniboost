@@ -4,23 +4,23 @@ const steps = [
   {
     number: "01",
     icon: Play,
-    title: "LEARN AT YOUR PACE",
-    description: "Study with pre-recorded courses (A1-C2 levels) covering grammar, vocabulary, and real-world scenarios. Watch anytime, anywhere.",
+    title: "APRENDE A TU RITMO",
+    description: "Estudia con cursos pregrabados (niveles A1-C2) que cubren gramática, vocabulario y escenarios del mundo real. Mira cuando quieras, donde quieras.",
     color: "primary",
   },
   {
     number: "02",
     icon: Users,
-    title: "PRACTICE LIVE CONVERSATIONS",
-    description: "Join Conversation Practice Labs: small-group sessions where you discuss topics you care about with peers at your level.",
+    title: "PRACTICA CONVERSACIONES EN VIVO",
+    description: "Únete a los Laboratorios de Práctica: sesiones en grupos pequeños donde discutes temas que te interesan con compañeros de tu nivel.",
     color: "accent",
-    badge: "REVOLUTIONARY METHOD",
+    badge: "MÉTODO REVOLUCIONARIO",
   },
   {
     number: "03",
     icon: TrendingUp,
-    title: "TRACK YOUR PROGRESS",
-    description: "Monitor your improvement, earn certificates, and advance through levels with detailed analytics and personalized recommendations.",
+    title: "SIGUE TU PROGRESO",
+    description: "Monitorea tu mejora, obtén certificados y avanza a través de los niveles con análisis detallados y recomendaciones personalizadas.",
     color: "primary",
   },
 ];
@@ -31,13 +31,13 @@ export function Methodology() {
       <div className="container mx-auto px-6">
         {/* Section header */}
         <div className="text-center mb-20">
-          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">HOW IT WORKS</p>
+          <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">CÓMO FUNCIONA</p>
           <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
-            LEARN <span className="text-primary">→</span> PRACTICE <span className="text-accent">→</span> MASTER
+            APRENDE <span className="text-primary">→</span> PRACTICA <span className="text-accent">→</span> DOMINA
           </h2>
           <p className="text-lg text-muted-foreground font-mono max-w-2xl mx-auto">
-            Our proven three-step methodology helps you achieve real fluency in English, 
-            combining self-paced learning with live practice.
+            Nuestra metodología de tres pasos comprobada te ayuda a lograr fluidez real en inglés, 
+            combinando aprendizaje a tu ritmo con práctica en vivo.
           </p>
         </div>
 
@@ -87,23 +87,23 @@ export function ConversationLabsDeepDive() {
   const benefits = [
     {
       stat: "7x",
-      label: "MORE TALK TIME",
-      description: "More speaking practice than traditional classes",
+      label: "MÁS TIEMPO HABLANDO",
+      description: "Más práctica oral que en clases tradicionales",
     },
     {
       stat: "3-4",
-      label: "PEERS PER GROUP",
-      description: "Practice with peers, not under teacher spotlight",
+      label: "COMPAÑEROS POR GRUPO",
+      description: "Practica con pares, sin la presión del profesor",
     },
     {
       stat: "20+",
-      label: "TOPIC CATEGORIES",
-      description: "Choose topics from business to travel to tech",
+      label: "CATEGORÍAS DE TEMAS",
+      description: "Elige temas desde negocios hasta viajes y tecnología",
     },
     {
       stat: "30+",
-      label: "MINUTES SPEAKING",
-      description: "Natural dialogue, not artificial exercises",
+      label: "MINUTOS HABLANDO",
+      description: "Diálogo natural, no ejercicios artificiales",
     },
   ];
 
@@ -115,26 +115,26 @@ export function ConversationLabsDeepDive() {
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              <span className="text-sm font-mono uppercase tracking-widest text-primary">Featured</span>
+              <span className="text-sm font-mono uppercase tracking-widest text-primary">Destacado</span>
             </div>
             
             <h2 className="text-4xl md:text-5xl font-display uppercase">
-              CONVERSATION
+              LABORATORIOS
               <br />
-              PRACTICE
+              DE PRÁCTICA
               <br />
-              <span className="text-accent">LABS</span>
+              <span className="text-accent">CONVERSACIONAL</span>
             </h2>
 
             <p className="text-lg font-mono opacity-80 leading-relaxed">
-              Traditional classes give you 5 minutes of speaking time. Our labs give you 30+. 
-              After a quick intro where instructors teach key phrases and vocabulary, you join 
-              breakout rooms with 3-4 peers who share your interests.
+              Las clases tradicionales te dan 5 minutos para hablar. Nuestros labs te dan 30+. 
+              Después de una breve introducción donde los instructores enseñan frases clave y vocabulario, 
+              te unes a salas de práctica con 3-4 compañeros que comparten tus intereses.
             </p>
 
             <p className="text-lg font-mono opacity-80 leading-relaxed">
-              Discuss business, travel, tech, culture—topics that matter to YOU. Our facilitators 
-              rotate through rooms, providing feedback and keeping conversations flowing naturally.
+              Discute negocios, viajes, tecnología, cultura—temas que te IMPORTAN. Nuestros facilitadores 
+              rotan por las salas, brindando retroalimentación y manteniendo las conversaciones fluidas.
             </p>
           </div>
 
