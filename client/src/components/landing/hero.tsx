@@ -63,10 +63,8 @@ export function Hero() {
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div 
                     key={i} 
-                    className="w-10 h-10 bg-gradient-to-br from-primary/30 to-accent/30 border-2 border-background flex items-center justify-center"
-                  >
-                    <span className="text-xs font-mono">{i}</span>
-                  </div>
+                    className="w-10 h-10 bg-gradient-to-br from-primary/30 to-accent/30 border-2 border-background"
+                  />
                 ))}
               </div>
               <p className="text-sm font-mono text-muted-foreground">
