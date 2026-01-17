@@ -293,6 +293,83 @@ export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
 export type RoomBooking = typeof roomBookings.$inferSelect;
 export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
 
+// Quizzes table - can be associated with a lesson or course
+export const quizzes = pgTable("quizzes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").references(() => lessons.id),
+  courseId: varchar("course_id").references(() => courses.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  passingScore: integer("passing_score").notNull().default(70), // percentage
+  timeLimit: integer("time_limit"), // in minutes, null = no limit
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Quiz Questions table - multiple choice questions
+export const quizQuestions = pgTable("quiz_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quizId: varchar("quiz_id").references(() => quizzes.id).notNull(),
+  question: text("question").notNull(),
+  options: text("options").array().notNull(), // array of answer options
+  correctOptionIndex: integer("correct_option_index").notNull(), // 0-based index
+  explanation: text("explanation"), // explanation for the correct answer
+  orderIndex: integer("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Quiz Attempts table - track student attempts
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  quizId: varchar("quiz_id").references(() => quizzes.id).notNull(),
+  score: integer("score").notNull(), // percentage
+  answers: text("answers").array(), // student's answers (option indices)
+  isPassed: boolean("is_passed").notNull().default(false),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+// Quiz Relations
+export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
+  lesson: one(lessons, {
+    fields: [quizzes.lessonId],
+    references: [lessons.id],
+  }),
+  course: one(courses, {
+    fields: [quizzes.courseId],
+    references: [courses.id],
+  }),
+  questions: many(quizQuestions),
+  attempts: many(quizAttempts),
+}));
+
+export const quizQuestionsRelations = relations(quizQuestions, ({ one }) => ({
+  quiz: one(quizzes, {
+    fields: [quizQuestions.quizId],
+    references: [quizzes.id],
+  }),
+}));
+
+export const quizAttemptsRelations = relations(quizAttempts, ({ one }) => ({
+  quiz: one(quizzes, {
+    fields: [quizAttempts.quizId],
+    references: [quizzes.id],
+  }),
+}));
+
+// Insert schemas for quizzes
+export const insertQuizSchema = createInsertSchema(quizzes).omit({ id: true, createdAt: true });
+export const insertQuizQuestionSchema = createInsertSchema(quizQuestions).omit({ id: true, createdAt: true });
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({ id: true, completedAt: true });
+
+// Types for quizzes
+export type Quiz = typeof quizzes.$inferSelect;
+export type InsertQuiz = z.infer<typeof insertQuizSchema>;
+export type QuizQuestion = typeof quizQuestions.$inferSelect;
+export type InsertQuizQuestion = z.infer<typeof insertQuizQuestionSchema>;
+export type QuizAttempt = typeof quizAttempts.$inferSelect;
+export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
+
 // Course levels array for UI
 export const courseLevels = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 export type CourseLevel = typeof courseLevels[number];
