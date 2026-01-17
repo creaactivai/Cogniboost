@@ -57,6 +57,20 @@ export function Hero() {
               </button>
             </div>
 
+            {/* Social proof */}
+            <div className="flex items-center gap-8 pt-4">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div 
+                    key={i} 
+                    className="w-10 h-10 bg-gradient-to-br from-primary/30 to-accent/30 border-2 border-background"
+                  />
+                ))}
+              </div>
+              <p className="text-sm font-mono text-muted-foreground">
+                Únete a <span className="text-foreground font-bold">5,000+</span> profesionales mejorando su inglés
+              </p>
+            </div>
           </div>
 
           {/* Right content - Stats cards */}
