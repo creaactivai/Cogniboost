@@ -1,0 +1,269 @@
+import { useQuery } from "@tanstack/react-query";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import type { Payment, Subscription } from "@shared/schema";
+
+const tierLabels: Record<string, string> = {
+  free: "Gratis",
+  standard: "Estándar",
+  premium: "Prémium",
+};
+
+interface AdminStats {
+  totalStudents: number;
+  totalCourses: number;
+  totalLabs: number;
+  totalRevenue: string;
+  activeSubscriptions: number;
+}
+
+export default function AdminFinancials() {
+  const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
+    queryKey: ["/api/admin/stats"],
+  });
+
+  const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
+    queryKey: ["/api/admin/payments"],
+  });
+
+  const { data: subscriptions, isLoading: subsLoading } = useQuery<Subscription[]>({
+    queryKey: ["/api/admin/subscriptions"],
+  });
+
+  const tierCounts = subscriptions?.reduce(
+    (acc, sub) => {
+      acc[sub.tier] = (acc[sub.tier] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  ) || {};
+
+  const totalSubs = subscriptions?.length || 1;
+
+  return (
+    <AdminLayout title="Finanzas de la Academia">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-[#10B981] flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-black" />
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                <ArrowUpRight className="w-3 h-3 mr-1" />
+                +18%
+              </Badge>
+            </div>
+            <p 
+              className="text-2xl font-black" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+              data-testid="text-total-revenue"
+            >
+              ${statsLoading ? "..." : Number(stats?.totalRevenue || 0).toLocaleString()}
+            </p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              Ingresos Totales
+            </p>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-[#33CBFB] flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-black" />
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                <ArrowUpRight className="w-3 h-3 mr-1" />
+                +12%
+              </Badge>
+            </div>
+            <p 
+              className="text-2xl font-black" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+            >
+              ${((tierCounts.standard || 0) * 29 + (tierCounts.premium || 0) * 79).toLocaleString()}
+            </p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              Ingresos Mensuales (MRR)
+            </p>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-[#FD335A] flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-black" />
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {stats?.activeSubscriptions || 0}
+              </Badge>
+            </div>
+            <p 
+              className="text-2xl font-black" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+              data-testid="text-active-subscriptions"
+            >
+              {stats?.activeSubscriptions || 0}
+            </p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              Suscripciones Activas
+            </p>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-[#8B5CF6] flex items-center justify-center">
+                <Users className="w-5 h-5 text-black" />
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {subscriptions?.filter((s) => !s.cancelAtPeriodEnd).length || 0}
+              </Badge>
+            </div>
+            <p 
+              className="text-2xl font-black" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+            >
+              {((1 - (subscriptions?.filter((s) => s.cancelAtPeriodEnd).length || 0) / (totalSubs)) * 100).toFixed(0)}%
+            </p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              Tasa de Retención
+            </p>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="p-4 lg:col-span-2">
+            <h2 
+              className="text-lg font-black mb-4" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+            >
+              Historial de Pagos
+            </h2>
+            {paymentsLoading ? (
+              <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                Cargando pagos...
+              </p>
+            ) : payments?.length === 0 ? (
+              <div className="text-center py-8">
+                <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                  No hay pagos registrados todavía
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {payments?.slice(0, 10).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-3 bg-muted/50"
+                    data-testid={`payment-row-${payment.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-8 h-8 flex items-center justify-center"
+                        style={{ backgroundColor: payment.status === "completed" ? "#10B981" : "#FD335A" }}
+                      >
+                        {payment.status === "completed" ? (
+                          <ArrowUpRight className="w-4 h-4 text-black" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4 text-black" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                          {payment.userId.substring(0, 8)}...
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(payment.createdAt!).toLocaleDateString('es-ES')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary">{tierLabels[payment.tier] || payment.tier}</Badge>
+                      <p className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        ${Number(payment.amount).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4">
+            <h2 
+              className="text-lg font-black mb-4" 
+              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+            >
+              Distribución de Planes
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
+                    Gratis
+                  </span>
+                  <span className="font-bold">{tierCounts.free || 0}</span>
+                </div>
+                <Progress 
+                  value={((tierCounts.free || 0) / totalSubs) * 100} 
+                  className="h-2" 
+                />
+              </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
+                    Estándar ($29/mes)
+                  </span>
+                  <span className="font-bold">{tierCounts.standard || 0}</span>
+                </div>
+                <Progress 
+                  value={((tierCounts.standard || 0) / totalSubs) * 100} 
+                  className="h-2"
+                  style={{ "--progress-background": "#33CBFB" } as React.CSSProperties}
+                />
+              </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
+                    Prémium ($79/mes)
+                  </span>
+                  <span className="font-bold">{tierCounts.premium || 0}</span>
+                </div>
+                <Progress 
+                  value={((tierCounts.premium || 0) / totalSubs) * 100} 
+                  className="h-2"
+                  style={{ "--progress-background": "#FD335A" } as React.CSSProperties}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <h3 
+                  className="font-bold mb-3" 
+                  style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                >
+                  Precios de Planes
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Gratis</span>
+                    <span className="font-bold">$0/mes</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Estándar</span>
+                    <span className="font-bold text-[#33CBFB]">$29/mes</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Prémium</span>
+                    <span className="font-bold text-[#FD335A]">$79/mes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}

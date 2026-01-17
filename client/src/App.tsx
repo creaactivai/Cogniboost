@@ -7,6 +7,12 @@ import LandingPage from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { useAuth } from "@/hooks/use-auth";
+import AdminOverview from "@/pages/admin/overview";
+import AdminCourses from "@/pages/admin/courses";
+import AdminStudents from "@/pages/admin/students";
+import AdminFinancials from "@/pages/admin/financials";
+import AdminLabs from "@/pages/admin/labs";
+import AdminInstructors from "@/pages/admin/instructors";
 
 function HomePage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,6 +39,12 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/dashboard/:rest*" component={Dashboard} />
+      <Route path="/admin" component={AdminOverview} />
+      <Route path="/admin/courses" component={AdminCourses} />
+      <Route path="/admin/students" component={AdminStudents} />
+      <Route path="/admin/financials" component={AdminFinancials} />
+      <Route path="/admin/labs" component={AdminLabs} />
+      <Route path="/admin/instructors" component={AdminInstructors} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -7,6 +7,8 @@ import {
   subscriptions,
   userStats,
   instructors,
+  payments,
+  lessonProgress,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -23,23 +25,32 @@ import {
   type InsertUserStats,
   type Instructor,
   type InsertInstructor,
+  type Payment,
+  type InsertPayment,
+  type LessonProgress,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // Courses
   getCourses(): Promise<Course[]>;
+  getAllCourses(): Promise<Course[]>;
   getCourseById(id: string): Promise<Course | undefined>;
   createCourse(course: InsertCourse): Promise<Course>;
+  updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined>;
+  deleteCourse(id: string): Promise<boolean>;
   
   // Lessons
   getLessonsByCourseId(courseId: string): Promise<Lesson[]>;
   getLessonById(id: string): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
+  updateLesson(id: string, lesson: Partial<InsertLesson>): Promise<Lesson | undefined>;
+  deleteLesson(id: string): Promise<boolean>;
   
   // Enrollments
   getEnrollmentsByUserId(userId: string): Promise<Enrollment[]>;
+  getAllEnrollments(): Promise<Enrollment[]>;
   getEnrollmentByUserAndCourse(userId: string, courseId: string): Promise<Enrollment | undefined>;
   createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
   
@@ -47,30 +58,58 @@ export interface IStorage {
   getConversationLabs(): Promise<ConversationLab[]>;
   getConversationLabById(id: string): Promise<ConversationLab | undefined>;
   createConversationLab(lab: InsertConversationLab): Promise<ConversationLab>;
+  updateConversationLab(id: string, lab: Partial<InsertConversationLab>): Promise<ConversationLab | undefined>;
+  deleteConversationLab(id: string): Promise<boolean>;
   
   // Lab Bookings
   getLabBookingsByUserId(userId: string): Promise<LabBooking[]>;
+  getAllLabBookings(): Promise<LabBooking[]>;
   getLabBookingByUserAndLab(userId: string, labId: string): Promise<LabBooking | undefined>;
   createLabBooking(booking: InsertLabBooking): Promise<LabBooking>;
   
   // Subscriptions
   getSubscriptionByUserId(userId: string): Promise<Subscription | undefined>;
+  getAllSubscriptions(): Promise<Subscription[]>;
   createOrUpdateSubscription(subscription: InsertSubscription): Promise<Subscription>;
   
   // User Stats
   getUserStats(userId: string): Promise<UserStats | undefined>;
+  getAllUserStats(): Promise<UserStats[]>;
   createOrUpdateUserStats(stats: InsertUserStats): Promise<UserStats>;
   
   // Instructors
   getInstructors(): Promise<Instructor[]>;
   getInstructorById(id: string): Promise<Instructor | undefined>;
   createInstructor(instructor: InsertInstructor): Promise<Instructor>;
+  updateInstructor(id: string, instructor: Partial<InsertInstructor>): Promise<Instructor | undefined>;
+  deleteInstructor(id: string): Promise<boolean>;
+  
+  // Payments
+  getPayments(): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  
+  // Lesson Progress
+  getLessonProgressByUserId(userId: string): Promise<LessonProgress[]>;
+  getAllLessonProgress(): Promise<LessonProgress[]>;
+  
+  // Admin Analytics
+  getAdminStats(): Promise<{
+    totalStudents: number;
+    totalCourses: number;
+    totalLabs: number;
+    totalRevenue: string;
+    activeSubscriptions: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Courses
   async getCourses(): Promise<Course[]> {
     return db.select().from(courses).where(eq(courses.isPublished, true));
+  }
+
+  async getAllCourses(): Promise<Course[]> {
+    return db.select().from(courses).orderBy(desc(courses.createdAt));
   }
 
   async getCourseById(id: string): Promise<Course | undefined> {
@@ -83,9 +122,19 @@ export class DatabaseStorage implements IStorage {
     return newCourse;
   }
 
+  async updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined> {
+    const [updated] = await db.update(courses).set(course).where(eq(courses.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCourse(id: string): Promise<boolean> {
+    const result = await db.delete(courses).where(eq(courses.id, id));
+    return true;
+  }
+
   // Lessons
   async getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
-    return db.select().from(lessons).where(eq(lessons.courseId, courseId));
+    return db.select().from(lessons).where(eq(lessons.courseId, courseId)).orderBy(lessons.orderIndex);
   }
 
   async getLessonById(id: string): Promise<Lesson | undefined> {
@@ -98,9 +147,23 @@ export class DatabaseStorage implements IStorage {
     return newLesson;
   }
 
+  async updateLesson(id: string, lesson: Partial<InsertLesson>): Promise<Lesson | undefined> {
+    const [updated] = await db.update(lessons).set(lesson).where(eq(lessons.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLesson(id: string): Promise<boolean> {
+    await db.delete(lessons).where(eq(lessons.id, id));
+    return true;
+  }
+
   // Enrollments
   async getEnrollmentsByUserId(userId: string): Promise<Enrollment[]> {
     return db.select().from(enrollments).where(eq(enrollments.userId, userId));
+  }
+
+  async getAllEnrollments(): Promise<Enrollment[]> {
+    return db.select().from(enrollments).orderBy(desc(enrollments.enrolledAt));
   }
 
   async getEnrollmentByUserAndCourse(userId: string, courseId: string): Promise<Enrollment | undefined> {
@@ -117,7 +180,7 @@ export class DatabaseStorage implements IStorage {
 
   // Conversation Labs
   async getConversationLabs(): Promise<ConversationLab[]> {
-    return db.select().from(conversationLabs);
+    return db.select().from(conversationLabs).orderBy(desc(conversationLabs.scheduledAt));
   }
 
   async getConversationLabById(id: string): Promise<ConversationLab | undefined> {
@@ -130,9 +193,23 @@ export class DatabaseStorage implements IStorage {
     return newLab;
   }
 
+  async updateConversationLab(id: string, lab: Partial<InsertConversationLab>): Promise<ConversationLab | undefined> {
+    const [updated] = await db.update(conversationLabs).set(lab).where(eq(conversationLabs.id, id)).returning();
+    return updated;
+  }
+
+  async deleteConversationLab(id: string): Promise<boolean> {
+    await db.delete(conversationLabs).where(eq(conversationLabs.id, id));
+    return true;
+  }
+
   // Lab Bookings
   async getLabBookingsByUserId(userId: string): Promise<LabBooking[]> {
     return db.select().from(labBookings).where(eq(labBookings.userId, userId));
+  }
+
+  async getAllLabBookings(): Promise<LabBooking[]> {
+    return db.select().from(labBookings).orderBy(desc(labBookings.bookedAt));
   }
 
   async getLabBookingByUserAndLab(userId: string, labId: string): Promise<LabBooking | undefined> {
@@ -153,6 +230,10 @@ export class DatabaseStorage implements IStorage {
     return subscription;
   }
 
+  async getAllSubscriptions(): Promise<Subscription[]> {
+    return db.select().from(subscriptions).orderBy(desc(subscriptions.createdAt));
+  }
+
   async createOrUpdateSubscription(subscription: InsertSubscription): Promise<Subscription> {
     const existing = await this.getSubscriptionByUserId(subscription.userId);
     if (existing) {
@@ -170,6 +251,10 @@ export class DatabaseStorage implements IStorage {
   async getUserStats(userId: string): Promise<UserStats | undefined> {
     const [stats] = await db.select().from(userStats).where(eq(userStats.userId, userId));
     return stats;
+  }
+
+  async getAllUserStats(): Promise<UserStats[]> {
+    return db.select().from(userStats);
   }
 
   async createOrUpdateUserStats(stats: InsertUserStats): Promise<UserStats> {
@@ -198,6 +283,58 @@ export class DatabaseStorage implements IStorage {
   async createInstructor(instructor: InsertInstructor): Promise<Instructor> {
     const [newInstructor] = await db.insert(instructors).values(instructor).returning();
     return newInstructor;
+  }
+
+  async updateInstructor(id: string, instructor: Partial<InsertInstructor>): Promise<Instructor | undefined> {
+    const [updated] = await db.update(instructors).set(instructor).where(eq(instructors.id, id)).returning();
+    return updated;
+  }
+
+  async deleteInstructor(id: string): Promise<boolean> {
+    await db.delete(instructors).where(eq(instructors.id, id));
+    return true;
+  }
+
+  // Payments
+  async getPayments(): Promise<Payment[]> {
+    return db.select().from(payments).orderBy(desc(payments.createdAt));
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+
+  // Lesson Progress
+  async getLessonProgressByUserId(userId: string): Promise<LessonProgress[]> {
+    return db.select().from(lessonProgress).where(eq(lessonProgress.userId, userId));
+  }
+
+  async getAllLessonProgress(): Promise<LessonProgress[]> {
+    return db.select().from(lessonProgress);
+  }
+
+  // Admin Analytics
+  async getAdminStats(): Promise<{
+    totalStudents: number;
+    totalCourses: number;
+    totalLabs: number;
+    totalRevenue: string;
+    activeSubscriptions: number;
+  }> {
+    const [studentsResult] = await db.select({ count: count() }).from(userStats);
+    const [coursesResult] = await db.select({ count: count() }).from(courses);
+    const [labsResult] = await db.select({ count: count() }).from(conversationLabs);
+    const [subsResult] = await db.select({ count: count() }).from(subscriptions).where(eq(subscriptions.cancelAtPeriodEnd, false));
+    const [revenueResult] = await db.select({ total: sql<string>`COALESCE(SUM(amount), 0)` }).from(payments).where(eq(payments.status, "completed"));
+
+    return {
+      totalStudents: studentsResult?.count || 0,
+      totalCourses: coursesResult?.count || 0,
+      totalLabs: labsResult?.count || 0,
+      totalRevenue: revenueResult?.total || "0",
+      activeSubscriptions: subsResult?.count || 0,
+    };
   }
 }
 

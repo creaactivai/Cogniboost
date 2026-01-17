@@ -15,15 +15,16 @@ export const labStatusEnum = pgEnum("lab_status", ["scheduled", "in_progress", "
 export const courses = pgTable("courses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
-  description: text("description").notNull(),
+  description: text("description"),
   thumbnailUrl: text("thumbnail_url"),
   level: courseLevelEnum("level").notNull(),
   topic: text("topic").notNull(),
-  duration: integer("duration").notNull(), // in minutes
+  duration: text("duration"), // flexible duration string (e.g., "4 weeks")
   lessonsCount: integer("lessons_count").notNull().default(0),
   instructorId: varchar("instructor_id").references(() => instructors.id),
   price: decimal("price", { precision: 10, scale: 2 }),
   isFree: boolean("is_free").notNull().default(false),
+  isPremium: boolean("is_premium").notNull().default(false),
   isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -34,7 +35,11 @@ export const instructors = pgTable("instructors", {
   name: text("name").notNull(),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
-  specialization: text("specialization"),
+  specializations: text("specializations").array(),
+  languages: text("languages").array(),
+  rating: decimal("rating", { precision: 3, scale: 2 }).notNull().default("5.00"),
+  totalLabs: integer("total_labs").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -77,13 +82,14 @@ export const conversationLabs = pgTable("conversation_labs", {
   description: text("description"),
   topic: text("topic").notNull(),
   level: courseLevelEnum("level").notNull(),
-  instructorId: varchar("instructor_id").references(() => instructors.id),
+  instructorId: varchar("instructor_id").references(() => instructors.id).notNull(),
   scheduledAt: timestamp("scheduled_at").notNull(),
-  durationMinutes: integer("duration_minutes").notNull().default(60),
+  duration: integer("duration").notNull().default(60), // in minutes
   maxParticipants: integer("max_participants").notNull().default(12),
   currentParticipants: integer("current_participants").notNull().default(0),
   status: labStatusEnum("status").notNull().default("scheduled"),
   meetingUrl: text("meeting_url"),
+  isPremium: boolean("is_premium").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -123,6 +129,23 @@ export const userStats = pgTable("user_stats", {
   speakingMinutes: integer("speaking_minutes").notNull().default(0),
   vocabularyWords: integer("vocabulary_words").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment status enum
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed", "refunded"]);
+
+// Payments table for tracking financial transactions
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
+  tier: subscriptionTierEnum("tier").notNull().default("free"),
+  status: paymentStatusEnum("status").notNull().default("pending"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations
@@ -174,6 +197,7 @@ export const insertConversationLabSchema = createInsertSchema(conversationLabs).
 export const insertLabBookingSchema = createInsertSchema(labBookings).omit({ id: true, bookedAt: true });
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserStatsSchema = createInsertSchema(userStats).omit({ id: true, updatedAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
 
 // Types
 export type Course = typeof courses.$inferSelect;
@@ -194,6 +218,8 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 // Course levels array for UI
 export const courseLevels = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
