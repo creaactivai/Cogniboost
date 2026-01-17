@@ -284,4 +284,103 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Glassy Button - Frosted glass effect inspired by neotribe.vc */
+  .glassy-button {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(220, 220, 220, 0.9) 50%,
+      rgba(200, 200, 200, 0.85) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.05),
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 8px 16px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    color: hsl(var(--foreground));
+  }
+
+  .glassy-button:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(235, 235, 235, 0.95) 50%,
+      rgba(215, 215, 215, 0.9) 100%
+    );
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.08),
+      0 8px 16px rgba(0, 0, 0, 0.1),
+      0 16px 32px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+    transform: translateY(-1px);
+  }
+
+  .glassy-button:active {
+    background: linear-gradient(
+      180deg,
+      rgba(200, 200, 200, 0.9) 0%,
+      rgba(190, 190, 190, 0.85) 50%,
+      rgba(180, 180, 180, 0.8) 100%
+    );
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.05),
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+    transform: translateY(0);
+  }
+
+  /* Dark mode glassy button */
+  .dark .glassy-button {
+    background: linear-gradient(
+      180deg,
+      rgba(80, 80, 80, 0.9) 0%,
+      rgba(60, 60, 60, 0.85) 50%,
+      rgba(50, 50, 50, 0.8) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 4px 8px rgba(0, 0, 0, 0.25),
+      0 8px 16px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    color: hsl(var(--foreground));
+  }
+
+  .dark .glassy-button:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(100, 100, 100, 0.95) 0%,
+      rgba(80, 80, 80, 0.9) 50%,
+      rgba(70, 70, 70, 0.85) 100%
+    );
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.25),
+      0 8px 16px rgba(0, 0, 0, 0.3),
+      0 16px 32px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .dark .glassy-button:active {
+    background: linear-gradient(
+      180deg,
+      rgba(50, 50, 50, 0.9) 0%,
+      rgba(40, 40, 40, 0.85) 50%,
+      rgba(35, 35, 35, 0.8) 100%
+    );
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 2px 4px rgba(0, 0, 0, 0.25),
+      inset 0 2px 4px rgba(0, 0, 0, 0.4),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  }
 }

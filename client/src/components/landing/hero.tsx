@@ -48,15 +48,13 @@ export function Hero() {
                 Prueba Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="px-8 py-6 text-lg font-mono uppercase tracking-wider"
+              <button 
+                className="glassy-button px-8 py-4 text-lg font-mono uppercase tracking-wider flex items-center justify-center"
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
                 Ver Cómo Funciona
-              </Button>
+              </button>
             </div>
 
             {/* Social proof */}
