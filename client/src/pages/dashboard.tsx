@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DashboardOverview } from "@/components/dashboard/overview";
 import { CourseCatalog } from "@/components/dashboard/course-catalog";
+import { CourseViewer } from "@/components/dashboard/course-viewer";
 import { ConversationLabs } from "@/components/dashboard/conversation-labs";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
@@ -89,6 +90,8 @@ export default function Dashboard() {
             <Switch>
               <Route path="/dashboard" component={DashboardOverview} />
               <Route path="/dashboard/courses" component={CourseCatalog} />
+              <Route path="/dashboard/courses/:courseId" component={CourseViewer} />
+              <Route path="/dashboard/courses/:courseId/lessons/:lessonId" component={CourseViewer} />
               <Route path="/dashboard/labs" component={ConversationLabs} />
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />

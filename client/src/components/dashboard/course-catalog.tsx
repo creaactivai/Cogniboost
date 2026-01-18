@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -109,18 +110,22 @@ function CourseCard({
               <span className="text-primary">{progress}%</span>
             </div>
             <Progress value={progress} className="h-1" />
-            <Button className="w-full mt-3 font-mono uppercase tracking-wider" data-testid={`button-continue-${id}`}>
-              Continuar
-            </Button>
+            <Link href={`/dashboard/courses/${id}`}>
+              <Button className="w-full mt-3 font-mono uppercase tracking-wider" data-testid={`button-continue-${id}`}>
+                Continuar
+              </Button>
+            </Link>
           </div>
         ) : (
-          <Button 
-            className="w-full font-mono uppercase tracking-wider" 
-            variant={isFree ? "default" : "outline"}
-            data-testid={`button-enroll-${id}`}
-          >
-            {isFree ? "Empezar Gratis" : "Inscribirse"}
-          </Button>
+          <Link href={`/dashboard/courses/${id}`}>
+            <Button 
+              className="w-full font-mono uppercase tracking-wider" 
+              variant={isFree ? "default" : "outline"}
+              data-testid={`button-enroll-${id}`}
+            >
+              {isFree ? "Empezar Gratis" : "Inscribirse"}
+            </Button>
+          </Link>
         )}
       </div>
     </Card>
