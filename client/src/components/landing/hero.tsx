@@ -101,29 +101,29 @@ export function Hero() {
           {/* Right content - Stats cards with hover effects and slide-in animations */}
           <div className="relative" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
             <div className="grid grid-cols-2 gap-4">
-              <AnimatedSection animation="fade-left" delay={100}>
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+              <AnimatedSection animation="fade-left" delay={100} className="h-full">
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
                   <BookOpen className="w-10 h-10 text-primary mb-4" />
                   <p className="text-4xl font-display">100+</p>
                   <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
                 </div>
               </AnimatedSection>
-              <AnimatedSection animation="fade-left" delay={200}>
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+              <AnimatedSection animation="fade-left" delay={200} className="h-full">
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
                   <Users className="w-10 h-10 text-accent mb-4" />
                   <p className="text-4xl font-display">500+</p>
                   <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
                 </div>
               </AnimatedSection>
-              <AnimatedSection animation="fade-left" delay={300}>
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+              <AnimatedSection animation="fade-left" delay={300} className="h-full">
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
                   <Award className="w-10 h-10 text-primary mb-4" />
                   <p className="text-4xl font-display">95%</p>
                   <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
                 </div>
               </AnimatedSection>
-              <AnimatedSection animation="fade-left" delay={400}>
-                <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300">
+              <AnimatedSection animation="fade-left" delay={400} className="h-full">
+                <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300 h-full">
                   <p className="text-4xl font-display">A1-C2</p>
                   <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
                 </div>
