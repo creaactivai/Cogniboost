@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sobre Nosotros - CogniBoost</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #F7FAFC;
+            color: #1A202C;
+            line-height: 1.6;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #1A1A40 0%, #667EEA 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+        
+        .hero .tagline {
+            font-size: 24px;
+            opacity: 0.95;
+            font-style: italic;
+            color: #4FD1C5;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 50px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        h2 {
+            color: #1A1A40;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+        
+        h3 {
+            color: #667EEA;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 32px 0 16px 0;
+        }
+        
+        p {
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            color: #1A202C;
+        }
+        
+        .highlight {
+            background: linear-gradient(135deg, #667EEA15 0%, #4FD1C515 100%);
+            border-left: 4px solid #667EEA;
+            padding: 24px;
+            margin: 32px 0;
+            border-radius: 8px;
+        }
+        
+        .highlight p {
+            margin-bottom: 0;
+            font-size: 20px;
+            font-weight: 500;
+            color: #1A1A40;
+        }
+        
+        .founder-section {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 40px;
+            align-items: start;
+            margin: 40px 0;
+        }
+        
+        .founder-photo {
+            background: linear-gradient(135deg, #667EEA 0%, #4FD1C5 100%);
+            border-radius: 16px;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 120px;
+            color: white;
+            font-weight: 700;
+        }
+        
+        .founder-bio h3 {
+            margin-top: 0;
+            font-size: 28px;
+        }
+        
+        .founder-title {
+            color: #667EEA;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .credentials {
+            background: #F7FAFC;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .credentials ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .credentials li {
+            padding: 8px 0;
+            padding-left: 28px;
+            position: relative;
+        }
+        
+        .credentials li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4FD1C5;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .methodology-card {
+            background: linear-gradient(135deg, #1A1A40 0%, #667EEA 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 16px;
+            margin: 40px 0;
+        }
+        
+        .methodology-card h3 {
+            color: #4FD1C5;
+            font-size: 32px;
+            margin-top: 0;
+        }
+        
+        .methodology-card p {
+            color: white;
+            opacity: 0.95;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 30px;
+            background: #F7FAFC;
+            border-radius: 12px;
+        }
+        
+        .stat-number {
+            font-size: 48px;
+            font-weight: 700;
+            color: #667EEA;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 16px;
+        }
+        
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin: 32px 0;
+        }
+        
+        .value-item {
+            padding: 24px;
+            background: #F7FAFC;
+            border-radius: 12px;
+            border-left: 4px solid #4FD1C5;
+        }
+        
+        .value-item h4 {
+            color: #1A1A40;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .value-item p {
+            font-size: 16px;
+            margin-bottom: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 36px; }
+            .founder-section { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: 1fr; }
+            .values-grid { grid-template-columns: 1fr; }
+            .section { padding: 30px 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Sobre Nosotros</h1>
+        <p class="tagline">Eleva Tu Potencial</p>
+    </div>
+    
+    <div class="container">
+        <!-- Nuestra Historia -->
+        <div class="section">
+            <h2>Nuestra Historia</h2>
+            <p>CogniBoost nace de una década de dedicación a transformar vidas a través de la educación. Lo que comenzó como CogniMight Academy—una innovadora escuela de inglés para niños—evolucionó hacia algo más grande: una plataforma de aprendizaje profesional que democratiza el acceso al conocimiento de clase mundial para adultos hispanohablantes.</p>
+            
+            <p>En CogniMight Academy, desarrollamos y perfeccionamos una metodología revolucionaria que cambió la forma en que las personas aprenden. Ahora, llevamos esa misma innovación pedagógica al mundo del desarrollo profesional, ayudando a miles de profesionales a avanzar en sus carreras a través de educación práctica, relevante y orientada a resultados.</p>
+            
+            <div class="highlight">
+                <p>Somos la única academia implementando la novedosa metodología Class Labs, diseñada específicamente para maximizar la retención, aplicación y éxito profesional de nuestros estudiantes.</p>
+            </div>
+        </div>
+        
+        <!-- Fundadora -->
+        <div class="section">
+            <h2>Nuestra Fundadora</h2>
+            
+            <div class="founder-section">
+                <div class="founder-photo">CL</div>
+                <div class="founder-bio">
+                    <h3>Lic. Coral Lozano</h3>
+                    <p class="founder-title">Fundadora y Directora Académica • Creadora de la Metodología Class Labs</p>
+                    
+                    <p>La Lic. Coral Lozano es una psicóloga educativa con más de 10 años de experiencia transformando la manera en que las personas aprenden. Con una Maestría en Intervención de Dificultades de Aprendizaje y Trastornos del Lenguaje en Ambientes Educativos, Coral ha dedicado su carrera a entender las complejidades del aprendizaje humano y diseñar soluciones innovadoras que realmente funcionan.</p>
+                    
+                    <div class="credentials">
+                        <ul>
+                            <li>Licenciatura en Psicología</li>
+                            <li>Maestría en Intervención de Dificultades de Aprendizaje y Trastornos del Lenguaje</li>
+                            <li>SAT Certified Coordinator</li>
+                            <li>Certificación AP Classes (Advanced Placement)</li>
+                            <li>Especialista en Adaptación Curricular</li>
+                            <li>10+ años en educación y psicología educativa</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Como coordinadora certificada SAT y especialista en clases AP, Coral trabajó directamente con estudiantes en momentos críticos de su educación, entendiendo profundamente los desafíos que enfrentan los adultos al aprender nuevas habilidades mientras equilibran responsabilidades profesionales y personales.</p>
+                    
+                    <p>Esta experiencia la llevó a desarrollar la <strong>Metodología Class Labs</strong>, un enfoque revolucionario que combina neurociencia cognitiva, psicología educativa y aprendizaje basado en proyectos para crear experiencias de aprendizaje que no solo transmiten conocimiento, sino que transforman capacidades profesionales.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metodología Class Labs -->
+        <div class="section">
+            <h2>La Metodología Class Labs</h2>
+            <p>Nuestra metodología patentada es el resultado de años de investigación, experimentación y refinamiento en entornos educativos reales. Desarrollada y perfeccionada por la Lic. Coral Lozano, Class Labs fue puesta a prueba con miles de estudiantes en CogniMight Academy antes de ser adaptada para el aprendizaje profesional adulto.</p>
+            
+            <div class="methodology-card">
+                <h3>¿Qué hace única a Class Labs?</h3>
+                <p><strong>1. Aprendizaje Activo Estructurado:</strong> No escuchas pasivamente—experimentas, construyes y aplicas desde el primer día.</p>
+                <p><strong>2. Neurociencia Aplicada:</strong> Cada lección está diseñada según cómo el cerebro adulto realmente aprende y retiene información nueva.</p>
+                <p><strong>3. Adaptación Curricular Personalizada:</strong> El mismo principio que usamos para estudiantes con necesidades especiales ahora acelera el aprendizaje de profesionales.</p>
+                <p><strong>4. Proyectos del Mundo Real:</strong> No ejercicios teóricos—problemas reales que enfrentarás en tu trabajo del lunes.</p>
+                <p><strong>5. Responsabilidad Comunitaria:</strong> Pods de aprendizaje entre pares que mantienen motivación y compromiso.</p>
+            </div>
+            
+            <h3>Comprobada en el Campo de Batalla Educativo</h3>
+            <p>Antes de lanzar CogniBoost, probamos Class Labs durante años en CogniMight Academy. Los resultados fueron extraordinarios: tasas de finalización del 85%+ (vs. 5-10% de cursos tradicionales), retención de conocimiento medida en 90%+, y lo más importante—aplicación real de habilidades en contextos profesionales.</p>
+            
+            <p>Hoy, CogniBoost es la <strong>única academia implementando esta metodología innovadora</strong> en el mercado de educación profesional para adultos hispanohablantes.</p>
+        </div>
+        
+        <!-- Nuestros Números -->
+        <div class="section">
+            <h2>Nuestro Impacto</h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">87%</div>
+                    <div class="stat-label">Avance profesional en 6 meses</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">75%+</div>
+                    <div class="stat-label">Tasa de finalización de cursos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Años de experiencia educativa</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nuestros Valores -->
+        <div class="section">
+            <h2>Nuestros Valores</h2>
+            
+            <div class="values-grid">
+                <div class="value-item">
+                    <h4>Excelencia Pedagógica</h4>
+                    <p>Cada curso está diseñado por expertos con credenciales académicas y experiencia práctica real.</p>
+                </div>
+                
+                <div class="value-item">
+                    <h4>Resultados Medibles</h4>
+                    <p>No vendemos certificados—entregamos habilidades que se traducen en avance profesional real.</p>
+                </div>
+                
+                <div class="value-item">
+                    <h4>Accesibilidad Real</h4>
+                    <p>Educación de clase mundial en español nativo, diseñada para profesionales hispanohablantes.</p>
+                </div>
+                
+                <div class="value-item">
+                    <h4>Innovación Continua</h4>
+                    <p>Constantemente evolucionamos nuestra metodología basándonos en investigación y feedback de estudiantes.</p>
+                </div>
+                
+                <div class="value-item">
+                    <h4>Comunidad sobre Competencia</h4>
+                    <p>Creemos en el aprendizaje colaborativo donde todos elevamos juntos.</p>
+                </div>
+                
+                <div class="value-item">
+                    <h4>Transparencia Total</h4>
+                    <p>Compartimos nuestros resultados, metodología y compromisos sin filtros.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nuestra Misión -->
+        <div class="section">
+            <h2>Nuestra Misión</h2>
+            <p>Democratizar el acceso al conocimiento profesional de clase mundial para la comunidad hispanohablante, eliminando las barreras de idioma, costo y formato que han limitado el crecimiento profesional de millones de personas talentosas.</p>
+            
+            <p>Creemos que cada profesional merece la oportunidad de alcanzar su máximo potencial, sin importar dónde viva, qué universidad haya asistido, o cuánto dinero tenga en el banco. Por eso creamos CogniBoost: para ser el puente entre donde estás hoy y donde quieres estar mañana.</p>
+            
+            <div class="highlight">
+                <p>No somos una plataforma de cursos más. Somos tu socio en crecimiento profesional, respaldados por metodología científicamente probada, instrucción de expertos, y una comunidad que te impulsa hacia adelante.</p>
+            </div>
+        </div>
+        
+        <!-- Nuestro Equipo -->
+        <div class="section">
+            <h2>Nuestro Equipo</h2>
+            <p>Detrás de CogniBoost hay un equipo de educadores, diseñadores instruccionales, tecnólogos y especialistas en desarrollo profesional—todos unidos por la pasión de transformar carreras a través de educación excepcional.</p>
+            
+            <p>Nuestra dirección académica tiene décadas de experiencia combinada en:</p>
+            
+            <div class="credentials">
+                <ul>
+                    <li>Tutoría personalizada y enseñanza individual</li>
+                    <li>Diseño curricular y adaptación educativa</li>
+                    <li>Psicología educativa y neurociencia del aprendizaje</li>
+                    <li>Coordinación de programas académicos avanzados (SAT, AP)</li>
+                    <li>Intervención en dificultades de aprendizaje</li>
+                    <li>Desarrollo profesional y formación corporativa</li>
+                </ul>
+            </div>
+            
+            <p>Cada miembro de nuestro equipo comparte el compromiso de la Lic. Coral Lozano con la excelencia educativa y el impacto medible en la vida de nuestros estudiantes.</p>
+        </div>
+        
+        <!-- CTA Final -->
+        <div class="section" style="text-align: center; background: linear-gradient(135deg, #F7FAFC 0%, #E6FFFA 100%);">
+            <h2 style="margin-bottom: 16px;">Únete a Nosotros</h2>
+            <p style="font-size: 20px; margin-bottom: 32px;">Miles de profesionales ya están elevando sus carreras con CogniBoost.<br>Es tu turno de dar el siguiente paso.</p>
+            <a href="/cursos" style="display: inline-block; background: #667EEA; color: white; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 18px;">Explorar Cursos</a>
+        </div>
+    </div>
+</body>
+</html>

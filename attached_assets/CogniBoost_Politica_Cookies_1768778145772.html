@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Cookies - CogniBoost</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #F7FAFC;
+            color: #1A202C;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: #1A1A40;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        
+        h2 {
+            color: #1A1A40;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #667EEA;
+        }
+        
+        h3 {
+            color: #667EEA;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 24px 0 12px 0;
+        }
+        
+        p {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 16px;
+            color: #1A202C;
+        }
+        
+        ul {
+            margin-left: 24px;
+            margin-bottom: 16px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+            line-height: 1.7;
+        }
+        
+        .highlight-box {
+            background: #F0F4FF;
+            border-left: 4px solid #667EEA;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 6px;
+        }
+        
+        .highlight-box.warning {
+            background: #FFF5F5;
+            border-left-color: #F6AD55;
+        }
+        
+        .highlight-box p {
+            margin-bottom: 0;
+        }
+        
+        .contact-info {
+            background: linear-gradient(135deg, #1A1A40 0%, #667EEA 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+        
+        .contact-info h3 {
+            color: #4FD1C5;
+            margin-top: 0;
+        }
+        
+        .contact-info p {
+            color: white;
+            opacity: 0.95;
+        }
+        
+        .contact-info a {
+            color: #4FD1C5;
+            text-decoration: none;
+        }
+        
+        .date-info {
+            background: #F7FAFC;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 15px;
+        }
+        
+        th, td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #E2E8F0;
+            vertical-align: top;
+        }
+        
+        th {
+            background: #F7FAFC;
+            font-weight: 600;
+            color: #1A1A40;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tr:hover {
+            background: #FAFBFC;
+        }
+        
+        .cookie-type {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .cookie-essential {
+            background: #4FD1C5;
+            color: #1A1A40;
+        }
+        
+        .cookie-functional {
+            background: #667EEA;
+            color: white;
+        }
+        
+        .cookie-analytics {
+            background: #F6AD55;
+            color: #1A1A40;
+        }
+        
+        .cookie-advertising {
+            background: #FC8181;
+            color: white;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 24px 0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #667EEA;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568D3;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #667EEA;
+            border: 2px solid #667EEA;
+        }
+        
+        .btn-secondary:hover {
+            background: #667EEA;
+            color: white;
+        }
+        
+        .info-card {
+            background: #F7FAFC;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .info-card h4 {
+            color: #1A1A40;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 32px; }
+            .section { padding: 24px; }
+            table { font-size: 14px; }
+            th, td { padding: 10px 8px; }
+            .control-buttons { flex-direction: column; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Política de Cookies</h1>
+        <p>CogniBoost</p>
+    </div>
+    
+    <div class="container">
+        <div class="date-info">
+            <strong>Fecha de entrada en vigor:</strong> 1 de febrero de 2026<br>
+            <strong>Última actualización:</strong> 18 de enero de 2026
+        </div>
+        
+        <!-- Introducción -->
+        <div class="section">
+            <h2>1. ¿Qué Son las Cookies?</h2>
+            
+            <p>Las cookies son pequeños archivos de texto que se colocan en su computadora o dispositivo móvil cuando visita un sitio web. Son ampliamente utilizadas para hacer que los sitios web funcionen de manera más eficiente, así como para proporcionar información a los propietarios del sitio.</p>
+            
+            <p>Esta Política de Cookies explica cómo CogniBoost LLC ("CogniBoost", "nosotros", "nuestro") utiliza cookies y tecnologías similares en nuestro sitio web <strong>cogniboost.co</strong> (el "Sitio") y nuestra plataforma de aprendizaje en línea.</p>
+            
+            <div class="highlight-box">
+                <p><strong>Al continuar navegando y usando nuestro Sitio, usted acepta que podemos colocar estos tipos de cookies en su dispositivo.</strong> Sin embargo, puede controlar y/o eliminar las cookies según lo desee - consulte la sección 7 para más detalles.</p>
+            </div>
+        </div>
+        
+        <!-- Tipos de Cookies -->
+        <div class="section">
+            <h2>2. Tipos de Cookies que Utilizamos</h2>
+            
+            <p>Utilizamos diferentes tipos de cookies para diferentes propósitos. Aquí le explicamos cada categoría:</p>
+            
+            <div class="info-card">
+                <h4><span class="cookie-type cookie-essential">ESTRICTAMENTE NECESARIAS</span></h4>
+                <p>Estas cookies son esenciales para que pueda navegar por el Sitio y utilizar sus funciones. Sin estas cookies, los servicios que ha solicitado (como acceso a su cuenta) no se pueden proporcionar.</p>
+                <p><strong>No podemos desactivar estas cookies desde nuestro sistema.</strong> Si bien puede configurar su navegador para bloquear o alertarle sobre estas cookies, algunas partes del Sitio no funcionarán.</p>
+            </div>
+            
+            <div class="info-card">
+                <h4><span class="cookie-type cookie-functional">FUNCIONALES</span></h4>
+                <p>Estas cookies permiten que el Sitio recuerde las elecciones que hace (como su idioma preferido, región o nombre de usuario) y proporcionan características mejoradas y más personales.</p>
+                <p><strong>Puede aceptar o rechazar estas cookies.</strong> Si las rechaza, es posible que algunas funcionalidades del Sitio no estén disponibles.</p>
+            </div>
+            
+            <div class="info-card">
+                <h4><span class="cookie-type cookie-analytics">ANALÍTICAS / DE RENDIMIENTO</span></h4>
+                <p>Estas cookies nos permiten contar visitas y fuentes de tráfico para que podamos medir y mejorar el rendimiento de nuestro Sitio. Nos ayudan a saber qué páginas son las más y menos populares y ver cómo los visitantes se mueven por el Sitio.</p>
+                <p><strong>Puede aceptar o rechazar estas cookies.</strong> Si las rechaza, no sabremos cuándo ha visitado nuestro Sitio.</p>
+            </div>
+            
+            <div class="info-card">
+                <h4><span class="cookie-type cookie-advertising">PUBLICIDAD / MARKETING</span></h4>
+                <p>Estas cookies pueden ser establecidas a través de nuestro Sitio por nuestros socios publicitarios. Pueden ser utilizadas por esas compañías para construir un perfil de sus intereses y mostrarle anuncios relevantes en otros sitios.</p>
+                <p><strong>Puede aceptar o rechazar estas cookies.</strong> Si las rechaza, no experimentará publicidad dirigida a sus intereses.</p>
+            </div>
+        </div>
+        
+        <!-- Cookies Específicas -->
+        <div class="section">
+            <h2>3. Cookies Específicas que Utilizamos</h2>
+            
+            <h3>3.1 Cookies Propias (First-Party)</h3>
+            <p>Estas son cookies que establecemos directamente en su dispositivo:</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Nombre</th>
+                        <th style="width: 20%;">Tipo</th>
+                        <th style="width: 35%;">Propósito</th>
+                        <th style="width: 20%;">Duración</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>cb_session</strong></td>
+                        <td><span class="cookie-type cookie-essential">Esencial</span></td>
+                        <td>Mantiene su sesión activa mientras navega por el Sitio</td>
+                        <td>Sesión</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_auth</strong></td>
+                        <td><span class="cookie-type cookie-essential">Esencial</span></td>
+                        <td>Autentica su identidad y mantiene su inicio de sesión seguro</td>
+                        <td>7 días</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_csrf</strong></td>
+                        <td><span class="cookie-type cookie-essential">Esencial</span></td>
+                        <td>Protege contra ataques de falsificación de solicitudes entre sitios</td>
+                        <td>Sesión</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_language</strong></td>
+                        <td><span class="cookie-type cookie-functional">Funcional</span></td>
+                        <td>Recuerda su preferencia de idioma</td>
+                        <td>1 año</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_timezone</strong></td>
+                        <td><span class="cookie-type cookie-functional">Funcional</span></td>
+                        <td>Recuerda su zona horaria para mostrar horarios de clase correctos</td>
+                        <td>1 año</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_consent</strong></td>
+                        <td><span class="cookie-type cookie-essential">Esencial</span></td>
+                        <td>Almacena sus preferencias de consentimiento de cookies</td>
+                        <td>1 año</td>
+                    </tr>
+                    <tr>
+                        <td><strong>cb_video_progress</strong></td>
+                        <td><span class="cookie-type cookie-functional">Funcional</span></td>
+                        <td>Guarda su progreso en videos de lecciones</td>
+                        <td>90 días</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>3.2 Cookies de Terceros (Third-Party)</h3>
+            <p>Utilizamos servicios de terceros que pueden establecer cookies en su dispositivo:</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Servicio</th>
+                        <th style="width: 20%;">Tipo</th>
+                        <th style="width: 35%;">Propósito</th>
+                        <th style="width: 20%;">Más Información</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Google Analytics</strong></td>
+                        <td><span class="cookie-type cookie-analytics">Analíticas</span></td>
+                        <td>Analiza el uso del sitio, páginas visitadas, tiempo de permanencia</td>
+                        <td><a href="https://policies.google.com/privacy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Google Ads</strong></td>
+                        <td><span class="cookie-type cookie-advertising">Publicidad</span></td>
+                        <td>Muestra anuncios relevantes y mide efectividad de campañas</td>
+                        <td><a href="https://policies.google.com/privacy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Meta Pixel (Facebook)</strong></td>
+                        <td><span class="cookie-type cookie-advertising">Publicidad</span></td>
+                        <td>Retargeting y medición de conversiones de anuncios en Facebook/Instagram</td>
+                        <td><a href="https://www.facebook.com/privacy/policy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>LinkedIn Insight Tag</strong></td>
+                        <td><span class="cookie-type cookie-advertising">Publicidad</span></td>
+                        <td>Analíticas y retargeting en LinkedIn</td>
+                        <td><a href="https://www.linkedin.com/legal/privacy-policy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Hotjar</strong></td>
+                        <td><span class="cookie-type cookie-analytics">Analíticas</span></td>
+                        <td>Mapas de calor, grabaciones de sesión (anónimas), análisis de comportamiento</td>
+                        <td><a href="https://www.hotjar.com/legal/policies/privacy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Stripe</strong></td>
+                        <td><span class="cookie-type cookie-essential">Esencial</span></td>
+                        <td>Procesamiento seguro de pagos y prevención de fraude</td>
+                        <td><a href="https://stripe.com/privacy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vimeo</strong></td>
+                        <td><span class="cookie-type cookie-functional">Funcional</span></td>
+                        <td>Reproduce videos de cursos alojados en Vimeo</td>
+                        <td><a href="https://vimeo.com/privacy" target="_blank">Política</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Intercom</strong></td>
+                        <td><span class="cookie-type cookie-functional">Funcional</span></td>
+                        <td>Chat de soporte en vivo y mensajería con estudiantes</td>
+                        <td><a href="https://www.intercom.com/legal/privacy" target="_blank">Política</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Otras Tecnologías -->
+        <div class="section">
+            <h2>4. Otras Tecnologías de Rastreo</h2>
+            
+            <p>Además de cookies, utilizamos otras tecnologías similares:</p>
+            
+            <h3>4.1 Web Beacons (Balizas Web)</h3>
+            <p>También conocidos como "píxeles de rastreo" o "GIFs transparentes", son pequeñas imágenes gráficas en páginas web o correos electrónicos que nos ayudan a:</p>
+            <ul>
+                <li>Determinar si ha abierto un correo electrónico o visitado una página</li>
+                <li>Rastrear la efectividad de nuestras campañas de marketing</li>
+                <li>Recopilar estadísticas sobre el uso del sitio</li>
+            </ul>
+            
+            <h3>4.2 Local Storage (Almacenamiento Local)</h3>
+            <p>Utilizamos el almacenamiento local HTML5 para:</p>
+            <ul>
+                <li>Guardar preferencias de configuración de la plataforma</li>
+                <li>Almacenar temporalmente datos de cursos para acceso sin conexión</li>
+                <li>Mejorar la velocidad de carga del contenido educativo</li>
+            </ul>
+            
+            <h3>4.3 Session Storage (Almacenamiento de Sesión)</h3>
+            <p>Almacenamiento temporal que se elimina cuando cierra su navegador, usado para:</p>
+            <ul>
+                <li>Mantener el estado durante su sesión de aprendizaje</li>
+                <li>Recordar respuestas de formularios temporalmente</li>
+                <li>Mejorar la experiencia de navegación dentro de una sesión</li>
+            </ul>
+            
+            <h3>4.4 SDKs de Terceros</h3>
+            <p>Nuestra aplicación móvil (cuando esté disponible) puede utilizar SDKs de terceros que recopilan información similar a las cookies para proporcionar funcionalidades y analíticas.</p>
+        </div>
+        
+        <!-- Por Qué Usamos Cookies -->
+        <div class="section">
+            <h2>5. ¿Por Qué Usamos Cookies?</h2>
+            
+            <p>Utilizamos cookies para múltiples propósitos legítimos:</p>
+            
+            <h3>5.1 Funcionalidad Esencial</h3>
+            <ul>
+                <li><strong>Autenticación:</strong> Verificar su identidad cuando inicia sesión</li>
+                <li><strong>Seguridad:</strong> Proteger su cuenta contra accesos no autorizados</li>
+                <li><strong>Preferencias:</strong> Recordar sus configuraciones y preferencias</li>
+                <li><strong>Carrito de compras:</strong> Mantener sus selecciones de cursos durante la inscripción</li>
+            </ul>
+            
+            <h3>5.2 Mejora de la Experiencia del Usuario</h3>
+            <ul>
+                <li><strong>Personalización:</strong> Adaptar el contenido y recomendaciones a sus intereses</li>
+                <li><strong>Progreso de aprendizaje:</strong> Guardar dónde dejó una lección o video</li>
+                <li><strong>Interfaz adaptativa:</strong> Recordar cómo prefiere ver el contenido</li>
+            </ul>
+            
+            <h3>5.3 Análisis y Rendimiento</h3>
+            <ul>
+                <li><strong>Métricas de uso:</strong> Entender qué cursos son más populares</li>
+                <li><strong>Identificación de problemas:</strong> Detectar errores técnicos o puntos de fricción</li>
+                <li><strong>Optimización:</strong> Mejorar la velocidad y rendimiento del sitio</li>
+                <li><strong>Investigación de UX:</strong> Comprender cómo los estudiantes interactúan con la plataforma</li>
+            </ul>
+            
+            <h3>5.4 Marketing y Publicidad</h3>
+            <ul>
+                <li><strong>Anuncios relevantes:</strong> Mostrar publicidad de cursos que puedan interesarle</li>
+                <li><strong>Retargeting:</strong> Recordarle sobre cursos que vio pero no compró</li>
+                <li><strong>Medición de campañas:</strong> Evaluar qué anuncios son más efectivos</li>
+                <li><strong>Optimización de conversión:</strong> Mejorar nuestros embudos de inscripción</li>
+            </ul>
+        </div>
+        
+        <!-- Bases Legales -->
+        <div class="section">
+            <h2>6. Bases Legales para el Uso de Cookies</h2>
+            
+            <p>Procesamos datos a través de cookies basándonos en las siguientes bases legales:</p>
+            
+            <h3>6.1 Consentimiento</h3>
+            <p>Para cookies no esenciales (funcionales, analíticas, publicitarias), obtenemos su consentimiento explícito a través de nuestro banner de cookies cuando visita el Sitio por primera vez.</p>
+            
+            <h3>6.2 Interés Legítimo</h3>
+            <p>Para ciertas cookies analíticas y de seguridad, confiamos en nuestro interés legítimo en:</p>
+            <ul>
+                <li>Proteger la seguridad de nuestros Servicios</li>
+                <li>Mejorar nuestros productos y servicios</li>
+                <li>Detectar y prevenir fraude</li>
+            </ul>
+            
+            <h3>6.3 Necesidad Contractual</h3>
+            <p>Las cookies estrictamente necesarias se basan en la necesidad de cumplir con nuestro contrato con usted para proporcionar los Servicios que ha solicitado.</p>
+        </div>
+        
+        <!-- Control de Cookies -->
+        <div class="section">
+            <h2>7. Cómo Controlar y Eliminar Cookies</h2>
+            
+            <p>Usted tiene varios métodos para controlar y/o eliminar cookies según sus preferencias:</p>
+            
+            <h3>7.1 Configuración de Consentimiento de CogniBoost</h3>
+            <p>Puede administrar sus preferencias de cookies en cualquier momento usando nuestra herramienta de configuración:</p>
+            
+            <div class="control-buttons">
+                <button class="btn btn-primary" onclick="alert('Esta sería la configuración real de cookies en el sitio en vivo')">⚙️ Configurar Preferencias de Cookies</button>
+                <button class="btn btn-secondary" onclick="alert('Esta funcionalidad estaría disponible en el sitio en vivo')">🔄 Ver Banner de Cookies Nuevamente</button>
+            </div>
+            
+            <h3>7.2 Configuración del Navegador</h3>
+            <p>La mayoría de navegadores web permiten controlar cookies a través de su configuración. Aquí le mostramos cómo acceder a la configuración de cookies en navegadores populares:</p>
+            
+            <div class="info-card">
+                <h4>Google Chrome</h4>
+                <p>Configuración → Privacidad y seguridad → Cookies y otros datos de sitios</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>Mozilla Firefox</h4>
+                <p>Opciones → Privacidad y seguridad → Cookies y datos del sitio</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>Safari (Mac)</h4>
+                <p>Preferencias → Privacidad → Gestionar datos del sitio web</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>Microsoft Edge</h4>
+                <p>Configuración → Cookies y permisos del sitio → Administrar y eliminar cookies</p>
+            </div>
+            
+            <h3>7.3 Opt-Out de Publicidad Personalizada</h3>
+            <p>Puede optar por no recibir publicidad personalizada visitando:</p>
+            <ul>
+                <li><strong>Digital Advertising Alliance:</strong> <a href="http://www.aboutads.info/choices" target="_blank">www.aboutads.info/choices</a></li>
+                <li><strong>Network Advertising Initiative:</strong> <a href="http://www.networkadvertising.org/choices" target="_blank">www.networkadvertising.org/choices</a></li>
+                <li><strong>Your Online Choices (Europa):</strong> <a href="http://www.youronlinechoices.eu" target="_blank">www.youronlinechoices.eu</a></li>
+                <li><strong>Google Ads Settings:</strong> <a href="https://adssettings.google.com" target="_blank">adssettings.google.com</a></li>
+                <li><strong>Facebook Ad Preferences:</strong> <a href="https://www.facebook.com/ads/preferences" target="_blank">facebook.com/ads/preferences</a></li>
+            </ul>
+            
+            <h3>7.4 Do Not Track (No Rastrear)</h3>
+            <p>Algunos navegadores ofrecen una señal "Do Not Track" (DNT). Actualmente, no existe un estándar de la industria para responder a señales DNT. Como tal, nuestro Sitio no responde actualmente a señales DNT del navegador.</p>
+            
+            <div class="highlight-box warning">
+                <p><strong>Importante:</strong> Si desactiva o rechaza cookies, algunas partes de nuestro Sitio pueden volverse inaccesibles o no funcionar correctamente. Por ejemplo:</p>
+                <ul style="margin-top: 12px; margin-bottom: 0;">
+                    <li>No podrá mantener su sesión iniciada</li>
+                    <li>Perderá su progreso en cursos</li>
+                    <li>Tendrá que reconfigurar sus preferencias cada vez que visite</li>
+                    <li>Ciertas funcionalidades interactivas no estarán disponibles</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Cookies en Aplicaciones Móviles -->
+        <div class="section">
+            <h2>8. Cookies en Aplicaciones Móviles</h2>
+            
+            <p>Si utilizamos aplicaciones móviles en el futuro, pueden utilizar identificadores de dispositivos móviles y otras tecnologías similares a cookies:</p>
+            
+            <h3>8.1 Identificadores de Dispositivo Móvil</h3>
+            <ul>
+                <li><strong>iOS:</strong> IDFA (Identifier for Advertisers)</li>
+                <li><strong>Android:</strong> AAID (Android Advertising ID)</li>
+            </ul>
+            
+            <p>Puede restablecer o limitar el rastreo publicitario en:</p>
+            <ul>
+                <li><strong>iOS:</strong> Configuración → Privacidad → Publicidad → Restablecer identificador de publicidad</li>
+                <li><strong>Android:</strong> Configuración → Google → Anuncios → Restablecer ID de publicidad</li>
+            </ul>
+            
+            <h3>8.2 SDKs de Terceros</h3>
+            <p>Las aplicaciones móviles pueden integrar SDKs de terceros que recopilan información del dispositivo. Siempre proporcionaremos una lista de SDKs utilizados dentro de la aplicación.</p>
+        </div>
+        
+        <!-- Transferencias Internacionales -->
+        <div class="section">
+            <h2>9. Transferencias Internacionales de Datos</h2>
+            
+            <p>Las cookies y tecnologías similares pueden resultar en la transferencia de su información a países fuera de su país de residencia, incluyendo Estados Unidos, donde CogniBoost tiene sus servidores principales.</p>
+            
+            <p>Algunos de nuestros proveedores de servicios de terceros (como Google, Meta, LinkedIn) operan globalmente y pueden procesar datos en múltiples jurisdicciones.</p>
+            
+            <p>Implementamos salvaguardas apropiadas para proteger su información durante transferencias internacionales, incluyendo:</p>
+            <ul>
+                <li>Cláusulas Contractuales Estándar (SCC) aprobadas por la Comisión Europea</li>
+                <li>Certificaciones del Marco de Privacidad de Datos (Data Privacy Framework)</li>
+                <li>Evaluaciones de Transferencia de Impacto cuando sea necesario</li>
+            </ul>
+        </div>
+        
+        <!-- Privacidad de Menores -->
+        <div class="section">
+            <h2>10. Privacidad de Menores</h2>
+            
+            <p>Nuestros Servicios están diseñados para adultos de 18 años o más. No recopilamos intencionalmente información a través de cookies de menores de 18 años sin el consentimiento verificable de los padres.</p>
+            
+            <p>Si descubrimos que hemos recopilado información a través de cookies de un menor de 18 años sin el consentimiento apropiado, tomaremos medidas para eliminar esa información lo antes posible.</p>
+        </div>
+        
+        <!-- Actualizaciones -->
+        <div class="section">
+            <h2>11. Actualizaciones a Esta Política de Cookies</h2>
+            
+            <p>Podemos actualizar esta Política de Cookies de vez en cuando para reflejar cambios en las cookies que utilizamos o por otras razones operativas, legales o regulatorias.</p>
+            
+            <p>Cuando realicemos cambios materiales a esta Política de Cookies:</p>
+            <ul>
+                <li>Actualizaremos la fecha de "Última actualización" en la parte superior</li>
+                <li>Publicaremos la política actualizada en esta página</li>
+                <li>Para cambios significativos, le notificaremos a través de un aviso destacado en nuestro Sitio o por correo electrónico</li>
+                <li>Es posible que le solicitemos que vuelva a dar su consentimiento</li>
+            </ul>
+            
+            <p>Le recomendamos que revise esta Política de Cookies periódicamente para mantenerse informado sobre cómo utilizamos cookies.</p>
+        </div>
+        
+        <!-- Más Información -->
+        <div class="section">
+            <h2>12. Más Información sobre Privacidad</h2>
+            
+            <p>Esta Política de Cookies forma parte de nuestra <a href="/politica-privacidad" style="color: #667EEA; text-decoration: none; font-weight: 600;">Política de Privacidad</a> más amplia. Para información completa sobre cómo recopilamos, usamos y protegemos sus datos personales, consulte:</p>
+            
+            <ul>
+                <li><a href="/politica-privacidad" style="color: #667EEA;">Política de Privacidad de CogniBoost</a></li>
+                <li><a href="/terminos-servicio" style="color: #667EEA;">Términos de Servicio</a></li>
+            </ul>
+        </div>
+        
+        <!-- Contacto -->
+        <div class="section">
+            <h2>13. Contacto</h2>
+            
+            <p>Si tiene preguntas o inquietudes sobre nuestra Política de Cookies o cómo utilizamos cookies, puede contactarnos:</p>
+            
+            <div class="contact-info">
+                <h3>CogniBoost LLC</h3>
+                <p><strong>Email:</strong><br>
+                General: <a href="mailto:support@cogniboost.co">support@cogniboost.co</a><br>
+                Privacidad: <a href="mailto:privacy@cogniboost.co">privacy@cogniboost.co</a><br>
+                DPO (Data Protection Officer): <a href="mailto:dpo@cogniboost.co">dpo@cogniboost.co</a></p>
+                
+                <p><strong>Dirección postal:</strong><br>
+                CogniBoost LLC<br>
+                Attn: Privacy Officer<br>
+                123 Congress Avenue, Suite 456<br>
+                Austin, TX 78701<br>
+                Estados Unidos</p>
+                
+                <p><strong>Teléfono:</strong> +1 (512) 555-0100</p>
+                
+                <p><strong>Horario de atención:</strong><br>
+                Lunes a Viernes: 9:00 AM - 6:00 PM CST</p>
+            </div>
+            
+            <h3>Autoridades de Protección de Datos</h3>
+            <p>Si se encuentra en la Unión Europea, Reino Unido o Brasil, tiene derecho a presentar una queja ante su autoridad local de protección de datos si tiene inquietudes sobre cómo manejamos sus datos a través de cookies:</p>
+            
+            <ul>
+                <li><strong>UE/EEE:</strong> <a href="https://edpb.europa.eu/about-edpb/board/members_en" target="_blank" style="color: #667EEA;">Lista de autoridades de protección de datos de la UE</a></li>
+                <li><strong>Reino Unido:</strong> <a href="https://ico.org.uk" target="_blank" style="color: #667EEA;">Information Commissioner's Office (ICO)</a></li>
+                <li><strong>Brasil:</strong> <a href="https://www.gov.br/anpd" target="_blank" style="color: #667EEA;">Autoridade Nacional de Proteção de Dados (ANPD)</a></li>
+            </ul>
+        </div>
+        
+        <!-- Recursos Adicionales -->
+        <div class="section">
+            <h2>14. Recursos Adicionales</h2>
+            
+            <p>Para obtener más información sobre cookies y privacidad en línea, puede consultar estos recursos:</p>
+            
+            <ul>
+                <li><strong>All About Cookies:</strong> <a href="https://www.allaboutcookies.org" target="_blank" style="color: #667EEA;">www.allaboutcookies.org</a></li>
+                <li><strong>Network Advertising Initiative:</strong> <a href="https://www.networkadvertising.org" target="_blank" style="color: #667EEA;">www.networkadvertising.org</a></li>
+                <li><strong>International Chamber of Commerce:</strong> <a href="https://www.iccwbo.org" target="_blank" style="color: #667EEA;">www.iccwbo.org</a></li>
+                <li><strong>Electronic Frontier Foundation:</strong> <a href="https://www.eff.org/issues/privacy" target="_blank" style="color: #667EEA;">eff.org/issues/privacy</a></li>
+            </ul>
+        </div>
+        
+        <!-- Footer -->
+        <div class="section" style="text-align: center; background: #F7FAFC; border: none; box-shadow: none;">
+            <p style="color: #718096; font-size: 14px;">
+                © 2026 CogniBoost LLC. Todos los derechos reservados.<br>
+                <a href="/politica-privacidad" style="color: #667EEA; text-decoration: none;">Política de Privacidad</a> | 
+                <a href="/terminos-servicio" style="color: #667EEA; text-decoration: none;">Términos de Servicio</a> | 
+                <a href="/contacto" style="color: #667EEA; text-decoration: none;">Contacto</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
