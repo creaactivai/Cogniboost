@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -18,9 +19,10 @@ import {
   Clock, 
   BookOpen,
   Filter,
-  GraduationCap
+  GraduationCap,
+  Loader2
 } from "lucide-react";
-import { courseLevels } from "@shared/schema";
+import { courseLevels, type Course } from "@shared/schema";
 
 // Spanish translations for course topics
 const courseTopicsEs: Record<string, string> = {
@@ -221,7 +223,25 @@ export function CourseCatalog() {
   const [topicFilter, setTopicFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("all");
 
-  const filteredCourses = mockCourses.filter((course) => {
+  const { data: courses = [], isLoading } = useQuery<Course[]>({
+    queryKey: ['/api/courses'],
+  });
+
+  // Map API courses to the card format
+  const coursesWithCardData: CourseCardProps[] = courses.map((course) => ({
+    id: course.id,
+    title: course.title,
+    description: course.description || "",
+    level: course.level,
+    topic: course.topic,
+    duration: parseInt(course.duration || "0") || 0,
+    lessonsCount: course.lessonsCount || 0,
+    progress: 0, // TODO: fetch user progress
+    isEnrolled: false, // TODO: fetch user enrollment status
+    isFree: course.isFree === true,
+  }));
+
+  const filteredCourses = coursesWithCardData.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLevel = levelFilter === "all" || course.level === levelFilter;
@@ -232,6 +252,14 @@ export function CourseCatalog() {
     
     return matchesSearch && matchesLevel && matchesTopic && matchesTab;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
