@@ -112,6 +112,7 @@ API Endpoints:
 - 2026-01-18: Rate limiting: max 3 placement attempts per day per user, 30-minute time limit
 - 2026-01-18: Added "Examen de Nivel" button to landing page hero section
 - 2026-01-18: Onboarding wizard auto-prefills level from placement quiz results with "Recomendado" badge
+- 2026-01-18: Automatic email notification with placement quiz results sent on completion
 - 2026-01-17: Implemented new Live Sessions breakout rooms model (live_sessions, session_rooms, room_bookings)
 - 2026-01-17: Added API routes for students to view sessions and book rooms by topic
 - 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)

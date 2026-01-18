@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result';
 
 // Send email using template
 export async function sendEmail(
@@ -278,6 +278,70 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             </ul>
             <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">IR A MI DASHBOARD</a>
             <p>¡Aprovecha al máximo tu suscripción!</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    placement_quiz_result: {
+      subject: '🎯 Resultado de tu Examen de Nivel de Inglés',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .result-card { background: linear-gradient(135deg, #33CBFB 0%, #1a8ab5 100%); padding: 30px; text-align: center; margin: 20px 0; }
+            .result-card h2 { color: #ffffff; margin: 0; font-size: 48px; font-family: Impact, 'Arial Black', sans-serif; }
+            .result-card p { color: #ffffff; margin: 10px 0 0 0; font-size: 18px; }
+            .stats { background: #2a2a2a; padding: 20px; margin: 20px 0; display: flex; justify-content: space-around; text-align: center; }
+            .stat { flex: 1; }
+            .stat-value { font-size: 24px; color: #33CBFB; font-weight: bold; }
+            .stat-label { font-size: 12px; color: #888888; text-transform: uppercase; }
+            .level-desc { background: #2a2a2a; padding: 20px; margin: 20px 0; border-left: 4px solid #FD335A; }
+            .cta { display: inline-block; background: #FD335A; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Felicidades, ${data.firstName || 'estudiante'}!</h1>
+            <p>Has completado tu Examen de Nivel de Inglés. Aquí están tus resultados:</p>
+            <div class="result-card">
+              <h2>NIVEL ${data.level || 'B1'}</h2>
+              <p>${data.levelDescription || 'Intermedio'}</p>
+            </div>
+            <table style="width: 100%; background: #2a2a2a; padding: 20px; margin: 20px 0;">
+              <tr>
+                <td style="text-align: center; padding: 15px;">
+                  <div style="font-size: 24px; color: #33CBFB; font-weight: bold;">${data.correctAnswers || '0'}/${data.totalQuestions || '8'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase;">Respuestas Correctas</div>
+                </td>
+                <td style="text-align: center; padding: 15px;">
+                  <div style="font-size: 24px; color: #33CBFB; font-weight: bold;">${data.confidence || 'Media'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase;">Confianza</div>
+                </td>
+              </tr>
+            </table>
+            <div class="level-desc">
+              <p style="margin: 0;"><strong>¿Qué significa nivel ${data.level || 'B1'}?</strong></p>
+              <p style="margin: 10px 0 0 0;">${data.levelExplanation || 'Puedes desenvolverte en situaciones cotidianas y expresar experiencias y opiniones básicas.'}</p>
+            </div>
+            <p><strong>Tu próximo paso:</strong> Completa tu perfil para que podamos recomendarte cursos perfectos para tu nivel.</p>
+            <a href="${data.onboardingUrl || 'https://cogniboost.co/onboarding'}" class="cta">COMENZAR MI APRENDIZAJE</a>
+            <p>¡Estamos emocionados de acompañarte en tu viaje hacia la fluidez en inglés!</p>
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>

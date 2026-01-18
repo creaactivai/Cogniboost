@@ -6,7 +6,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
-import type { EmailTemplate } from "./resendClient";
+import { sendEmail, type EmailTemplate } from "./resendClient";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -1362,6 +1362,41 @@ Important:
         const { level, confidence } = calculateFinalLevel(newAnswers);
         
         await storage.completePlacementQuiz(attemptId, level, confidence);
+        
+        // Send email with placement quiz results
+        try {
+          const user = await storage.getUser(userId);
+          if (user?.email) {
+            const levelDescriptions: Record<string, { name: string; explanation: string }> = {
+              A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
+              A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
+              B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
+              B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
+              C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
+              C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
+            };
+            const confidenceLabels: Record<string, string> = {
+              high: "Alta",
+              medium: "Media", 
+              low: "Baja",
+            };
+            
+            await sendEmail(user.email, "placement_quiz_result", {
+              firstName: user.firstName || "estudiante",
+              level,
+              levelDescription: levelDescriptions[level]?.name || "Intermedio",
+              levelExplanation: levelDescriptions[level]?.explanation || "",
+              correctAnswers: String(correctCount),
+              totalQuestions: String(totalQuestions),
+              confidence: confidenceLabels[confidence] || "Media",
+              onboardingUrl: "https://cogniboost.co/onboarding",
+            });
+            console.log(`Placement quiz result email sent to ${user.email}`);
+          }
+        } catch (emailError) {
+          console.error("Failed to send placement quiz result email:", emailError);
+          // Don't fail the request if email fails
+        }
         
         return res.json({
           completed: true,
