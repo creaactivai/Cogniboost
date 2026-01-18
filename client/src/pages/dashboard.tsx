@@ -1,4 +1,4 @@
-import { Route, Switch } from "wouter";
+import { Route, Switch, useRoute, useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -47,6 +47,10 @@ function HelpSupport() {
 
 export default function Dashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [wouterLocation] = useLocation();
+  const browserPath = window.location.pathname;
+  
+  console.log("Dashboard wouter location:", wouterLocation, "Browser path:", browserPath);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -88,17 +92,14 @@ export default function Dashboard() {
           {/* Main content */}
           <main className="flex-1 p-6 overflow-auto">
             <Switch>
-              <Route path="/dashboard" component={DashboardOverview} />
-              <Route path="/dashboard/courses" component={CourseCatalog} />
-              <Route path="/dashboard/courses/:courseId" component={CourseViewer} />
               <Route path="/dashboard/courses/:courseId/lessons/:lessonId" component={CourseViewer} />
+              <Route path="/dashboard/courses/:courseId" component={CourseViewer} />
+              <Route path="/dashboard/courses" component={CourseCatalog} />
               <Route path="/dashboard/labs" component={ConversationLabs} />
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
-              <Route>
-                <DashboardOverview />
-              </Route>
+              <Route path="/dashboard" component={DashboardOverview} />
             </Switch>
           </main>
         </div>

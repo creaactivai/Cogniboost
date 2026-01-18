@@ -20,7 +20,7 @@ import {
   LogOut,
   GraduationCap,
 } from "lucide-react";
-import { useLocation, Link } from "wouter";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -61,8 +61,8 @@ const secondaryItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
   const { user, logout } = useAuth();
+  const currentPath = window.location.pathname;
 
   const getInitials = () => {
     if (!user) return "U";
@@ -97,7 +97,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
-                    isActive={location === item.url}
+                    isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                       <item.icon className="w-4 h-4" />
@@ -120,7 +120,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    isActive={location === item.url}
+                    isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                       <item.icon className="w-4 h-4" />

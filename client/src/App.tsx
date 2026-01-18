@@ -18,6 +18,7 @@ import AdminInstructors from "@/pages/admin/instructors";
 
 function HomePage() {
   const { isAuthenticated, isLoading } = useAuth();
+  const currentPath = window.location.pathname;
   
   if (isLoading) {
     return (
@@ -28,27 +29,30 @@ function HomePage() {
   }
 
   if (isAuthenticated) {
-    window.location.href = "/dashboard";
+    if (currentPath === "/" || currentPath === "") {
+      window.location.href = "/dashboard";
+      return null;
+    }
     return null;
   }
 
   return <LandingPage />;
 }
 
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/dashboard/:rest*" component={Dashboard} />
-      <Route path="/admin" component={AdminOverview} />
-      <Route path="/admin/courses" component={AdminCourses} />
-      <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
+      <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
+      <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
+      <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/students" component={AdminStudents} />
       <Route path="/admin/financials" component={AdminFinancials} />
       <Route path="/admin/labs" component={AdminLabs} />
       <Route path="/admin/instructors" component={AdminInstructors} />
+      <Route path="/admin" component={AdminOverview} />
       <Route component={NotFound} />
     </Switch>
   );
