@@ -1,5 +1,6 @@
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Users, BookOpen, Award } from "lucide-react";
+import { ArrowRight, Play, Users, BookOpen, Award, Target } from "lucide-react";
 
 export function Hero() {
   return (
@@ -39,7 +40,7 @@ export function Hero() {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
               <Button 
                 size="lg" 
                 className="bg-accent text-accent-foreground px-8 py-6 text-lg font-mono uppercase tracking-wider"
@@ -48,14 +49,25 @@ export function Hero() {
                 Prueba Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <button 
-                className="glassy-button px-8 py-4 text-lg font-mono uppercase tracking-wider flex items-center justify-center"
-                data-testid="button-how-it-works"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                Ver Cómo Funciona
-              </button>
+              <Link href="/placement-quiz">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="px-8 py-6 text-lg font-mono uppercase tracking-wider"
+                  data-testid="button-placement-quiz"
+                >
+                  <Target className="mr-2 h-5 w-5" />
+                  Examen de Nivel
+                </Button>
+              </Link>
             </div>
+            <button 
+              className="glassy-button px-8 py-4 text-lg font-mono uppercase tracking-wider flex items-center justify-center"
+              data-testid="button-how-it-works"
+            >
+              <Play className="mr-2 h-5 w-5" />
+              Ver Cómo Funciona
+            </button>
 
             {/* Social proof */}
             <div className="pt-4">

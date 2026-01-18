@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Onboarding from "@/pages/onboarding";
+import PlacementQuiz from "@/pages/placement-quiz";
 import NotFound from "@/pages/not-found";
 import { useAuth } from "@/hooks/use-auth";
 import AdminOverview from "@/pages/admin/overview";
@@ -51,6 +52,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/placement-quiz" component={PlacementQuiz} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />

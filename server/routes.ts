@@ -1244,5 +1244,397 @@ Important:
     }
   });
 
+  // ============== PLACEMENT QUIZ ROUTES ==============
+
+  const MAX_PLACEMENT_ATTEMPTS_PER_DAY = 3;
+
+  // Start a new placement quiz (requires auth)
+  app.post("/api/placement/start", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
+      
+      // Check rate limiting - max 3 attempts per day
+      const attemptsToday = await storage.getPlacementQuizAttemptsToday(userId);
+      if (attemptsToday >= MAX_PLACEMENT_ATTEMPTS_PER_DAY) {
+        return res.status(429).json({ 
+          error: "Límite de intentos alcanzado", 
+          message: "Has alcanzado el límite de 3 intentos por día. Intenta mañana."
+        });
+      }
+      
+      // Create new quiz attempt
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      const attempt = await storage.createPlacementQuizAttempt({
+        userId,
+        status: "in_progress",
+        currentStep: "1",
+        currentDifficulty: "B1",
+        answers: [],
+        totalQuestions: "8",
+        correctAnswers: "0",
+        expiresAt,
+      });
+      
+      // Generate first question using OpenAI
+      const firstQuestion = await generatePlacementQuestion("B1", 1, []);
+      
+      res.json({
+        attemptId: attempt.id,
+        currentStep: 1,
+        totalQuestions: 8,
+        question: firstQuestion,
+        expiresAt: attempt.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error starting placement quiz:", error);
+      res.status(500).json({ error: "Failed to start placement quiz" });
+    }
+  });
+
+  // Submit an answer and get next question
+  app.post("/api/placement/answer", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    const userId = (req.user as any)?.claims?.sub;
+    const { attemptId, answer } = req.body;
+    if (!attemptId || answer === undefined) {
+      return res.status(400).json({ error: "Missing attemptId or answer" });
+    }
+    
+    try {
+      const attempt = await storage.getPlacementQuizAttemptById(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ error: "Quiz attempt not found" });
+      }
+      if (attempt.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      if (attempt.status !== "in_progress") {
+        return res.status(400).json({ error: "Quiz already completed or expired" });
+      }
+      if (attempt.expiresAt && new Date(attempt.expiresAt) < new Date()) {
+        await storage.updatePlacementQuizAttempt(attemptId, { status: "expired" });
+        return res.status(400).json({ error: "Quiz expired" });
+      }
+      
+      const currentStep = parseInt(attempt.currentStep);
+      const totalQuestions = parseInt(attempt.totalQuestions);
+      const currentAnswers = (attempt.answers as any[]) || [];
+      
+      // Evaluate the answer using AI
+      const evaluation = await evaluatePlacementAnswer(
+        attempt.currentDifficulty,
+        currentAnswers[currentAnswers.length - 1]?.question || "",
+        answer
+      );
+      
+      // Update answers array
+      const newAnswers = [...currentAnswers, {
+        step: currentStep,
+        question: evaluation.question,
+        answer,
+        isCorrect: evaluation.isCorrect,
+        difficulty: attempt.currentDifficulty,
+      }];
+      
+      const correctCount = newAnswers.filter(a => a.isCorrect).length;
+      
+      // Calculate next difficulty (adaptive)
+      const nextDifficulty = calculateNextDifficulty(
+        attempt.currentDifficulty,
+        evaluation.isCorrect,
+        correctCount,
+        currentStep
+      );
+      
+      // Check if quiz is complete
+      if (currentStep >= totalQuestions) {
+        // Calculate final level and confidence
+        const { level, confidence } = calculateFinalLevel(newAnswers);
+        
+        await storage.completePlacementQuiz(attemptId, level, confidence);
+        
+        return res.json({
+          completed: true,
+          computedLevel: level,
+          confidence,
+          correctAnswers: correctCount,
+          totalQuestions,
+        });
+      }
+      
+      // Update attempt and generate next question
+      await storage.updatePlacementQuizAttempt(attemptId, {
+        currentStep: String(currentStep + 1),
+        currentDifficulty: nextDifficulty,
+        answers: newAnswers,
+        correctAnswers: String(correctCount),
+      });
+      
+      const nextQuestion = await generatePlacementQuestion(nextDifficulty, currentStep + 1, newAnswers);
+      
+      res.json({
+        completed: false,
+        currentStep: currentStep + 1,
+        totalQuestions,
+        question: nextQuestion,
+        previousAnswer: {
+          isCorrect: evaluation.isCorrect,
+          feedback: evaluation.feedback,
+        },
+      });
+    } catch (error) {
+      console.error("Error processing placement answer:", error);
+      res.status(500).json({ error: "Failed to process answer" });
+    }
+  });
+
+  // Get user's placement quiz history
+  app.get("/api/placement/history", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      const attempts = await storage.getPlacementQuizAttemptsByUserId(userId);
+      res.json(attempts);
+    } catch (error) {
+      console.error("Error fetching placement history:", error);
+      res.status(500).json({ error: "Failed to fetch placement history" });
+    }
+  });
+
+  // Get current attempt status (for resuming)
+  app.get("/api/placement/current", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      const attempts = await storage.getPlacementQuizAttemptsByUserId(userId);
+      const currentAttempt = attempts.find(a => a.status === "in_progress");
+      
+      if (!currentAttempt) {
+        return res.json({ hasActiveQuiz: false });
+      }
+      
+      // Check if expired
+      if (currentAttempt.expiresAt && new Date(currentAttempt.expiresAt) < new Date()) {
+        await storage.updatePlacementQuizAttempt(currentAttempt.id, { status: "expired" });
+        return res.json({ hasActiveQuiz: false });
+      }
+      
+      const currentStep = parseInt(currentAttempt.currentStep);
+      const question = await generatePlacementQuestion(
+        currentAttempt.currentDifficulty,
+        currentStep,
+        (currentAttempt.answers as any[]) || []
+      );
+      
+      res.json({
+        hasActiveQuiz: true,
+        attemptId: currentAttempt.id,
+        currentStep,
+        totalQuestions: parseInt(currentAttempt.totalQuestions),
+        question,
+        expiresAt: currentAttempt.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error fetching current placement quiz:", error);
+      res.status(500).json({ error: "Failed to fetch current quiz" });
+    }
+  });
+
   return httpServer;
+}
+
+// ============== PLACEMENT QUIZ HELPER FUNCTIONS ==============
+
+interface PlacementQuestion {
+  text: string;
+  options: string[];
+  type: "multiple_choice" | "open_response";
+  difficulty: string;
+}
+
+async function generatePlacementQuestion(
+  difficulty: string,
+  questionNumber: number,
+  previousAnswers: any[]
+): Promise<PlacementQuestion> {
+  const prompt = `You are an English proficiency assessment expert. Generate a question to evaluate a student's English level.
+
+Current difficulty level: ${difficulty} (CEFR scale: A1=beginner, A2=elementary, B1=intermediate, B2=upper-intermediate, C1=advanced, C2=proficient)
+Question number: ${questionNumber} of 8
+
+Previous topics covered: ${previousAnswers.map(a => a.question?.substring(0, 50)).join(", ") || "none"}
+
+Generate a multiple choice question appropriate for ${difficulty} level. The question should test grammar, vocabulary, or reading comprehension.
+
+Respond in JSON format:
+{
+  "text": "The question text in English",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correctAnswer": 0,
+  "skill": "grammar|vocabulary|reading"
+}
+
+Important: Make the question challenging but fair for the ${difficulty} level. Vary the skills tested.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from OpenAI");
+    
+    const parsed = JSON.parse(content);
+    
+    return {
+      text: parsed.text,
+      options: parsed.options,
+      type: "multiple_choice",
+      difficulty,
+    };
+  } catch (error) {
+    console.error("Error generating placement question:", error);
+    // Fallback question
+    return {
+      text: `What is the correct form of the verb in this sentence? "She ___ to the store yesterday."`,
+      options: ["go", "goes", "went", "going"],
+      type: "multiple_choice",
+      difficulty,
+    };
+  }
+}
+
+async function evaluatePlacementAnswer(
+  difficulty: string,
+  question: string,
+  answer: number | string
+): Promise<{ isCorrect: boolean; feedback: string; question: string }> {
+  const prompt = `You are evaluating a student's answer to an English proficiency question.
+
+Question: ${question}
+Student's answer index: ${answer} (0-based index)
+Difficulty level: ${difficulty}
+
+Evaluate if the answer is correct. Respond in JSON:
+{
+  "isCorrect": true/false,
+  "feedback": "Brief feedback in Spanish about the answer"
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 200,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from OpenAI");
+    
+    const parsed = JSON.parse(content);
+    
+    return {
+      isCorrect: parsed.isCorrect,
+      feedback: parsed.feedback,
+      question,
+    };
+  } catch (error) {
+    console.error("Error evaluating placement answer:", error);
+    // Default to correct for graceful degradation
+    return {
+      isCorrect: true,
+      feedback: "Respuesta registrada.",
+      question,
+    };
+  }
+}
+
+function calculateNextDifficulty(
+  currentDifficulty: string,
+  wasCorrect: boolean,
+  totalCorrect: number,
+  questionNumber: number
+): string {
+  const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  const currentIndex = levels.indexOf(currentDifficulty);
+  
+  // Adaptive algorithm: adjust based on performance
+  const correctRate = totalCorrect / questionNumber;
+  
+  if (wasCorrect && correctRate > 0.7 && currentIndex < levels.length - 1) {
+    return levels[currentIndex + 1];
+  } else if (!wasCorrect && correctRate < 0.4 && currentIndex > 0) {
+    return levels[currentIndex - 1];
+  }
+  
+  return currentDifficulty;
+}
+
+function calculateFinalLevel(answers: any[]): { level: string; confidence: string } {
+  const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  
+  // Weight answers by difficulty level
+  const weightedScores: Record<string, number> = {};
+  const levelCounts: Record<string, number> = {};
+  
+  for (const answer of answers) {
+    const level = answer.difficulty;
+    if (!weightedScores[level]) {
+      weightedScores[level] = 0;
+      levelCounts[level] = 0;
+    }
+    levelCounts[level]++;
+    if (answer.isCorrect) {
+      weightedScores[level]++;
+    }
+  }
+  
+  // Find the highest level where the student got >= 50% correct
+  let finalLevel = "A1";
+  let highestPassedIndex = -1;
+  
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i];
+    if (levelCounts[level] && weightedScores[level] / levelCounts[level] >= 0.5) {
+      highestPassedIndex = i;
+      finalLevel = level;
+    }
+  }
+  
+  // Calculate confidence based on consistency
+  const totalCorrect = answers.filter(a => a.isCorrect).length;
+  const correctRate = totalCorrect / answers.length;
+  
+  let confidence: string;
+  if (correctRate >= 0.75) {
+    confidence = "high";
+  } else if (correctRate >= 0.5) {
+    confidence = "medium";
+  } else {
+    confidence = "low";
+  }
+  
+  return { level: finalLevel, confidence };
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChevronRight, ChevronLeft, Check, Sparkles, BookOpen, Clock, Target } from "lucide-react";
+import { Loader2, ChevronRight, ChevronLeft, Check, Sparkles, BookOpen, Clock, Target, Award } from "lucide-react";
 
 const steps = [
   { id: 1, title: "Nivel", icon: BookOpen },
@@ -76,6 +77,15 @@ export default function Onboarding() {
     weeklyHoursGoal: "",
     interests: [] as string[],
   });
+
+  // Pre-fill level from placement quiz if available
+  useEffect(() => {
+    if (user?.placementLevel && !formData.englishLevel) {
+      setFormData(prev => ({ ...prev, englishLevel: user.placementLevel as string }));
+    }
+  }, [user?.placementLevel, formData.englishLevel]);
+
+  const hasPlacementResult = !!user?.placementLevel;
 
   const saveOnboardingMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -200,33 +210,52 @@ export default function Onboarding() {
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <Label className="font-mono text-lg">¿Cuál es tu nivel actual de inglés?</Label>
+                  {hasPlacementResult && (
+                    <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/30" data-testid="placement-recommendation">
+                      <Award className="w-5 h-5 text-primary" />
+                      <span className="font-mono text-sm">
+                        Según tu examen de nivel, te recomendamos: <strong className="text-primary">{user?.placementLevel}</strong>
+                      </span>
+                    </div>
+                  )}
                   <RadioGroup
                     value={formData.englishLevel}
                     onValueChange={(value) => setFormData({ ...formData, englishLevel: value })}
                     className="space-y-3"
                   >
-                    {englishLevels.map((level) => (
-                      <div
-                        key={level.value}
-                        className={`flex items-start space-x-3 p-4 border cursor-pointer hover-elevate ${
-                          formData.englishLevel === level.value
-                            ? "border-primary bg-primary/10"
-                            : "border-border"
-                        }`}
-                        onClick={() => setFormData({ ...formData, englishLevel: level.value })}
-                        data-testid={`radio-level-${level.value}`}
-                      >
-                        <RadioGroupItem value={level.value} id={level.value} />
-                        <div className="flex-1">
-                          <Label htmlFor={level.value} className="font-mono font-semibold cursor-pointer">
-                            {level.label}
-                          </Label>
-                          <p className="font-mono text-sm text-muted-foreground mt-1">
-                            {level.description}
-                          </p>
+                    {englishLevels.map((level) => {
+                      const isRecommended = hasPlacementResult && user?.placementLevel === level.value;
+                      return (
+                        <div
+                          key={level.value}
+                          className={`flex items-start space-x-3 p-4 border cursor-pointer hover-elevate ${
+                            formData.englishLevel === level.value
+                              ? "border-primary bg-primary/10"
+                              : "border-border"
+                          }`}
+                          onClick={() => setFormData({ ...formData, englishLevel: level.value })}
+                          data-testid={`radio-level-${level.value}`}
+                        >
+                          <RadioGroupItem value={level.value} id={level.value} />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor={level.value} className="font-mono font-semibold cursor-pointer">
+                                {level.label}
+                              </Label>
+                              {isRecommended && (
+                                <Badge variant="default" className="text-xs" data-testid={`badge-recommended-${level.value}`}>
+                                  <Award className="w-3 h-3 mr-1" />
+                                  Recomendado
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-mono text-sm text-muted-foreground mt-1">
+                              {level.description}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </RadioGroup>
                 </div>
               )}

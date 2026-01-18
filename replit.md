@@ -107,6 +107,11 @@ API Endpoints:
 - 2026-01-18: Quiz system complete with AI generation (OpenAI gpt-4o-mini)
 - 2026-01-18: Student quiz-taking interface in course-viewer.tsx with timer, results, retry
 - 2026-01-18: Admin quiz management at /admin/courses/:courseId/lessons/:lessonId/quiz
+- 2026-01-18: AI-powered placement quiz system (/placement-quiz) with adaptive difficulty (8 questions, B1 starting level)
+- 2026-01-18: Placement quiz uses OpenAI gpt-4o-mini for question generation and answer evaluation
+- 2026-01-18: Rate limiting: max 3 placement attempts per day per user, 30-minute time limit
+- 2026-01-18: Added "Examen de Nivel" button to landing page hero section
+- 2026-01-18: Onboarding wizard auto-prefills level from placement quiz results with "Recomendado" badge
 - 2026-01-17: Implemented new Live Sessions breakout rooms model (live_sessions, session_rooms, room_bookings)
 - 2026-01-17: Added API routes for students to view sessions and book rooms by topic
 - 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)

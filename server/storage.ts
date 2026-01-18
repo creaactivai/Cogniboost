@@ -16,6 +16,7 @@ import {
   quizzes,
   quizQuestions,
   quizAttempts,
+  placementQuizAttempts,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -48,6 +49,8 @@ import {
   type InsertQuizQuestion,
   type QuizAttempt,
   type InsertQuizAttempt,
+  type PlacementQuizAttempt,
+  type InsertPlacementQuizAttempt,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count, and } from "drizzle-orm";
@@ -157,6 +160,9 @@ export interface IStorage {
     onboardingCompleted: boolean;
     welcomeEmailSent: boolean;
     onboardingReminderSent: boolean;
+    placementLevel: string;
+    placementConfidence: string;
+    placementAttemptId: string;
     updatedAt: Date;
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
@@ -225,6 +231,14 @@ export interface IStorage {
   getQuizAttemptsByUserId(userId: string): Promise<QuizAttempt[]>;
   getQuizAttemptsByQuizId(quizId: string): Promise<QuizAttempt[]>;
   createQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt>;
+  
+  // Placement Quiz
+  createPlacementQuizAttempt(attempt: InsertPlacementQuizAttempt): Promise<PlacementQuizAttempt>;
+  getPlacementQuizAttemptById(id: string): Promise<PlacementQuizAttempt | undefined>;
+  getPlacementQuizAttemptsByUserId(userId: string): Promise<PlacementQuizAttempt[]>;
+  getPlacementQuizAttemptsToday(userId: string): Promise<number>;
+  updatePlacementQuizAttempt(id: string, updates: Partial<InsertPlacementQuizAttempt>): Promise<PlacementQuizAttempt | undefined>;
+  completePlacementQuiz(attemptId: string, computedLevel: string, confidence: string): Promise<PlacementQuizAttempt | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -960,6 +974,62 @@ export class DatabaseStorage implements IStorage {
   async createQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
     const [newAttempt] = await db.insert(quizAttempts).values(attempt).returning();
     return newAttempt;
+  }
+
+  // Placement Quiz
+  async createPlacementQuizAttempt(attempt: InsertPlacementQuizAttempt): Promise<PlacementQuizAttempt> {
+    const [newAttempt] = await db.insert(placementQuizAttempts).values(attempt).returning();
+    return newAttempt;
+  }
+
+  async getPlacementQuizAttemptById(id: string): Promise<PlacementQuizAttempt | undefined> {
+    const [attempt] = await db.select().from(placementQuizAttempts).where(eq(placementQuizAttempts.id, id));
+    return attempt;
+  }
+
+  async getPlacementQuizAttemptsByUserId(userId: string): Promise<PlacementQuizAttempt[]> {
+    return db.select().from(placementQuizAttempts).where(eq(placementQuizAttempts.userId, userId)).orderBy(desc(placementQuizAttempts.startedAt));
+  }
+
+  async getPlacementQuizAttemptsToday(userId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const result = await db.select({ count: count() })
+      .from(placementQuizAttempts)
+      .where(and(
+        eq(placementQuizAttempts.userId, userId),
+        sql`${placementQuizAttempts.startedAt} >= ${today}`
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async updatePlacementQuizAttempt(id: string, updates: Partial<InsertPlacementQuizAttempt>): Promise<PlacementQuizAttempt | undefined> {
+    const [updated] = await db.update(placementQuizAttempts).set(updates).where(eq(placementQuizAttempts.id, id)).returning();
+    return updated;
+  }
+
+  async completePlacementQuiz(attemptId: string, computedLevel: string, confidence: string): Promise<PlacementQuizAttempt | undefined> {
+    const [updated] = await db.update(placementQuizAttempts)
+      .set({
+        status: "completed",
+        computedLevel,
+        confidence,
+        completedAt: new Date(),
+      })
+      .where(eq(placementQuizAttempts.id, attemptId))
+      .returning();
+    
+    // Also update user's placement results
+    if (updated) {
+      await db.update(users).set({
+        placementLevel: computedLevel,
+        placementConfidence: confidence,
+        placementAttemptId: attemptId,
+        updatedAt: new Date(),
+      }).where(eq(users.id, updated.userId));
+    }
+    
+    return updated;
   }
 }
 

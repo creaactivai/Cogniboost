@@ -16,6 +16,9 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
+// Placement quiz status enum
+export const placementQuizStatusEnum = pgEnum("placement_quiz_status", ["in_progress", "completed", "expired"]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -41,9 +44,34 @@ export const users = pgTable("users", {
   weeklyHoursGoal: text("weekly_hours_goal"), // 1-3, 4-6, 7-10, 10+
   welcomeEmailSent: boolean("welcome_email_sent").notNull().default(false),
   onboardingReminderSent: boolean("onboarding_reminder_sent").notNull().default(false),
+  // Placement quiz results
+  placementLevel: text("placement_level"), // A1, A2, B1, B2, C1, C2 from placement quiz
+  placementConfidence: text("placement_confidence"), // low, medium, high
+  placementAttemptId: varchar("placement_attempt_id"), // Reference to last placement quiz attempt
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Placement quiz attempts table
+export const placementQuizAttempts = pgTable("placement_quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  status: placementQuizStatusEnum("status").notNull().default("in_progress"),
+  currentStep: text("current_step").notNull().default("1"), // Current question number
+  currentDifficulty: text("current_difficulty").notNull().default("B1"), // Adaptive difficulty level
+  answers: jsonb("answers").notNull().default([]), // Array of {question, answer, isCorrect, difficulty}
+  computedLevel: text("computed_level"), // Final computed level A1-C2
+  confidence: text("confidence"), // low, medium, high
+  totalQuestions: text("total_questions").notNull().default("8"),
+  correctAnswers: text("correct_answers").notNull().default("0"),
+  ipHash: text("ip_hash"), // Hashed IP for rate limiting
+  userAgentHash: text("user_agent_hash"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"), // Quiz expires after 30 minutes
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type PlacementQuizAttempt = typeof placementQuizAttempts.$inferSelect;
+export type InsertPlacementQuizAttempt = typeof placementQuizAttempts.$inferInsert;
