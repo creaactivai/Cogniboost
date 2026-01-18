@@ -123,6 +123,7 @@ export function Hero() {
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={400} className="h-full">
                 <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300 h-full">
+                  <Target className="w-10 h-10 mb-4" />
                   <p className="text-4xl font-display">A1-C2</p>
                   <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
                 </div>
