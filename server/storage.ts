@@ -13,6 +13,9 @@ import {
   liveSessions,
   sessionRooms,
   roomBookings,
+  quizzes,
+  quizQuestions,
+  quizAttempts,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -39,6 +42,12 @@ import {
   type InsertSessionRoom,
   type RoomBooking,
   type InsertRoomBooking,
+  type Quiz,
+  type InsertQuiz,
+  type QuizQuestion,
+  type InsertQuizQuestion,
+  type QuizAttempt,
+  type InsertQuizAttempt,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count, and } from "drizzle-orm";
@@ -133,6 +142,27 @@ export interface IStorage {
   getRoomBookingsByUserId(userId: string): Promise<RoomBooking[]>;
   getRoomBookingsByRoomId(roomId: string): Promise<RoomBooking[]>;
   createRoomBooking(booking: InsertRoomBooking): Promise<RoomBooking>;
+  
+  // Quizzes
+  getQuizzesByLessonId(lessonId: string): Promise<Quiz[]>;
+  getQuizzesByCourseId(courseId: string): Promise<Quiz[]>;
+  getQuizById(id: string): Promise<Quiz | undefined>;
+  createQuiz(quiz: InsertQuiz): Promise<Quiz>;
+  updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined>;
+  deleteQuiz(id: string): Promise<boolean>;
+  
+  // Quiz Questions
+  getQuizQuestions(quizId: string): Promise<QuizQuestion[]>;
+  getQuizQuestionById(id: string): Promise<QuizQuestion | undefined>;
+  createQuizQuestion(question: InsertQuizQuestion): Promise<QuizQuestion>;
+  updateQuizQuestion(id: string, question: Partial<InsertQuizQuestion>): Promise<QuizQuestion | undefined>;
+  deleteQuizQuestion(id: string): Promise<boolean>;
+  deleteQuizQuestionsByQuizId(quizId: string): Promise<boolean>;
+  
+  // Quiz Attempts
+  getQuizAttemptsByUserId(userId: string): Promise<QuizAttempt[]>;
+  getQuizAttemptsByQuizId(quizId: string): Promise<QuizAttempt[]>;
+  createQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -436,6 +466,81 @@ export class DatabaseStorage implements IStorage {
   async createRoomBooking(booking: InsertRoomBooking): Promise<RoomBooking> {
     const [newBooking] = await db.insert(roomBookings).values(booking).returning();
     return newBooking;
+  }
+
+  // Quizzes
+  async getQuizzesByLessonId(lessonId: string): Promise<Quiz[]> {
+    return db.select().from(quizzes).where(eq(quizzes.lessonId, lessonId));
+  }
+
+  async getQuizzesByCourseId(courseId: string): Promise<Quiz[]> {
+    return db.select().from(quizzes).where(eq(quizzes.courseId, courseId));
+  }
+
+  async getQuizById(id: string): Promise<Quiz | undefined> {
+    const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, id));
+    return quiz;
+  }
+
+  async createQuiz(quiz: InsertQuiz): Promise<Quiz> {
+    const [newQuiz] = await db.insert(quizzes).values(quiz).returning();
+    return newQuiz;
+  }
+
+  async updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined> {
+    const [updated] = await db.update(quizzes).set(quiz).where(eq(quizzes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteQuiz(id: string): Promise<boolean> {
+    await db.delete(quizQuestions).where(eq(quizQuestions.quizId, id));
+    await db.delete(quizAttempts).where(eq(quizAttempts.quizId, id));
+    await db.delete(quizzes).where(eq(quizzes.id, id));
+    return true;
+  }
+
+  // Quiz Questions
+  async getQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
+    return db.select().from(quizQuestions).where(eq(quizQuestions.quizId, quizId)).orderBy(quizQuestions.orderIndex);
+  }
+
+  async getQuizQuestionById(id: string): Promise<QuizQuestion | undefined> {
+    const [question] = await db.select().from(quizQuestions).where(eq(quizQuestions.id, id));
+    return question;
+  }
+
+  async createQuizQuestion(question: InsertQuizQuestion): Promise<QuizQuestion> {
+    const [newQuestion] = await db.insert(quizQuestions).values(question).returning();
+    return newQuestion;
+  }
+
+  async updateQuizQuestion(id: string, question: Partial<InsertQuizQuestion>): Promise<QuizQuestion | undefined> {
+    const [updated] = await db.update(quizQuestions).set(question).where(eq(quizQuestions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteQuizQuestion(id: string): Promise<boolean> {
+    await db.delete(quizQuestions).where(eq(quizQuestions.id, id));
+    return true;
+  }
+
+  async deleteQuizQuestionsByQuizId(quizId: string): Promise<boolean> {
+    await db.delete(quizQuestions).where(eq(quizQuestions.quizId, quizId));
+    return true;
+  }
+
+  // Quiz Attempts
+  async getQuizAttemptsByUserId(userId: string): Promise<QuizAttempt[]> {
+    return db.select().from(quizAttempts).where(eq(quizAttempts.userId, userId)).orderBy(desc(quizAttempts.completedAt));
+  }
+
+  async getQuizAttemptsByQuizId(quizId: string): Promise<QuizAttempt[]> {
+    return db.select().from(quizAttempts).where(eq(quizAttempts.quizId, quizId)).orderBy(desc(quizAttempts.completedAt));
+  }
+
+  async createQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
+    const [newAttempt] = await db.insert(quizAttempts).values(attempt).returning();
+    return newAttempt;
   }
 }
 

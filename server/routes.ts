@@ -1,9 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import OpenAI from "openai";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -666,6 +672,293 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting session room:", error);
       res.status(500).json({ error: "Failed to delete session room" });
+    }
+  });
+
+  // ========== QUIZ ROUTES ==========
+
+  // Admin: Get quizzes by lesson ID
+  app.get("/api/admin/lessons/:lessonId/quizzes", requireAdmin, async (req, res) => {
+    try {
+      const quizzes = await storage.getQuizzesByLessonId(req.params.lessonId);
+      res.json(quizzes);
+    } catch (error) {
+      console.error("Error fetching quizzes:", error);
+      res.status(500).json({ error: "Failed to fetch quizzes" });
+    }
+  });
+
+  // Admin: Get quiz by ID with questions
+  app.get("/api/admin/quizzes/:id", requireAdmin, async (req, res) => {
+    try {
+      const quiz = await storage.getQuizById(req.params.id);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      const questions = await storage.getQuizQuestions(quiz.id);
+      res.json({ ...quiz, questions });
+    } catch (error) {
+      console.error("Error fetching quiz:", error);
+      res.status(500).json({ error: "Failed to fetch quiz" });
+    }
+  });
+
+  // Admin: Create quiz
+  app.post("/api/admin/quizzes", requireAdmin, async (req, res) => {
+    try {
+      const quiz = await storage.createQuiz(req.body);
+      res.status(201).json(quiz);
+    } catch (error) {
+      console.error("Error creating quiz:", error);
+      res.status(500).json({ error: "Failed to create quiz" });
+    }
+  });
+
+  // Admin: Update quiz
+  app.patch("/api/admin/quizzes/:id", requireAdmin, async (req, res) => {
+    try {
+      const quiz = await storage.updateQuiz(req.params.id, req.body);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      res.json(quiz);
+    } catch (error) {
+      console.error("Error updating quiz:", error);
+      res.status(500).json({ error: "Failed to update quiz" });
+    }
+  });
+
+  // Admin: Delete quiz
+  app.delete("/api/admin/quizzes/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteQuiz(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting quiz:", error);
+      res.status(500).json({ error: "Failed to delete quiz" });
+    }
+  });
+
+  // Admin: Create quiz question
+  app.post("/api/admin/quiz-questions", requireAdmin, async (req, res) => {
+    try {
+      const question = await storage.createQuizQuestion(req.body);
+      res.status(201).json(question);
+    } catch (error) {
+      console.error("Error creating question:", error);
+      res.status(500).json({ error: "Failed to create question" });
+    }
+  });
+
+  // Admin: Update quiz question
+  app.patch("/api/admin/quiz-questions/:id", requireAdmin, async (req, res) => {
+    try {
+      const question = await storage.updateQuizQuestion(req.params.id, req.body);
+      if (!question) {
+        return res.status(404).json({ error: "Question not found" });
+      }
+      res.json(question);
+    } catch (error) {
+      console.error("Error updating question:", error);
+      res.status(500).json({ error: "Failed to update question" });
+    }
+  });
+
+  // Admin: Delete quiz question
+  app.delete("/api/admin/quiz-questions/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteQuizQuestion(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      res.status(500).json({ error: "Failed to delete question" });
+    }
+  });
+
+  // Admin: Generate quiz questions with AI
+  app.post("/api/admin/quizzes/:quizId/generate", requireAdmin, async (req, res) => {
+    try {
+      const { lessonTitle, lessonDescription, courseLevel, numberOfQuestions = 5 } = req.body;
+      const quizId = req.params.quizId;
+
+      const quiz = await storage.getQuizById(quizId);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+
+      const prompt = `Generate ${numberOfQuestions} multiple choice quiz questions in Spanish for an English learning lesson.
+
+Lesson Title: ${lessonTitle}
+Lesson Description: ${lessonDescription || "N/A"}
+Level: ${courseLevel} (CEFR level)
+
+Generate questions that test the student's understanding of English concepts taught in this lesson.
+Each question should have exactly 4 options, with one correct answer.
+
+Return a JSON array with this exact format:
+[
+  {
+    "question": "¿Cuál es la traducción correcta de 'hello'?",
+    "options": ["Hola", "Adiós", "Gracias", "Por favor"],
+    "correctOptionIndex": 0,
+    "explanation": "La palabra 'hello' significa 'hola' en español, utilizada como saludo."
+  }
+]
+
+Important:
+- Questions must be in Spanish
+- Test English vocabulary, grammar, or concepts relevant to the lesson
+- Each question must have exactly 4 options
+- correctOptionIndex is 0-based (0 for first option, 1 for second, etc.)
+- Include a brief explanation in Spanish for the correct answer`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert English teacher creating quiz questions for Spanish-speaking students learning English. Always respond with valid JSON only."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from AI");
+      }
+
+      let generatedQuestions;
+      try {
+        const parsed = JSON.parse(content);
+        generatedQuestions = parsed.questions || parsed;
+      } catch {
+        throw new Error("Invalid JSON response from AI");
+      }
+
+      // Get existing question count for orderIndex
+      const existingQuestions = await storage.getQuizQuestions(quizId);
+      let orderIndex = existingQuestions.length;
+
+      // Create questions in database
+      const createdQuestions = [];
+      for (const q of generatedQuestions) {
+        const question = await storage.createQuizQuestion({
+          quizId,
+          question: q.question,
+          options: q.options,
+          correctOptionIndex: q.correctOptionIndex,
+          explanation: q.explanation,
+          orderIndex: orderIndex++
+        });
+        createdQuestions.push(question);
+      }
+
+      res.json({ success: true, questions: createdQuestions });
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      res.status(500).json({ error: "Failed to generate quiz questions" });
+    }
+  });
+
+  // Student: Get quiz for a lesson
+  app.get("/api/lessons/:lessonId/quiz", async (req, res) => {
+    try {
+      const quizzes = await storage.getQuizzesByLessonId(req.params.lessonId);
+      const publishedQuiz = quizzes.find(q => q.isPublished);
+      if (!publishedQuiz) {
+        return res.status(404).json({ error: "No quiz available" });
+      }
+      const questions = await storage.getQuizQuestions(publishedQuiz.id);
+      // Don't send correctOptionIndex to student
+      const safeQuestions = questions.map(q => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        orderIndex: q.orderIndex
+      }));
+      res.json({ ...publishedQuiz, questions: safeQuestions });
+    } catch (error) {
+      console.error("Error fetching quiz:", error);
+      res.status(500).json({ error: "Failed to fetch quiz" });
+    }
+  });
+
+  // Student: Submit quiz attempt
+  app.post("/api/quizzes/:quizId/attempt", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { answers } = req.body;
+      const quizId = req.params.quizId;
+
+      const quiz = await storage.getQuizById(quizId);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+
+      const questions = await storage.getQuizQuestions(quizId);
+      
+      // Calculate score
+      let correctCount = 0;
+      const results = questions.map((q, index) => {
+        const userAnswer = parseInt(answers[index]);
+        const isCorrect = userAnswer === q.correctOptionIndex;
+        if (isCorrect) correctCount++;
+        return {
+          questionId: q.id,
+          question: q.question,
+          userAnswer,
+          correctAnswer: q.correctOptionIndex,
+          isCorrect,
+          explanation: q.explanation
+        };
+      });
+
+      const score = Math.round((correctCount / questions.length) * 100);
+      const isPassed = score >= (quiz.passingScore || 70);
+
+      // Save attempt
+      const attempt = await storage.createQuizAttempt({
+        userId,
+        quizId,
+        score,
+        answers: answers.map(String),
+        isPassed
+      });
+
+      res.json({
+        attempt,
+        results,
+        score,
+        isPassed,
+        passingScore: quiz.passingScore
+      });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      res.status(500).json({ error: "Failed to submit quiz" });
+    }
+  });
+
+  // Student: Get quiz attempts
+  app.get("/api/quiz-attempts", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const attempts = await storage.getQuizAttemptsByUserId(userId);
+      res.json(attempts);
+    } catch (error) {
+      console.error("Error fetching attempts:", error);
+      res.status(500).json({ error: "Failed to fetch attempts" });
     }
   });
 
