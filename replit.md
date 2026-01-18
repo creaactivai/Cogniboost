@@ -24,8 +24,9 @@ Spanish-speaking Latin American professionals learning English.
 ### Design System (neotribe.vc-inspired)
 - Primary color: Cyan #33CBFB
 - Accent color: Coral #FD335A
-- **Zero border-radius** throughout (sharp edges)
+- **Soft rounded corners** (0.5rem / rounded-lg) per user preference
 - Fonts: Impact/Arial Black for display headings, JetBrains Mono for body text
+- Landing page uses parallax effects, scroll animations, and hover-elevate effects
 
 ## Project Architecture
 

@@ -80,8 +80,8 @@
   --font-mono: 'GT America Mono', 'JetBrains Mono', monospace;
   --font-display: 'Impact', 'Arial Black', sans-serif;
 
-  /* Zero border radius for sharp neotribe aesthetic */
-  --radius: 0rem;
+  /* Soft rounded corners per user preference */
+  --radius: 0.5rem;
 
   /* Shadows - minimal for flat design */
   --shadow-2xs: 0px 0px 0px 0px rgba(0,0,0,0);
