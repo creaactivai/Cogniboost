@@ -6,6 +6,9 @@ import { z } from "zod";
 // Re-export auth models
 export * from "./models/auth";
 
+// Re-export chat models (for AI integrations)
+export * from "./models/chat";
+
 // Enums
 export const courseLevelEnum = pgEnum("course_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
 export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "standard", "premium"]);
