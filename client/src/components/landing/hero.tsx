@@ -81,8 +81,7 @@ export function Hero() {
               </Link>
               <Button 
                 size="lg"
-                variant="secondary"
-                className="w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center backdrop-blur-sm"
+                className="bg-accent text-accent-foreground w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
