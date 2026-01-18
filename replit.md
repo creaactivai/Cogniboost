@@ -65,6 +65,7 @@ The Admin Dashboard provides platform management for the owner:
 - **Laboratorios** (`/admin/labs`) - Conversation lab scheduling
 - **Instructores** (`/admin/instructors`) - Instructor profiles and management
 - **Onboarding y Emails** (`/admin/onboarding`) - Onboarding stats, email automation, send reminders
+- **Leads** (`/admin/leads`) - Lead management, analytics funnel, automated email sequences
 
 Admin API routes are under `/api/admin/*` namespace and are protected by `requireAdmin` middleware that checks if the user has `isAdmin: true` in the users table.
 
@@ -89,8 +90,11 @@ API Endpoints:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-18: **Lead automation system** - automated email sequences (Day 1, Day 3, Day 7) with scoring and status tracking
+- 2026-01-18: Admin leads dashboard (/admin/leads) with funnel analytics, status management, and manual email triggers
+- 2026-01-18: Lead scoring algorithm: quiz completion +20pts, email opens +5pts each, clicks +10pts each, recency bonus +15pts
 - 2026-01-18: **Lead capture flow for placement quiz** - users must provide email/name before taking quiz
-- 2026-01-18: Leads table added to database: email, firstName, lastName, phone, placementLevel, quizAttemptId, resultEmailSent
+- 2026-01-18: Leads table with scoring, status (new/engaged/nurture/qualified/converted/inactive), UTM tracking, email sequence tracking
 - 2026-01-18: POST /api/leads endpoint creates lead record before quiz starts
 - 2026-01-18: Quiz results email sent to lead's email address on completion
 - 2026-01-18: Lead record updated with placementLevel, confidence, quizAttemptId after quiz completion
@@ -146,6 +150,36 @@ API Endpoints:
 - `GET /api/courses/:id/progress` - Returns lesson progress with unlock status
 - `POST /api/lessons/:id/complete` - Marks lesson as completed
 - Quiz pass automatically marks both `quizPassed` and `isCompleted` in lessonProgress
+
+### Lead Automation System
+The platform includes an autonomous lead management system for marketing:
+
+**Lead Status Flow:**
+- `new` → Lead created (provides contact info before quiz)
+- `engaged` → Quiz completed
+- `nurture` → Day 1 email sent
+- `qualified` → Day 7 email sent (full sequence complete)
+- `converted` → Signed up as a user
+- `inactive` → Marked inactive by admin
+
+**Automated Email Sequences:**
+- Day 1 (24 hours after quiz): Course recommendations based on level
+- Day 3 (72 hours): Lab invitation - practice conversation live
+- Day 7 (168 hours): 50% discount offer for Premium subscription
+
+**Lead Scoring (0-100):**
+- Quiz completion: +20 points
+- Email opens: +5 points each (max 20)
+- Email clicks: +10 points each (max 30)
+- Recency bonus (active in last 7 days): +15 points
+- Phone number provided: +10 points
+
+API Endpoints:
+- `GET /api/admin/leads` - List all leads (optionally filter by `?status=new|engaged|...`)
+- `GET /api/admin/leads/analytics` - Get lead funnel analytics
+- `POST /api/admin/leads/run-sequences` - Trigger automated email sequences
+- `PATCH /api/admin/leads/:id/status` - Update lead status
+- `POST /api/admin/leads/:id/send-email` - Send manual email to lead
 
 ### Conversation Labs (Breakout Rooms Model)
 The new model supports multiple topic rooms within each live session:

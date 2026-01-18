@@ -7,7 +7,8 @@ import {
   Calendar, 
   UserCheck,
   ChevronLeft,
-  Mail
+  Mail,
+  Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,11 @@ const menuItems = [
     title: "Onboarding y Emails",
     url: "/admin/onboarding",
     icon: Mail,
+  },
+  {
+    title: "Leads",
+    url: "/admin/leads",
+    icon: Target,
   },
 ];
 

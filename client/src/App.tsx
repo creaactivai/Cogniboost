@@ -18,6 +18,7 @@ import AdminFinancials from "@/pages/admin/financials";
 import AdminLabs from "@/pages/admin/labs";
 import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
+import AdminLeads from "@/pages/admin/leads";
 
 function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/admin/labs" component={AdminLabs} />
       <Route path="/admin/instructors" component={AdminInstructors} />
       <Route path="/admin/onboarding" component={AdminOnboarding} />
+      <Route path="/admin/leads" component={AdminLeads} />
       <Route path="/admin" component={AdminOverview} />
       <Route component={NotFound} />
     </Switch>
