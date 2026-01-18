@@ -7,7 +7,7 @@ import {
   Calendar, 
   UserCheck,
   ChevronLeft,
-  LogOut
+  Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +53,11 @@ const menuItems = [
     title: "Instructores",
     url: "/admin/instructors",
     icon: UserCheck,
+  },
+  {
+    title: "Onboarding y Emails",
+    url: "/admin/onboarding",
+    icon: Mail,
   },
 ];
 

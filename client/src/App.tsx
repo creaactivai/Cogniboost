@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 import { useAuth } from "@/hooks/use-auth";
 import AdminOverview from "@/pages/admin/overview";
@@ -15,6 +16,7 @@ import AdminStudents from "@/pages/admin/students";
 import AdminFinancials from "@/pages/admin/financials";
 import AdminLabs from "@/pages/admin/labs";
 import AdminInstructors from "@/pages/admin/instructors";
+import AdminOnboarding from "@/pages/admin/onboarding";
 
 function HomePage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -44,6 +46,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
       <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
@@ -52,6 +55,7 @@ function Router() {
       <Route path="/admin/financials" component={AdminFinancials} />
       <Route path="/admin/labs" component={AdminLabs} />
       <Route path="/admin/instructors" component={AdminInstructors} />
+      <Route path="/admin/onboarding" component={AdminOnboarding} />
       <Route path="/admin" component={AdminOverview} />
       <Route component={NotFound} />
     </Switch>

@@ -149,6 +149,15 @@ export interface IStorage {
     lockedReason: string | null;
     stripeCustomerId: string;
     stripeSubscriptionId: string;
+    englishLevel: string;
+    learningGoals: string[];
+    availability: string;
+    weeklyHoursGoal: string;
+    interests: string[];
+    onboardingCompleted: boolean;
+    welcomeEmailSent: boolean;
+    onboardingReminderSent: boolean;
+    updatedAt: Date;
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
   unlockUser(userId: string): Promise<User | undefined>;
@@ -160,6 +169,21 @@ export interface IStorage {
     churnRate: number;
     newStudentsThisMonth: number;
     churnedThisMonth: number;
+  }>;
+  
+  // Onboarding
+  getOnboardingStats(): Promise<{
+    totalUsers: number;
+    completedOnboarding: number;
+    pendingOnboarding: number;
+    welcomeEmailsSent: number;
+    remindersSent: number;
+    completionRate: number;
+  }>;
+  sendOnboardingReminders(): Promise<{
+    sent: number;
+    failed: number;
+    alreadySent: number;
   }>;
   
   // Live Sessions (new breakout rooms model)
@@ -633,9 +657,18 @@ export class DatabaseStorage implements IStorage {
     lockedReason: string | null;
     stripeCustomerId: string;
     stripeSubscriptionId: string;
+    englishLevel: string;
+    learningGoals: string[];
+    availability: string;
+    weeklyHoursGoal: string;
+    interests: string[];
+    onboardingCompleted: boolean;
+    welcomeEmailSent: boolean;
+    onboardingReminderSent: boolean;
+    updatedAt: Date;
   }>): Promise<User | undefined> {
     const [updated] = await db.update(users)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: updates.updatedAt || new Date() })
       .where(eq(users.id, userId))
       .returning();
     return updated;
@@ -710,6 +743,84 @@ export class DatabaseStorage implements IStorage {
       newStudentsThisMonth,
       churnedThisMonth
     };
+  }
+
+  // Onboarding
+  async getOnboardingStats(): Promise<{
+    totalUsers: number;
+    completedOnboarding: number;
+    pendingOnboarding: number;
+    welcomeEmailsSent: number;
+    remindersSent: number;
+    completionRate: number;
+  }> {
+    const allUsers = await db.select().from(users).where(eq(users.isAdmin, false));
+    
+    const totalUsers = allUsers.length;
+    const completedOnboarding = allUsers.filter(u => u.onboardingCompleted).length;
+    const pendingOnboarding = totalUsers - completedOnboarding;
+    const welcomeEmailsSent = allUsers.filter(u => u.welcomeEmailSent).length;
+    const remindersSent = allUsers.filter(u => u.onboardingReminderSent).length;
+    const completionRate = totalUsers > 0 
+      ? Math.round((completedOnboarding / totalUsers) * 100 * 100) / 100
+      : 0;
+    
+    return {
+      totalUsers,
+      completedOnboarding,
+      pendingOnboarding,
+      welcomeEmailsSent,
+      remindersSent,
+      completionRate
+    };
+  }
+
+  async sendOnboardingReminders(): Promise<{
+    sent: number;
+    failed: number;
+    alreadySent: number;
+  }> {
+    // Get users who haven't completed onboarding and haven't received a reminder
+    const usersToRemind = await db.select().from(users).where(
+      and(
+        eq(users.isAdmin, false),
+        eq(users.onboardingCompleted, false),
+        eq(users.onboardingReminderSent, false)
+      )
+    );
+    
+    let sent = 0;
+    let failed = 0;
+    const alreadySent = 0;
+    
+    // Import sendEmail dynamically
+    const { sendEmail } = await import("./resendClient");
+    
+    for (const user of usersToRemind) {
+      if (!user.email) {
+        failed++;
+        continue;
+      }
+      
+      try {
+        await sendEmail(user.email, 'onboarding_reminder', {
+          firstName: user.firstName || 'estudiante',
+          onboardingUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/onboarding`,
+        });
+        
+        // Mark reminder as sent
+        await db.update(users)
+          .set({ onboardingReminderSent: true, updatedAt: new Date() })
+          .where(eq(users.id, user.id));
+        
+        sent++;
+      } catch (error) {
+        console.error(`Failed to send reminder to ${user.email}:`, error);
+        failed++;
+      }
+    }
+    
+    return { sent, failed, alreadySent };
   }
 
   // Live Sessions

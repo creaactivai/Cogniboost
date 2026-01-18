@@ -2,9 +2,11 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import OpenAI from "openai";
+import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
+import type { EmailTemplate } from "./resendClient";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -265,6 +267,75 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating lesson progress:", error);
       res.status(500).json({ error: "Failed to update lesson progress" });
+    }
+  });
+
+  // ============== ONBOARDING API ROUTES ==============
+
+  // Save onboarding data with Zod validation
+  const onboardingSchema = z.object({
+    englishLevel: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
+    learningGoals: z.array(z.string()).min(1, "At least one goal required"),
+    availability: z.enum(["mornings", "afternoons", "evenings", "weekends", "flexible"]),
+    weeklyHoursGoal: z.enum(["1-3", "4-6", "7-10", "10+"]),
+    interests: z.array(z.string()).min(1, "At least one interest required"),
+  });
+
+  app.post("/api/onboarding", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const validation = onboardingSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
+      
+      const { englishLevel, learningGoals, availability, weeklyHoursGoal, interests } = validation.data;
+      
+      const user = await storage.updateUser(userId, {
+        englishLevel,
+        learningGoals,
+        availability,
+        weeklyHoursGoal,
+        interests,
+        onboardingCompleted: true,
+        updatedAt: new Date(),
+      });
+      
+      res.json({ success: true, user });
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
+      res.status(500).json({ error: "Failed to save onboarding data" });
+    }
+  });
+
+  // Get onboarding status
+  app.get("/api/onboarding/status", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({
+        onboardingCompleted: user.onboardingCompleted,
+        englishLevel: user.englishLevel,
+        learningGoals: user.learningGoals,
+        availability: user.availability,
+        weeklyHoursGoal: user.weeklyHoursGoal,
+        interests: user.interests,
+      });
+    } catch (error) {
+      console.error("Error fetching onboarding status:", error);
+      res.status(500).json({ error: "Failed to fetch onboarding status" });
     }
   });
 
@@ -1108,6 +1179,68 @@ Important:
     } catch (error) {
       console.error("Error unlocking student:", error);
       res.status(500).json({ error: "Failed to unlock student" });
+    }
+  });
+
+  // ============== ADMIN ONBOARDING & EMAIL ROUTES ==============
+
+  // Admin: Get onboarding stats
+  app.get("/api/admin/onboarding/stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getOnboardingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching onboarding stats:", error);
+      res.status(500).json({ error: "Failed to fetch onboarding stats" });
+    }
+  });
+
+  // Admin: Send onboarding reminder emails to users who haven't completed onboarding
+  app.post("/api/admin/onboarding/send-reminders", requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.sendOnboardingReminders();
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending onboarding reminders:", error);
+      res.status(500).json({ error: "Failed to send onboarding reminders" });
+    }
+  });
+
+  // Admin: Send custom email to a specific student with validation
+  const validEmailTemplates = ['welcome', 'onboarding_reminder', 'course_enrolled', 'lesson_completed', 'subscription_activated'] as const;
+  const sendEmailSchema = z.object({
+    template: z.enum(validEmailTemplates).default('welcome'),
+  });
+
+  app.post("/api/admin/students/:id/send-email", requireAdmin, async (req, res) => {
+    try {
+      const validation = sendEmailSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid template", details: validation.error.errors });
+      }
+      
+      const { template } = validation.data;
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      if (!user.email) {
+        return res.status(400).json({ error: "Student has no email address" });
+      }
+      
+      // Import sendEmail dynamically to avoid circular dependencies
+      const { sendEmail } = await import("./resendClient");
+      
+      const result = await sendEmail(user.email, template as EmailTemplate, {
+        firstName: user.firstName || 'estudiante',
+        onboardingUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/onboarding`,
+        dashboardUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/dashboard`,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending email to student:", error);
+      res.status(500).json({ error: "Failed to send email" });
     }
   });
 
