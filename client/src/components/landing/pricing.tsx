@@ -82,7 +82,7 @@ export function Pricing() {
           {plans.map((plan) => (
             <div 
               key={plan.name}
-              className={`relative p-8 border hover-scale transition-all duration-300 rounded-[9%] ${plan.popular ? "border-primary hover-glow" : "border-border"} ${plan.accent ? "bg-foreground text-background hover-glow-accent" : "bg-card"}`}
+              className={`relative p-8 border hover-elevate transition-colors duration-300 rounded-lg ${plan.popular ? "border-primary" : "border-border"} ${plan.accent ? "bg-foreground text-background" : "bg-card"}`}
             >
               {/* Popular badge */}
               {plan.popular && (

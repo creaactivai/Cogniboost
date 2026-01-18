@@ -82,7 +82,7 @@ export function Testimonials() {
           {testimonials.map((testimonial, index) => (
             <div 
               key={index}
-              className="p-8 bg-background border border-border hover-scale hover-glow transition-all duration-300 group rounded-[9%]"
+              className="p-8 bg-background border border-border hover-elevate transition-colors duration-300 group rounded-lg"
             >
               {/* Quote icon */}
               <Quote className="w-8 h-8 text-primary/20 mb-4" />
