@@ -1,4 +1,5 @@
 import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok } from "react-icons/si";
+import logoImage from "@assets/Frame_2_1768763364518.png";
 
 const footerLinks = {
   product: [
@@ -35,13 +36,12 @@ export function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-primary flex items-center justify-center rounded">
-                <span className="font-bold text-primary-foreground text-sm">CB</span>
-              </div>
-              <span className="font-bold text-xl tracking-tight">
-                Cogni<span className="text-primary">Boost</span>
-              </span>
+            <div className="flex items-center mb-6">
+              <img 
+                src={logoImage} 
+                alt="CogniBoost" 
+                className="h-8 w-auto"
+              />
             </div>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">
               Educación orientada a resultados para profesionales hispanohablantes. 

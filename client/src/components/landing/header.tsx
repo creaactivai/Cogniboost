@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import logoImage from "@assets/Frame_2_1768763364518.png";
 
 const navLinks = [
   { label: "Cómo Funciona", href: "#methodology" },
@@ -19,13 +20,12 @@ export function Header() {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2" data-testid="link-logo">
-            <div className="w-8 h-8 bg-primary flex items-center justify-center rounded">
-              <span className="font-bold text-primary-foreground text-sm">CB</span>
-            </div>
-            <span className="font-bold text-xl tracking-tight">
-              Cogni<span className="text-primary">Boost</span>
-            </span>
+          <a href="/" className="flex items-center" data-testid="link-logo">
+            <img 
+              src={logoImage} 
+              alt="CogniBoost" 
+              className="h-8 w-auto"
+            />
           </a>
 
           {/* Desktop Navigation */}
