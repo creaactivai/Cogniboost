@@ -1283,6 +1283,156 @@ Important:
     }
   });
 
+  // ============== ADMIN LEADS ROUTES ==============
+
+  // Admin: Get all leads
+  app.get("/api/admin/leads", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      let leadsList;
+      if (status && typeof status === 'string') {
+        leadsList = await storage.getLeadsByStatus(status);
+      } else {
+        leadsList = await storage.getAllLeads();
+      }
+      res.json(leadsList);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  // Admin: Get lead analytics
+  app.get("/api/admin/leads/analytics", requireAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getLeadAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching lead analytics:", error);
+      res.status(500).json({ error: "Failed to fetch lead analytics" });
+    }
+  });
+
+  // Admin: Run automated email sequences (manually trigger or for cron job)
+  app.post("/api/admin/leads/run-sequences", requireAdmin, async (req, res) => {
+    try {
+      const { sendEmail } = await import("./resendClient");
+      const results = { day1: 0, day3: 0, day7: 0, errors: [] as string[] };
+
+      // Day 1: Course recommendations
+      const day1Leads = await storage.getLeadsPendingDay1Email();
+      for (const lead of day1Leads) {
+        try {
+          await sendEmail(lead.email, 'lead_day1_followup', {
+            firstName: lead.firstName,
+            level: lead.placementLevel || 'B1',
+            email: lead.email,
+          });
+          await storage.markLeadEmailSent(lead.id, 'day1');
+          results.day1++;
+        } catch (e) {
+          results.errors.push(`Day1 error for ${lead.email}: ${e}`);
+        }
+      }
+
+      // Day 3: Lab invite
+      const day3Leads = await storage.getLeadsPendingDay3Email();
+      for (const lead of day3Leads) {
+        try {
+          await sendEmail(lead.email, 'lead_day3_lab_invite', {
+            firstName: lead.firstName,
+            level: lead.placementLevel || 'B1',
+            email: lead.email,
+          });
+          await storage.markLeadEmailSent(lead.id, 'day3');
+          results.day3++;
+        } catch (e) {
+          results.errors.push(`Day3 error for ${lead.email}: ${e}`);
+        }
+      }
+
+      // Day 7: Special offer
+      const day7Leads = await storage.getLeadsPendingDay7Email();
+      for (const lead of day7Leads) {
+        try {
+          await sendEmail(lead.email, 'lead_day7_offer', {
+            firstName: lead.firstName,
+            level: lead.placementLevel || 'B1',
+            email: lead.email,
+          });
+          await storage.markLeadEmailSent(lead.id, 'day7');
+          results.day7++;
+        } catch (e) {
+          results.errors.push(`Day7 error for ${lead.email}: ${e}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Email sequences enviadas: ${results.day1} día 1, ${results.day3} día 3, ${results.day7} día 7`,
+        details: results
+      });
+    } catch (error) {
+      console.error("Error running email sequences:", error);
+      res.status(500).json({ error: "Failed to run email sequences" });
+    }
+  });
+
+  // Admin: Update lead status
+  app.patch("/api/admin/leads/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status || !['new', 'engaged', 'nurture', 'qualified', 'converted', 'inactive'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      const updated = await storage.updateLead(req.params.id, { status });
+      if (!updated) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      res.status(500).json({ error: "Failed to update lead status" });
+    }
+  });
+
+  // Admin: Send manual email to lead
+  app.post("/api/admin/leads/:id/send-email", requireAdmin, async (req, res) => {
+    try {
+      const { template } = req.body;
+      const validTemplates = ['lead_day1_followup', 'lead_day3_lab_invite', 'lead_day7_offer'];
+      if (!template || !validTemplates.includes(template)) {
+        return res.status(400).json({ error: "Invalid template" });
+      }
+      
+      const lead = await storage.getLeadById(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      const { sendEmail } = await import("./resendClient");
+      await sendEmail(lead.email, template as any, {
+        firstName: lead.firstName,
+        level: lead.placementLevel || 'B1',
+        email: lead.email,
+      });
+      
+      // Mark appropriate email as sent
+      if (template === 'lead_day1_followup') {
+        await storage.markLeadEmailSent(lead.id, 'day1');
+      } else if (template === 'lead_day3_lab_invite') {
+        await storage.markLeadEmailSent(lead.id, 'day3');
+      } else if (template === 'lead_day7_offer') {
+        await storage.markLeadEmailSent(lead.id, 'day7');
+      }
+      
+      res.json({ success: true, message: "Email enviado" });
+    } catch (error) {
+      console.error("Error sending email to lead:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
   // ============== PLACEMENT QUIZ ROUTES ==============
 
   const MAX_PLACEMENT_ATTEMPTS_PER_DAY = 3;

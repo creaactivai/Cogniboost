@@ -253,6 +253,29 @@ export interface IStorage {
   getLeadByEmail(email: string): Promise<Lead | undefined>;
   updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead | undefined>;
   updateLeadWithQuizResult(id: string, level: string, confidence: string, quizAttemptId: string): Promise<Lead | undefined>;
+  
+  // Lead Automation
+  getAllLeads(): Promise<Lead[]>;
+  getLeadsByStatus(status: string): Promise<Lead[]>;
+  getLeadsPendingDay1Email(): Promise<Lead[]>;
+  getLeadsPendingDay3Email(): Promise<Lead[]>;
+  getLeadsPendingDay7Email(): Promise<Lead[]>;
+  getLeadAnalytics(): Promise<{
+    totalLeads: number;
+    newLeads: number;
+    engagedLeads: number;
+    qualifiedLeads: number;
+    convertedLeads: number;
+    inactiveLeads: number;
+    conversionRate: number;
+    avgScore: number;
+    leadsThisWeek: number;
+    leadsThisMonth: number;
+    byLevel: Record<string, number>;
+    bySource: Record<string, number>;
+  }>;
+  markLeadEmailSent(id: string, emailType: 'result' | 'day1' | 'day3' | 'day7'): Promise<Lead | undefined>;
+  updateLeadScore(id: string): Promise<Lead | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1140,8 +1163,211 @@ export class DatabaseStorage implements IStorage {
         placementLevel: level, 
         placementConfidence: confidence, 
         quizAttemptId,
+        quizCompletedAt: new Date(),
+        status: "engaged",
+        score: "20", // Quiz completion adds 20 points
         updatedAt: new Date() 
       })
+      .where(eq(leads.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Lead Automation methods
+  async getAllLeads(): Promise<Lead[]> {
+    return db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadsByStatus(status: string): Promise<Lead[]> {
+    return db.select().from(leads)
+      .where(sql`${leads.status} = ${status}`)
+      .orderBy(desc(leads.createdAt));
+  }
+
+  // Get leads who completed quiz at least 1 day ago but haven't received day1 email
+  async getLeadsPendingDay1Email(): Promise<Lead[]> {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return db.select().from(leads)
+      .where(and(
+        eq(leads.day1EmailSent, false),
+        eq(leads.resultEmailSent, true),
+        sql`${leads.quizCompletedAt} < ${oneDayAgo}`,
+        eq(leads.convertedToUser, false)
+      ))
+      .orderBy(leads.quizCompletedAt);
+  }
+
+  // Get leads who completed quiz at least 3 days ago but haven't received day3 email
+  async getLeadsPendingDay3Email(): Promise<Lead[]> {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    return db.select().from(leads)
+      .where(and(
+        eq(leads.day3EmailSent, false),
+        eq(leads.day1EmailSent, true),
+        sql`${leads.quizCompletedAt} < ${threeDaysAgo}`,
+        eq(leads.convertedToUser, false)
+      ))
+      .orderBy(leads.quizCompletedAt);
+  }
+
+  // Get leads who completed quiz at least 7 days ago but haven't received day7 email
+  async getLeadsPendingDay7Email(): Promise<Lead[]> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return db.select().from(leads)
+      .where(and(
+        eq(leads.day7EmailSent, false),
+        eq(leads.day3EmailSent, true),
+        sql`${leads.quizCompletedAt} < ${sevenDaysAgo}`,
+        eq(leads.convertedToUser, false)
+      ))
+      .orderBy(leads.quizCompletedAt);
+  }
+
+  async getLeadAnalytics(): Promise<{
+    totalLeads: number;
+    newLeads: number;
+    engagedLeads: number;
+    qualifiedLeads: number;
+    convertedLeads: number;
+    inactiveLeads: number;
+    conversionRate: number;
+    avgScore: number;
+    leadsThisWeek: number;
+    leadsThisMonth: number;
+    byLevel: Record<string, number>;
+    bySource: Record<string, number>;
+  }> {
+    const allLeads = await db.select().from(leads);
+    
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    const statusCounts: Record<string, number> = {
+      new: 0,
+      engaged: 0,
+      nurture: 0,
+      qualified: 0,
+      converted: 0,
+      inactive: 0
+    };
+    
+    const byLevel: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+    let totalScore = 0;
+    let leadsThisWeek = 0;
+    let leadsThisMonth = 0;
+    
+    for (const lead of allLeads) {
+      // Count by status
+      const status = lead.status || 'new';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      
+      // Count by level
+      if (lead.placementLevel) {
+        byLevel[lead.placementLevel] = (byLevel[lead.placementLevel] || 0) + 1;
+      }
+      
+      // Count by source
+      const source = lead.source || 'organic';
+      bySource[source] = (bySource[source] || 0) + 1;
+      
+      // Total score
+      totalScore += parseInt(lead.score || '0', 10);
+      
+      // Time-based counts
+      if (lead.createdAt && new Date(lead.createdAt) >= oneWeekAgo) {
+        leadsThisWeek++;
+      }
+      if (lead.createdAt && new Date(lead.createdAt) >= oneMonthAgo) {
+        leadsThisMonth++;
+      }
+    }
+    
+    const totalLeads = allLeads.length;
+    const convertedLeads = statusCounts.converted || 0;
+    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+    const avgScore = totalLeads > 0 ? totalScore / totalLeads : 0;
+    
+    return {
+      totalLeads,
+      newLeads: statusCounts.new || 0,
+      engagedLeads: statusCounts.engaged || 0,
+      qualifiedLeads: statusCounts.qualified || 0,
+      convertedLeads,
+      inactiveLeads: statusCounts.inactive || 0,
+      conversionRate: Math.round(conversionRate * 100) / 100,
+      avgScore: Math.round(avgScore * 100) / 100,
+      leadsThisWeek,
+      leadsThisMonth,
+      byLevel,
+      bySource
+    };
+  }
+
+  async markLeadEmailSent(id: string, emailType: 'result' | 'day1' | 'day3' | 'day7'): Promise<Lead | undefined> {
+    const now = new Date();
+    let updates: Record<string, any> = { updatedAt: now };
+    
+    switch (emailType) {
+      case 'result':
+        updates.resultEmailSent = true;
+        updates.resultEmailSentAt = now;
+        break;
+      case 'day1':
+        updates.day1EmailSent = true;
+        updates.day1EmailSentAt = now;
+        updates.status = 'nurture'; // Move to nurture after day 1 email
+        break;
+      case 'day3':
+        updates.day3EmailSent = true;
+        updates.day3EmailSentAt = now;
+        break;
+      case 'day7':
+        updates.day7EmailSent = true;
+        updates.day7EmailSentAt = now;
+        updates.status = 'qualified'; // After full sequence, mark as qualified
+        break;
+    }
+    
+    const [updated] = await db.update(leads)
+      .set(updates)
+      .where(eq(leads.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateLeadScore(id: string): Promise<Lead | undefined> {
+    const lead = await this.getLeadById(id);
+    if (!lead) return undefined;
+    
+    let score = 0;
+    
+    // Quiz completion: +20 points
+    if (lead.placementLevel) score += 20;
+    
+    // Email engagement
+    const openCount = parseInt(lead.emailOpenCount || '0', 10);
+    const clickCount = parseInt(lead.emailClickCount || '0', 10);
+    score += Math.min(openCount * 5, 20); // Max 20 from opens
+    score += Math.min(clickCount * 10, 30); // Max 30 from clicks
+    
+    // Recency bonus: if active in last 7 days
+    if (lead.lastActivityAt) {
+      const daysSinceActivity = (Date.now() - new Date(lead.lastActivityAt).getTime()) / (24 * 60 * 60 * 1000);
+      if (daysSinceActivity < 7) score += 15;
+      else if (daysSinceActivity < 14) score += 10;
+      else if (daysSinceActivity < 30) score += 5;
+    }
+    
+    // Phone provided: +10 points
+    if (lead.phone) score += 10;
+    
+    // Cap at 100
+    score = Math.min(score, 100);
+    
+    const [updated] = await db.update(leads)
+      .set({ score: score.toString(), updatedAt: new Date() })
       .where(eq(leads.id, id))
       .returning();
     return updated;
