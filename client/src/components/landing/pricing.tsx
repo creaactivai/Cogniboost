@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Check, X, Sparkles } from "lucide-react";
+import { useBooking } from "@/contexts/booking-context";
 
 const plans = [
   {
@@ -61,6 +62,8 @@ const plans = [
 ];
 
 export function Pricing() {
+  const { openBooking } = useBooking();
+
   return (
     <section className="py-32 bg-background relative overflow-hidden" id="pricing">
       {/* Floating decorative elements */}
@@ -128,6 +131,7 @@ export function Pricing() {
               <Button 
                 className="w-full"
                 variant={plan.variant}
+                onClick={openBooking}
                 data-testid={`button-plan-${plan.name.toLowerCase()}`}
               >
                 {plan.cta}

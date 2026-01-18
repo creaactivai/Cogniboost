@@ -1,11 +1,16 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Users, BookOpen, Award, TrendingUp } from "lucide-react";
+import { Calendar, TrendingUp, Users, BookOpen, Award } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { useEffect, useState } from "react";
 import { AnimatedSection } from "@/hooks/use-scroll-animation";
+import { useBooking } from "@/contexts/booking-context";
+
+const WHATSAPP_LINK = "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ";
 
 export function Hero() {
   const [scrollY, setScrollY] = useState(0);
+  const { openBooking } = useBooking();
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -57,10 +62,11 @@ export function Hero() {
               <Button 
                 size="lg" 
                 className="w-[200px] justify-center"
-                data-testid="button-start-trial"
+                onClick={openBooking}
+                data-testid="button-free-class"
               >
-                Comenzar Ahora
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <Calendar className="mr-2 h-5 w-5" />
+                Clase Gratis!
               </Button>
               <Link href="/placement-quiz" className="contents">
                 <Button
@@ -73,15 +79,17 @@ export function Hero() {
                   Evaluar Mi Nivel
                 </Button>
               </Link>
-              <Button 
-                size="lg"
-                variant="outline"
-                className="w-[200px] justify-center"
-                data-testid="button-how-it-works"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                Ver Demo
-              </Button>
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="contents">
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  className="w-[200px] justify-center"
+                  data-testid="button-whatsapp"
+                >
+                  <SiWhatsapp className="mr-2 h-5 w-5" />
+                  Asistencia
+                </Button>
+              </a>
             </div>
 
             {/* Social proof */}
@@ -130,6 +138,7 @@ export function Hero() {
           </div>
         </div>
       </div>
+
     </section>
   );
 }

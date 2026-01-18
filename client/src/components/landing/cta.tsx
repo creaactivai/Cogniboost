@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
+import { useBooking } from "@/contexts/booking-context";
 
 export function FinalCTA() {
+  const { openBooking } = useBooking();
+
   return (
     <section className="py-32 bg-foreground text-background relative overflow-hidden">
       {/* Background pattern */}
@@ -30,15 +33,17 @@ export function FinalCTA() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
-              data-testid="button-cta-start-trial"
+              onClick={openBooking}
+              data-testid="button-cta-free-class"
             >
-              Comenzar Ahora
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <Calendar className="mr-2 h-5 w-5" />
+              Clase Gratis!
             </Button>
             <Button 
               size="lg"
               variant="outline"
               className="border-background/30 text-background"
+              onClick={openBooking}
               data-testid="button-cta-book-demo"
             >
               <Calendar className="mr-2 h-5 w-5" />
