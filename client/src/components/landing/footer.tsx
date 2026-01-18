@@ -36,23 +36,23 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-primary flex items-center justify-center">
-                <span className="font-display text-primary-foreground text-sm">CB</span>
+              <div className="w-8 h-8 bg-primary flex items-center justify-center rounded">
+                <span className="font-bold text-primary-foreground text-sm">CB</span>
               </div>
-              <span className="font-display text-xl uppercase tracking-tight">
-                COGNI<span className="text-primary">BOOST</span>
+              <span className="font-bold text-xl tracking-tight">
+                Cogni<span className="text-primary">Boost</span>
               </span>
             </div>
-            <p className="font-mono text-sm text-muted-foreground mb-6 max-w-sm">
-              Domina el inglés a través de conversaciones reales. Cursos pregrabados + laboratorios 
-              de práctica en vivo diseñados para profesionales latinoamericanos.
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+              Educación orientada a resultados para profesionales hispanohablantes. 
+              Habilidades prácticas, expertos de la industria, resultados profesionales reales.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => (
                 <a
                   key={social.label}
                   href={social.href}
-                  className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                  className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted transition-colors rounded"
                   aria-label={social.label}
                   data-testid={`link-social-${social.label.toLowerCase()}`}
                 >
@@ -64,13 +64,13 @@ export function Footer() {
 
           {/* Product links */}
           <div>
-            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Producto</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Producto</h4>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
                   <a 
                     href={link.href}
-                    className="font-mono text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.label}
                   </a>
@@ -81,13 +81,13 @@ export function Footer() {
 
           {/* Company links */}
           <div>
-            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Empresa</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Empresa</h4>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
                   <a 
                     href={link.href}
-                    className="font-mono text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.label}
                   </a>
@@ -98,13 +98,13 @@ export function Footer() {
 
           {/* Legal links */}
           <div>
-            <h4 className="font-mono text-sm uppercase tracking-widest mb-6">Legal</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Legal</h4>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
                   <a 
                     href={link.href}
-                    className="font-mono text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.label}
                   </a>
@@ -116,11 +116,11 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="font-mono text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} CogniBoost. Todos los derechos reservados. By <a href="https://creaactiva.co" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Creaactiva.co</a>
           </p>
-          <p className="font-mono text-sm text-muted-foreground">
-            Hecho con amor para Latinoamérica
+          <p className="text-sm text-muted-foreground">
+            Eleva Tu Potencial
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Users, BookOpen, Award, Target } from "lucide-react";
+import { ArrowRight, Play, Users, BookOpen, Award, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AnimatedSection } from "@/hooks/use-scroll-animation";
 
@@ -17,17 +17,17 @@ export function Hero() {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
       {/* Grid pattern background with parallax */}
       <div 
-        className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30"
+        className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20"
         style={{ transform: `translateY(${scrollY * 0.1}px)` }}
       />
       
       {/* Animated accent blobs with parallax */}
       <div 
-        className="absolute top-20 right-20 w-96 h-96 bg-primary/20 blur-3xl float-animation"
+        className="absolute top-20 right-20 w-96 h-96 bg-primary/15 blur-3xl float-animation"
         style={{ transform: `translateY(${scrollY * 0.2}px)` }}
       />
       <div 
-        className="absolute bottom-20 left-20 w-80 h-80 bg-accent/20 blur-3xl float-animation"
+        className="absolute bottom-20 left-20 w-80 h-80 bg-[hsl(174_58%_56%/0.15)] blur-3xl float-animation"
         style={{ animationDelay: "3s", transform: `translateY(${scrollY * 0.15}px)` }}
       />
       
@@ -36,64 +36,60 @@ export function Hero() {
           {/* Left content */}
           <div className="space-y-8">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30">
-              <span className="w-2 h-2 bg-primary animate-pulse" />
-              <span className="text-sm font-mono uppercase tracking-wider">Disponible en Latinoamérica</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 rounded">
+              <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              <span className="text-sm uppercase tracking-wider">Para Profesionales Hispanohablantes</span>
             </div>
 
-            {/* Main headline */}
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-display uppercase leading-none tracking-tight">
-              DOMINA EL
+            {/* Main headline - New brand messaging */}
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
+              Deja de coleccionar certificados.
               <br />
-              <span className="text-primary">INGLÉS</span>
-              <br />
-              CON
-              <br />
-              <span className="text-accent">CONVERSACIONES</span>
+              <span className="text-primary">Empieza a construir carreras.</span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-muted-foreground max-w-lg font-mono">
-              Cursos pregrabados + laboratorios de práctica en vivo diseñados para adultos latinoamericanos. 
-              Aprende a tu ritmo, habla con confianza.
+            <p className="text-lg md:text-xl text-muted-foreground max-w-lg">
+              Educación orientada a resultados diseñada para aplicación en el mundo real. 
+              Aprende de profesionales, no de académicos.
             </p>
 
-            {/* CTA Buttons - uniform width, horizontal row, rounded corners */}
+            {/* CTA Buttons - Purple primary per brand guidelines */}
             <div className="flex flex-row gap-4 flex-wrap items-stretch">
               <Button 
                 size="lg" 
-                className="bg-accent text-accent-foreground w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                className="w-[200px] justify-center"
                 data-testid="button-start-trial"
               >
-                Prueba Gratis
+                Comenzar Ahora
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Link href="/placement-quiz" className="contents">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                  className="w-[200px] justify-center"
                   data-testid="button-placement-quiz"
                 >
-                  <Target className="mr-2 h-5 w-5" />
-                  Examen de Nivel
+                  <TrendingUp className="mr-2 h-5 w-5" />
+                  Evaluar Mi Nivel
                 </Button>
               </Link>
               <Button 
                 size="lg"
                 variant="outline"
-                className="w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                className="w-[200px] justify-center"
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
-                Cómo Funciona
+                Ver Demo
               </Button>
             </div>
 
             {/* Social proof */}
             <div className="pt-4">
-              <p className="text-sm font-mono text-muted-foreground">
-                Únete a <span className="text-foreground font-bold">5,000+</span> profesionales mejorando su inglés
+              <p className="text-sm text-muted-foreground">
+                Únete a <span className="text-foreground font-semibold">5,000+</span> profesionales avanzando sus carreras
               </p>
             </div>
           </div>
@@ -102,37 +98,37 @@ export function Hero() {
           <div className="relative" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
             <div className="grid grid-cols-2 gap-4">
               <AnimatedSection animation="fade-left" delay={100} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <BookOpen className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-3xl font-display">100+</p>
-                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
+                  <p className="text-3xl font-bold">100+</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Cursos Prácticos</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={200} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <Users className="w-8 h-8 text-accent mb-3" />
-                  <p className="text-3xl font-display">500+</p>
-                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
+                  <Users className="w-8 h-8 text-[hsl(174_58%_56%)] mb-3" />
+                  <p className="text-3xl font-bold">500+</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Sesiones en Vivo</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={300} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <Award className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-3xl font-display">95%</p>
-                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
+                  <p className="text-3xl font-bold">95%</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={400} className="h-full">
-                <div className="p-6 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <Target className="w-8 h-8 mb-3" />
-                  <p className="text-3xl font-display">A1-C2</p>
-                  <p className="text-xs font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
+                <div className="p-6 bg-primary text-primary-foreground hover-elevate rounded transition-colors duration-300 h-full">
+                  <TrendingUp className="w-8 h-8 mb-3" />
+                  <p className="text-3xl font-bold">3x</p>
+                  <p className="text-xs uppercase tracking-wider opacity-80">Más Rápido</p>
                 </div>
               </AnimatedSection>
             </div>
 
             {/* Decorative element with float animation */}
-            <div className="absolute -bottom-8 -right-8 w-32 h-32 border-4 border-accent -z-10 float-animation" style={{ animationDelay: "1.5s" }} />
+            <div className="absolute -bottom-8 -right-8 w-32 h-32 border-4 border-[hsl(174_58%_56%)] rounded -z-10 float-animation" style={{ animationDelay: "1.5s" }} />
           </div>
         </div>
       </div>

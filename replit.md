@@ -1,12 +1,16 @@
-# CogniBoost / CogniMight 2.0
+# CogniBoost 2.0
 
 ## Overview
-CogniBoost (cogniboost.co) is an English learning platform designed for Latin American adults. It features pre-recorded courses (A1-C2 levels), live Conversation Practice Labs with peer-to-peer learning, and progress tracking.
+CogniBoost (cogniboost.co) is a professional development platform designed for Spanish-speaking Latin American adults. The platform evolved from English learning to career advancement education, featuring pre-recorded courses, cohort-based learning, live practice sessions, and progress tracking.
+
+**Brand Pivot**: From language learning to professional development
+**Tagline**: "Deja de coleccionar certificados. Empieza a construir carreras."
 
 ## Target Audience
-Spanish-speaking Latin American professionals learning English.
+Spanish-speaking Latin American professionals looking to advance their careers through practical skills development.
 
 ## Current State
+- Complete brand redesign with career-focused messaging
 - Full Spanish UI translation complete
 - Landing page with hero, methodology, testimonials, pricing, FAQ sections
 - Dashboard with course catalog, conversation labs, progress tracking, settings
@@ -21,12 +25,23 @@ Spanish-speaking Latin American professionals learning English.
 - All user-facing content must be in Spanish
 - English values are used internally for database consistency
 
-### Design System (neotribe.vc-inspired)
-- Primary color: Cyan #33CBFB
-- Accent color: Coral #FD335A
-- **Soft rounded corners** (0.5rem / rounded-lg) per user preference
-- Fonts: Impact/Arial Black for display headings, JetBrains Mono for body text
-- Landing page uses parallax effects, scroll animations, and hover-elevate effects
+### Design System (New Brand Identity)
+**Color Palette:**
+- Primary: Purple #667EEA (CTAs, links, primary actions)
+- Navy: #1A1A40 (Dark backgrounds, text)
+- Turquoise: #4FD1C5 (Success states, highlights)
+- Orange: #F6AD55 (Urgency, ratings, warnings)
+
+**Typography:**
+- Primary font: Inter (body text, UI elements)
+- Secondary font: Lora (optional decorative headings)
+- Typography scale: H1 48px/1.2, H2 36px/1.3, Body 16px/1.6
+
+**Design Elements:**
+- 4px border-radius (rounded) throughout
+- Light mode default (white background)
+- 60-30-10 color distribution rule
+- Landing page uses scroll animations and hover-elevate effects
 
 ## Project Architecture
 

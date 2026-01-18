@@ -5,60 +5,60 @@ const testimonials = [
     name: "María García",
     role: "Gerente de Marketing",
     location: "Ciudad de México",
-    quote: "Después de 3 meses con CogniBoost, finalmente me siento segura hablando inglés en reuniones. Los laboratorios de conversación lo cambiaron todo.",
+    quote: "Después de 3 meses con CogniBoost, conseguí el ascenso que llevaba buscando. Las habilidades de liderazgo y comunicación fueron clave.",
     rating: 5,
-    beforeLevel: "A2",
-    afterLevel: "B2",
+    beforeLevel: "Junior",
+    afterLevel: "Senior",
     avatar: "MG",
   },
   {
     name: "Carlos Rodríguez",
     role: "Ingeniero de Software",
     location: "São Paulo",
-    quote: "La flexibilidad de aprender a mi ritmo combinada con sesiones de práctica real es exactamente lo que necesitaba. No más aprendizaje solo con libros.",
+    quote: "La flexibilidad de aprender a mi ritmo combinada con proyectos reales es exactamente lo que necesitaba para dar el salto a empresas internacionales.",
     rating: 5,
-    beforeLevel: "B1",
-    afterLevel: "C1",
+    beforeLevel: "Mid",
+    afterLevel: "Staff",
     avatar: "CR",
   },
   {
     name: "Ana Silva",
     role: "Directora de RRHH",
     location: "Bogotá",
-    quote: "Probé muchas aplicaciones antes. CogniBoost es la primera donde realmente hablo más de lo que leo. La práctica con compañeros elimina toda la presión.",
+    quote: "Probé muchos cursos antes. CogniBoost es el primero donde aplicas lo que aprendes inmediatamente. Las cohortes te mantienen comprometida.",
     rating: 5,
-    beforeLevel: "A2",
-    afterLevel: "B1",
+    beforeLevel: "Especialista",
+    afterLevel: "Directora",
     avatar: "AS",
   },
   {
     name: "Diego Fernández",
     role: "Ejecutivo de Ventas",
     location: "Buenos Aires",
-    quote: "Los cursos de inglés de negocios son increíblemente prácticos. Uso lo que aprendo inmediatamente en mi trabajo diario con clientes internacionales.",
+    quote: "Los cursos de negociación y ventas son increíblemente prácticos. Duplicé mi comisión en 6 meses aplicando las técnicas aprendidas.",
     rating: 5,
-    beforeLevel: "B1",
-    afterLevel: "B2",
+    beforeLevel: "$5K",
+    afterLevel: "$12K",
     avatar: "DF",
   },
   {
     name: "Lucía Morales",
-    role: "Estudiante Universitaria",
+    role: "Product Manager",
     location: "Lima",
-    quote: "¡Los laboratorios de conversación son muy divertidos! Nunca pensé que disfrutaría hablar inglés. Ahora espero cada sesión con entusiasmo.",
+    quote: "Las sesiones de mentoría con expertos de la industria cambiaron mi perspectiva. Transicioné de desarrollo a producto gracias a CogniBoost.",
     rating: 5,
-    beforeLevel: "A1",
-    afterLevel: "B1",
+    beforeLevel: "Dev",
+    afterLevel: "PM",
     avatar: "LM",
   },
   {
     name: "Roberto Costa",
     role: "Emprendedor",
     location: "Río de Janeiro",
-    quote: "De apenas entender inglés a negociar en él. El enfoque estructurado y la práctica en vivo hicieron toda la diferencia.",
+    quote: "De empleado a fundador de mi startup. El enfoque práctico y las conexiones que hice con otros profesionales hicieron toda la diferencia.",
     rating: 5,
-    beforeLevel: "A2",
-    afterLevel: "B2",
+    beforeLevel: "Empleado",
+    afterLevel: "CEO",
     avatar: "RC",
   },
 ];
@@ -67,18 +67,18 @@ export function Testimonials() {
   return (
     <section className="py-32 bg-card border-y border-border relative overflow-hidden">
       {/* Floating decorative elements */}
-      <div className="absolute top-24 right-12 w-28 h-28 border-4 border-accent/30 float-animation" style={{ animationDelay: "0.5s" }} />
-      <div className="absolute bottom-20 left-8 w-20 h-20 border-4 border-primary/40 float-animation" style={{ animationDelay: "2.5s" }} />
-      <div className="absolute top-1/3 left-16 w-14 h-14 border-4 border-accent/20 float-animation" style={{ animationDelay: "1.5s" }} />
+      <div className="absolute top-24 right-12 w-28 h-28 border-4 border-[hsl(174_58%_56%/0.3)] rounded float-animation" style={{ animationDelay: "0.5s" }} />
+      <div className="absolute bottom-20 left-8 w-20 h-20 border-4 border-primary/40 rounded float-animation" style={{ animationDelay: "2.5s" }} />
+      <div className="absolute top-1/3 left-16 w-14 h-14 border-4 border-[hsl(174_58%_56%/0.2)] rounded float-animation" style={{ animationDelay: "1.5s" }} />
       
       <div className="container mx-auto px-6 relative z-10">
         {/* Section header */}
         <div className="text-center mb-20">
-          <p className="text-sm font-mono text-accent uppercase tracking-widest mb-4">HISTORIAS DE ÉXITO</p>
-          <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
-            RESULTADOS <span className="text-primary">REALES</span>
+          <p className="text-sm text-[hsl(174_58%_56%)] uppercase tracking-widest mb-4">Historias de Éxito</p>
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">
+            Resultados <span className="text-primary">Reales</span>
             <br />
-            DE ESTUDIANTES REALES
+            de Profesionales Reales
           </h2>
         </div>
 
@@ -87,41 +87,41 @@ export function Testimonials() {
           {testimonials.map((testimonial, index) => (
             <div 
               key={index}
-              className="p-8 bg-background border border-border hover-elevate transition-colors duration-300 group rounded-lg"
+              className="p-8 bg-background border border-border hover-elevate transition-colors duration-300 group rounded"
             >
               {/* Quote icon */}
               <Quote className="w-8 h-8 text-primary/20 mb-4" />
               
               {/* Quote text */}
-              <p className="text-foreground font-mono text-sm leading-relaxed mb-6">
+              <p className="text-foreground text-sm leading-relaxed mb-6">
                 "{testimonial.quote}"
               </p>
 
               {/* Rating */}
               <div className="flex gap-1 mb-6">
                 {Array.from({ length: testimonial.rating }).map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-accent text-accent" />
+                  <Star key={i} className="w-4 h-4 fill-[hsl(33_92%_66%)] text-[hsl(33_92%_66%)]" />
                 ))}
               </div>
 
               {/* Author */}
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent flex items-center justify-center text-background font-display text-sm">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary to-[hsl(174_58%_56%)] flex items-center justify-center text-background font-bold text-sm rounded">
                   {testimonial.avatar}
                 </div>
                 <div>
-                  <p className="font-mono font-semibold">{testimonial.name}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{testimonial.role} • {testimonial.location}</p>
+                  <p className="font-semibold">{testimonial.name}</p>
+                  <p className="text-xs text-muted-foreground">{testimonial.role} • {testimonial.location}</p>
                 </div>
               </div>
 
               {/* Level progression */}
               <div className="mt-6 pt-6 border-t border-border flex items-center justify-between">
-                <span className="text-xs font-mono text-muted-foreground uppercase">Progreso</span>
+                <span className="text-xs text-muted-foreground uppercase">Crecimiento</span>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-muted text-xs font-mono">{testimonial.beforeLevel}</span>
+                  <span className="px-2 py-1 bg-muted text-xs rounded">{testimonial.beforeLevel}</span>
                   <span className="text-muted-foreground">→</span>
-                  <span className="px-2 py-1 bg-primary text-primary-foreground text-xs font-mono">{testimonial.afterLevel}</span>
+                  <span className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded">{testimonial.afterLevel}</span>
                 </div>
               </div>
             </div>

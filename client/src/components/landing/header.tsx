@@ -20,11 +20,11 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <a href="/" className="flex items-center gap-2" data-testid="link-logo">
-            <div className="w-8 h-8 bg-primary flex items-center justify-center">
-              <span className="font-display text-primary-foreground text-sm">CB</span>
+            <div className="w-8 h-8 bg-primary flex items-center justify-center rounded">
+              <span className="font-bold text-primary-foreground text-sm">CB</span>
             </div>
-            <span className="font-display text-xl uppercase tracking-tight">
-              COGNI<span className="text-primary">BOOST</span>
+            <span className="font-bold text-xl tracking-tight">
+              Cogni<span className="text-primary">Boost</span>
             </span>
           </a>
 
@@ -34,7 +34,7 @@ export function Header() {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, '-')}`}
               >
                 {link.label}
@@ -47,11 +47,10 @@ export function Header() {
             <ThemeToggle />
             
             {isLoading ? (
-              <div className="w-20 h-9 bg-muted animate-pulse" />
+              <div className="w-20 h-9 bg-muted animate-pulse rounded" />
             ) : isAuthenticated ? (
               <a href="/dashboard">
                 <Button 
-                  className="font-mono uppercase tracking-wider"
                   data-testid="button-dashboard"
                 >
                   Mi Panel
@@ -62,7 +61,6 @@ export function Header() {
                 <a href="/api/login">
                   <Button 
                     variant="ghost" 
-                    className="font-mono uppercase tracking-wider"
                     data-testid="button-login"
                   >
                     Iniciar Sesión
@@ -70,7 +68,6 @@ export function Header() {
                 </a>
                 <a href="/api/login">
                   <Button 
-                    className="bg-accent text-accent-foreground font-mono uppercase tracking-wider"
                     data-testid="button-signup"
                   >
                     Registrarse
@@ -100,7 +97,7 @@ export function Header() {
                 <a
                   key={link.label}
                   href={link.href}
-                  className="text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -110,12 +107,12 @@ export function Header() {
                 <>
                   <hr className="border-border" />
                   <a href="/api/login">
-                    <Button variant="outline" className="w-full font-mono uppercase tracking-wider">
+                    <Button variant="outline" className="w-full">
                       Iniciar Sesión
                     </Button>
                   </a>
                   <a href="/api/login">
-                    <Button className="w-full bg-accent text-accent-foreground font-mono uppercase tracking-wider">
+                    <Button className="w-full">
                       Registrarse
                     </Button>
                   </a>

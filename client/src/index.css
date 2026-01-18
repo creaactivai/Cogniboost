@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - Neotribe.vc inspired: Bold, modern, high-contrast */
+/* LIGHT MODE - CogniBoost Brand 2026: Professional, elevated, trustworthy */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -14,74 +14,78 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Pure white background for maximum contrast */
-  --background: 0 0% 100%;
+  /* Blanco Fresco background #F7FAFC */
+  --background: 204 33% 98%;
 
-  /* Pure black text for bold typography */
-  --foreground: 0 0% 0%;
+  /* Azul Marino text for headings #1A1A40 */
+  --foreground: 240 42% 18%;
 
   /* Light borders */
-  --border: 0 0% 90%;
+  --border: 216 15% 88%;
 
-  /* Cards with subtle gray tint */
-  --card: 0 0% 98%;
-  --card-foreground: 0 0% 0%;
-  --card-border: 0 0% 92%;
+  /* Cards with subtle tint */
+  --card: 0 0% 100%;
+  --card-foreground: 240 42% 18%;
+  --card-border: 216 15% 90%;
 
-  /* Sidebar - dark for contrast */
-  --sidebar: 0 0% 2%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 15%;
-  --sidebar-primary: 193 97% 59%;
-  --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 345 98% 60%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-ring: 193 97% 59%;
+  /* Sidebar - Azul Marino for contrast */
+  --sidebar: 240 42% 18%;
+  --sidebar-foreground: 204 33% 98%;
+  --sidebar-border: 240 42% 25%;
+  --sidebar-primary: 229 77% 66%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 174 58% 56%;
+  --sidebar-accent-foreground: 240 42% 18%;
+  --sidebar-ring: 229 77% 66%;
 
   /* Popover */
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 0%;
-  --popover-border: 0 0% 90%;
+  --popover-foreground: 240 42% 18%;
+  --popover-border: 216 15% 88%;
 
-  /* Primary: Cyan #33CBFB */
-  --primary: 193 97% 59%;
-  --primary-foreground: 0 0% 0%;
+  /* Primary: Púrpura Eléctrico #667EEA - CTAs, links, progress */
+  --primary: 229 77% 66%;
+  --primary-foreground: 0 0% 100%;
 
   /* Secondary: Light gray */
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 0%;
+  --secondary: 204 33% 96%;
+  --secondary-foreground: 240 42% 18%;
 
-  /* Muted */
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
+  /* Muted: Gris Pizarra based */
+  --muted: 216 15% 96%;
+  --muted-foreground: 216 15% 52%;
 
-  /* Accent: Coral #FD335A */
-  --accent: 345 98% 60%;
-  --accent-foreground: 0 0% 100%;
+  /* Accent: Naranja Energía #F6AD55 - urgency, highlights */
+  --accent: 33 89% 65%;
+  --accent-foreground: 240 42% 18%;
+
+  /* Success: Turquesa #4FD1C5 */
+  --success: 174 58% 56%;
+  --success-foreground: 240 42% 18%;
 
   /* Destructive */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
   /* Input and Ring */
-  --input: 0 0% 85%;
-  --ring: 193 97% 59%;
+  --input: 216 15% 85%;
+  --ring: 229 77% 66%;
 
   /* Chart colors */
-  --chart-1: 193 97% 59%;
-  --chart-2: 345 98% 60%;
-  --chart-3: 142 76% 36%;
-  --chart-4: 43 96% 56%;
-  --chart-5: 262 83% 58%;
+  --chart-1: 229 77% 66%;
+  --chart-2: 174 58% 56%;
+  --chart-3: 33 89% 65%;
+  --chart-4: 240 42% 18%;
+  --chart-5: 216 15% 52%;
 
-  /* Typography */
-  --font-sans: 'GT America Mono', 'JetBrains Mono', monospace;
-  --font-serif: Georgia, serif;
-  --font-mono: 'GT America Mono', 'JetBrains Mono', monospace;
-  --font-display: 'Impact', 'Arial Black', sans-serif;
+  /* Typography - Inter primary, Lora secondary */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
+  --font-mono: 'Inter', system-ui, sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
 
-  /* Soft rounded corners per user preference */
-  --radius: 0.5rem;
+  /* 4px border-radius per brand guidelines */
+  --radius: 0.25rem;
 
   /* Shadows - minimal for flat design */
   --shadow-2xs: 0px 0px 0px 0px rgba(0,0,0,0);
@@ -128,54 +132,58 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Pure black background */
-  --background: 0 0% 0%;
-  --foreground: 0 0% 100%;
+  /* Azul Marino dark background #1A1A40 */
+  --background: 240 42% 18%;
+  --foreground: 204 33% 98%;
 
-  --border: 0 0% 15%;
+  --border: 240 42% 28%;
 
-  --card: 0 0% 5%;
-  --card-foreground: 0 0% 100%;
-  --card-border: 0 0% 15%;
+  --card: 240 42% 22%;
+  --card-foreground: 204 33% 98%;
+  --card-border: 240 42% 28%;
 
-  --sidebar: 0 0% 3%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 15%;
-  --sidebar-primary: 193 97% 59%;
-  --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 345 98% 60%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-ring: 193 97% 59%;
+  --sidebar: 240 42% 14%;
+  --sidebar-foreground: 204 33% 98%;
+  --sidebar-border: 240 42% 25%;
+  --sidebar-primary: 229 77% 66%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 174 58% 56%;
+  --sidebar-accent-foreground: 240 42% 18%;
+  --sidebar-ring: 229 77% 66%;
 
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 100%;
-  --popover-border: 0 0% 15%;
+  --popover: 240 42% 22%;
+  --popover-foreground: 204 33% 98%;
+  --popover-border: 240 42% 28%;
 
-  /* Primary: Cyan */
-  --primary: 193 97% 59%;
-  --primary-foreground: 0 0% 0%;
+  /* Primary: Púrpura Eléctrico */
+  --primary: 229 77% 66%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 12%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary: 240 42% 25%;
+  --secondary-foreground: 204 33% 98%;
 
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 55%;
+  --muted: 240 42% 25%;
+  --muted-foreground: 216 15% 65%;
 
-  /* Accent: Coral */
-  --accent: 345 98% 60%;
-  --accent-foreground: 0 0% 100%;
+  /* Accent: Naranja Energía */
+  --accent: 33 89% 65%;
+  --accent-foreground: 240 42% 18%;
+
+  /* Success: Turquesa */
+  --success: 174 58% 56%;
+  --success-foreground: 240 42% 18%;
 
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 0 0% 20%;
-  --ring: 193 97% 59%;
+  --input: 240 42% 30%;
+  --ring: 229 77% 66%;
 
-  --chart-1: 193 97% 59%;
-  --chart-2: 345 98% 60%;
-  --chart-3: 142 76% 46%;
-  --chart-4: 43 96% 56%;
-  --chart-5: 262 83% 68%;
+  --chart-1: 229 77% 66%;
+  --chart-2: 174 58% 56%;
+  --chart-3: 33 89% 65%;
+  --chart-4: 204 33% 98%;
+  --chart-5: 216 15% 65%;
 
   --shadow-2xs: 0px 0px 0px 0px rgba(0,0,0,0);
   --shadow-xs: 0px 0px 0px 0px rgba(0,0,0,0);
@@ -202,16 +210,21 @@
   }
 }
 
-/* Utility classes for neotribe-style display text */
+/* Utility classes for CogniBoost brand typography */
 @layer utilities {
   .text-display {
-    font-family: 'Impact', 'Arial Black', sans-serif;
-    text-transform: uppercase;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
 
   .text-mono {
-    font-family: 'GT America Mono', 'JetBrains Mono', monospace;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 500;
+  }
+
+  .text-editorial {
+    font-family: 'Lora', Georgia, serif;
   }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */

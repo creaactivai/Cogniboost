@@ -9,38 +9,36 @@ export function FinalCTA() {
       
       {/* Accent elements */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 blur-3xl" />
-      <div className="absolute bottom-0 right-0 w-80 h-80 bg-accent/10 blur-3xl" />
+      <div className="absolute bottom-0 right-0 w-80 h-80 bg-[hsl(174_58%_56%/0.1)] blur-3xl" />
 
       <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
           {/* Headline */}
-          <h2 className="text-5xl md:text-7xl font-display uppercase mb-8">
-            ¿LISTO PARA
+          <h2 className="text-4xl md:text-5xl font-bold mb-8">
+            ¿Listo para
             <br />
-            <span className="text-primary">TRANSFORMAR</span>
-            <br />
-            TU INGLÉS?
+            <span className="text-primary">Elevar Tu Carrera?</span>
           </h2>
 
           {/* Subtext */}
-          <p className="text-xl font-mono opacity-80 mb-12 max-w-2xl mx-auto">
-            Únete a miles de profesionales latinoamericanos que están logrando 
-            fluidez real a través de nuestra metodología comprobada.
+          <p className="text-xl opacity-80 mb-12 max-w-2xl mx-auto">
+            Únete a miles de profesionales hispanohablantes que están acelerando 
+            su crecimiento profesional con habilidades prácticas y aplicables.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
-              className="bg-accent text-accent-foreground px-10 py-7 text-lg font-mono uppercase tracking-wider"
               data-testid="button-cta-start-trial"
             >
-              Comenzar Prueba Gratis
+              Comenzar Ahora
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button 
               size="lg"
-              className="bg-primary text-primary-foreground px-10 py-7 text-lg font-mono uppercase tracking-wider"
+              variant="outline"
+              className="border-background/30 text-background"
               data-testid="button-cta-book-demo"
             >
               <Calendar className="mr-2 h-5 w-5" />
@@ -49,12 +47,12 @@ export function FinalCTA() {
           </div>
 
           {/* Trust badges */}
-          <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm font-mono opacity-60">
+          <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm opacity-60">
             <span>Sin tarjeta de crédito</span>
             <span>•</span>
-            <span>7 días de prueba gratis</span>
+            <span>Primera semana gratis</span>
             <span>•</span>
-            <span>Cancela cuando quieras</span>
+            <span>Garantía de satisfacción</span>
           </div>
         </div>
       </div>
