@@ -65,8 +65,13 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section className="py-32 bg-card border-y border-border">
-      <div className="container mx-auto px-6">
+    <section className="py-32 bg-card border-y border-border relative overflow-hidden">
+      {/* Floating decorative elements */}
+      <div className="absolute top-24 right-12 w-28 h-28 border-4 border-accent/30 float-animation" style={{ animationDelay: "0.5s" }} />
+      <div className="absolute bottom-20 left-8 w-20 h-20 border-4 border-primary/40 float-animation" style={{ animationDelay: "2.5s" }} />
+      <div className="absolute top-1/3 left-16 w-14 h-14 border-4 border-accent/20 float-animation" style={{ animationDelay: "1.5s" }} />
+      
+      <div className="container mx-auto px-6 relative z-10">
         {/* Section header */}
         <div className="text-center mb-20">
           <p className="text-sm font-mono text-accent uppercase tracking-widest mb-4">HISTORIAS DE ÉXITO</p>

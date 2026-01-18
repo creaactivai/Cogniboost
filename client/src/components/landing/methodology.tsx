@@ -28,8 +28,13 @@ const steps = [
 
 export function Methodology() {
   return (
-    <section className="py-32 bg-card border-y border-border">
-      <div className="container mx-auto px-6">
+    <section className="py-32 bg-card border-y border-border relative overflow-hidden">
+      {/* Floating decorative elements */}
+      <div className="absolute top-20 left-10 w-24 h-24 border-4 border-primary/30 float-animation" style={{ animationDelay: "0s" }} />
+      <div className="absolute bottom-32 right-16 w-20 h-20 border-4 border-accent/40 float-animation" style={{ animationDelay: "2s" }} />
+      <div className="absolute top-1/2 right-8 w-16 h-16 border-4 border-primary/20 float-animation" style={{ animationDelay: "1s" }} />
+      
+      <div className="container mx-auto px-6 relative z-10">
         {/* Section header with slide-from-left animation */}
         <AnimatedSection animation="fade-left" className="text-center mb-20">
           <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">CÓMO FUNCIONA</p>
