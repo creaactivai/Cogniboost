@@ -63,10 +63,13 @@ export function AnimatedSection({
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${className} ${
+      className={`transition-all duration-700 ease-out transform-gpu ${className} ${
         isVisible ? "translate-y-0 translate-x-0 opacity-100 scale-100" : animationClasses[animation]
       }`}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={{ 
+        transitionDelay: `${delay}ms`,
+        willChange: 'transform, opacity'
+      }}
     >
       {children}
     </div>

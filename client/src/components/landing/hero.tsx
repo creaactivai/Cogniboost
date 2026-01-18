@@ -59,20 +59,20 @@ export function Hero() {
             </p>
 
             {/* CTA Buttons - uniform width, horizontal row, rounded corners */}
-            <div className="flex flex-row gap-4 flex-wrap">
+            <div className="flex flex-row gap-4 flex-wrap items-stretch">
               <Button 
                 size="lg" 
-                className="bg-accent text-accent-foreground w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                className="bg-accent text-accent-foreground w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
                 data-testid="button-start-trial"
               >
                 Prueba Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Link href="/placement-quiz">
+              <Link href="/placement-quiz" className="contents">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                  className="w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
                   data-testid="button-placement-quiz"
                 >
                   <Target className="mr-2 h-5 w-5" />
@@ -81,7 +81,8 @@ export function Hero() {
               </Link>
               <Button 
                 size="lg"
-                className="bg-accent text-accent-foreground w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
+                variant="outline"
+                className="w-[200px] font-mono uppercase tracking-wider rounded-lg justify-center"
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
@@ -101,31 +102,31 @@ export function Hero() {
           <div className="relative" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
             <div className="grid grid-cols-2 gap-4">
               <AnimatedSection animation="fade-left" delay={100} className="h-full">
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <BookOpen className="w-10 h-10 text-primary mb-4" />
-                  <p className="text-4xl font-display">100+</p>
-                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
+                  <BookOpen className="w-8 h-8 text-primary mb-3" />
+                  <p className="text-3xl font-display">100+</p>
+                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={200} className="h-full">
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <Users className="w-10 h-10 text-accent mb-4" />
-                  <p className="text-4xl font-display">500+</p>
-                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
+                  <Users className="w-8 h-8 text-accent mb-3" />
+                  <p className="text-3xl font-display">500+</p>
+                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={300} className="h-full">
-                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <Award className="w-10 h-10 text-primary mb-4" />
-                  <p className="text-4xl font-display">95%</p>
-                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
+                <div className="p-6 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300 h-full">
+                  <Award className="w-8 h-8 text-primary mb-3" />
+                  <p className="text-3xl font-display">95%</p>
+                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={400} className="h-full">
-                <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300 h-full">
-                  <Target className="w-10 h-10 mb-4" />
-                  <p className="text-4xl font-display">A1-C2</p>
-                  <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
+                <div className="p-6 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300 h-full">
+                  <Target className="w-8 h-8 mb-3" />
+                  <p className="text-3xl font-display">A1-C2</p>
+                  <p className="text-xs font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
                 </div>
               </AnimatedSection>
             </div>

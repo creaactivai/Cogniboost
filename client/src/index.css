@@ -420,14 +420,32 @@
 
   /* Floating animation for decorative elements */
   .float-animation {
+    -webkit-animation: float 6s ease-in-out infinite;
     animation: float 6s ease-in-out infinite;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  @-webkit-keyframes float {
+    0%, 100% {
+      -webkit-transform: translateY(0) rotate(0deg);
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      -webkit-transform: translateY(-20px) rotate(2deg);
+      transform: translateY(-20px) rotate(2deg);
+    }
   }
 
   @keyframes float {
     0%, 100% {
+      -webkit-transform: translateY(0) rotate(0deg);
       transform: translateY(0) rotate(0deg);
     }
     50% {
+      -webkit-transform: translateY(-20px) rotate(2deg);
       transform: translateY(-20px) rotate(2deg);
     }
   }
