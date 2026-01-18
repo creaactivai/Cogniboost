@@ -39,11 +39,11 @@ export function Hero() {
               Aprende a tu ritmo, habla con confianza.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+            {/* CTA Buttons - uniform width, horizontal row, rounded corners */}
+            <div className="flex flex-row gap-4 flex-wrap">
               <Button 
                 size="lg" 
-                className="bg-accent text-accent-foreground px-8 py-6 text-lg font-mono uppercase tracking-wider"
+                className="bg-accent text-accent-foreground w-[200px] py-6 text-base font-mono uppercase tracking-wider rounded-[9%] justify-center"
                 data-testid="button-start-trial"
               >
                 Prueba Gratis
@@ -53,21 +53,23 @@ export function Hero() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="px-8 py-6 text-lg font-mono uppercase tracking-wider"
+                  className="w-[200px] py-6 text-base font-mono uppercase tracking-wider rounded-[9%] justify-center"
                   data-testid="button-placement-quiz"
                 >
                   <Target className="mr-2 h-5 w-5" />
                   Examen de Nivel
                 </Button>
               </Link>
+              <Button 
+                size="lg"
+                variant="secondary"
+                className="w-[200px] py-6 text-base font-mono uppercase tracking-wider rounded-[9%] justify-center backdrop-blur-sm"
+                data-testid="button-how-it-works"
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Ver Cómo Funciona
+              </Button>
             </div>
-            <button 
-              className="glassy-button px-8 py-4 text-lg font-mono uppercase tracking-wider flex items-center justify-center"
-              data-testid="button-how-it-works"
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Ver Cómo Funciona
-            </button>
 
             {/* Social proof */}
             <div className="pt-4">

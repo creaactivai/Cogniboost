@@ -1,4 +1,4 @@
-import { SiLinkedin, SiInstagram, SiYoutube, SiX } from "react-icons/si";
+import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok } from "react-icons/si";
 
 const footerLinks = {
   product: [
@@ -24,6 +24,7 @@ const socialLinks = [
   { icon: SiLinkedin, href: "#", label: "LinkedIn" },
   { icon: SiInstagram, href: "#", label: "Instagram" },
   { icon: SiYoutube, href: "#", label: "YouTube" },
+  { icon: SiTiktok, href: "#", label: "TikTok" },
   { icon: SiX, href: "#", label: "X" },
 ];
 
