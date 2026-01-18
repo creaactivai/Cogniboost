@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight, TrendingDown, UserCheck, UserX } from "lucide-react";
 import type { Payment, Subscription } from "@shared/schema";
 
 const tierLabels: Record<string, string> = {
@@ -20,9 +20,23 @@ interface AdminStats {
   activeSubscriptions: number;
 }
 
+interface StudentMetrics {
+  totalStudents: number;
+  activeStudents: number;
+  holdStudents: number;
+  inactiveStudents: number;
+  churnRate: number;
+  newStudentsThisMonth: number;
+  churnedThisMonth: number;
+}
+
 export default function AdminFinancials() {
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+  });
+
+  const { data: metrics, isLoading: metricsLoading } = useQuery<StudentMetrics>({
+    queryKey: ["/api/admin/students/metrics"],
   });
 
   const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
@@ -42,6 +56,8 @@ export default function AdminFinancials() {
   ) || {};
 
   const totalSubs = subscriptions?.length || 1;
+  const mrr = (tierCounts.standard || 0) * 29 + (tierCounts.premium || 0) * 79;
+  const arr = mrr * 12;
 
   return (
     <AdminLayout title="Finanzas de la Academia">
@@ -75,18 +91,18 @@ export default function AdminFinancials() {
                 <TrendingUp className="w-5 h-5 text-black" />
               </div>
               <Badge variant="secondary" className="text-xs">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                +12%
+                MRR
               </Badge>
             </div>
             <p 
               className="text-2xl font-black" 
               style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+              data-testid="text-mrr"
             >
-              ${((tierCounts.standard || 0) * 29 + (tierCounts.premium || 0) * 79).toLocaleString()}
+              ${mrr.toLocaleString()}
             </p>
             <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              Ingresos Mensuales (MRR)
+              Ingresos Mensuales
             </p>
           </Card>
 
@@ -117,18 +133,74 @@ export default function AdminFinancials() {
                 <Users className="w-5 h-5 text-black" />
               </div>
               <Badge variant="secondary" className="text-xs">
-                {subscriptions?.filter((s) => !s.cancelAtPeriodEnd).length || 0}
+                ARR
               </Badge>
             </div>
             <p 
               className="text-2xl font-black" 
               style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+              data-testid="text-arr"
             >
-              {((1 - (subscriptions?.filter((s) => s.cancelAtPeriodEnd).length || 0) / (totalSubs)) * 100).toFixed(0)}%
+              ${arr.toLocaleString()}
             </p>
             <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              Tasa de Retención
+              Ingresos Anuales Est.
             </p>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#10B981] flex items-center justify-center">
+                <UserCheck className="w-4 h-4 text-black" />
+              </div>
+              <div>
+                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {metricsLoading ? "..." : metrics?.activeStudents || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">Estudiantes Activos</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#F59E0B] flex items-center justify-center">
+                <Users className="w-4 h-4 text-black" />
+              </div>
+              <div>
+                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {metricsLoading ? "..." : metrics?.holdStudents || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">En Espera (Pago)</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#EF4444] flex items-center justify-center">
+                <TrendingDown className="w-4 h-4 text-black" />
+              </div>
+              <div>
+                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  {metricsLoading ? "..." : `${metrics?.churnRate || 0}%`}
+                </p>
+                <p className="text-xs text-muted-foreground">Tasa de Abandono</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#22C55E] flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-black" />
+              </div>
+              <div>
+                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                  +{metricsLoading ? "..." : metrics?.newStudentsThisMonth || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">Nuevos este Mes</p>
+              </div>
+            </div>
           </Card>
         </div>
 
@@ -236,6 +308,37 @@ export default function AdminFinancials() {
                   className="h-2"
                   style={{ "--progress-background": "#FD335A" } as React.CSSProperties}
                 />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <h3 
+                  className="font-bold mb-3" 
+                  style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                >
+                  Métricas Clave
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>ARPU (Prom./Usuario)</span>
+                    <span className="font-bold">
+                      ${metrics?.activeStudents ? Math.round(mrr / metrics.activeStudents) : 0}/mes
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Retención</span>
+                    <span className="font-bold text-[#10B981]">
+                      {metrics ? 100 - metrics.churnRate : 100}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>LTV Estimado</span>
+                    <span className="font-bold text-[#33CBFB]">
+                      ${metrics?.activeStudents && mrr 
+                        ? Math.round((mrr / metrics.activeStudents) * 12 * (100 / Math.max(metrics.churnRate, 1)))
+                        : 0}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-border">

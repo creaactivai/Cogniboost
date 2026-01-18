@@ -60,12 +60,27 @@ This pattern is used in:
 The Admin Dashboard provides platform management for the owner:
 - **Panel General** (`/admin`) - Overview with student counts, revenue, course stats
 - **Cursos** (`/admin/courses`) - Course and lesson CRUD management
-- **Estudiantes** (`/admin/students`) - Student progress tracking and analytics
-- **Finanzas** (`/admin/financials`) - Revenue, subscriptions, payment history
+- **Estudiantes** (`/admin/students`) - Student management with status tabs, lock/unlock, metrics
+- **Finanzas** (`/admin/financials`) - Revenue, MRR, ARR, ARPU, LTV, subscriptions, payment history
 - **Laboratorios** (`/admin/labs`) - Conversation lab scheduling
 - **Instructores** (`/admin/instructors`) - Instructor profiles and management
 
-Admin API routes are under `/api/admin/*` namespace and are protected by authentication middleware that checks if the user has `isAdmin: true` in the users table.
+Admin API routes are under `/api/admin/*` namespace and are protected by `requireAdmin` middleware that checks if the user has `isAdmin: true` in the users table.
+
+### Student Status Management
+Users have a status field with three values:
+- **active**: Paying/using the platform normally
+- **hold**: Pending payment, limited access
+- **inactive**: Churned or locked by admin
+
+Admin can lock/unlock students with optional reason. Locking sets status to inactive.
+
+API Endpoints:
+- `GET /api/admin/students` - List all students (optionally filter by `?status=active|hold|inactive`)
+- `GET /api/admin/students/metrics` - Get student KPIs (total, active, hold, inactive, churn rate)
+- `PATCH /api/admin/students/:id/status` - Update student status
+- `POST /api/admin/students/:id/lock` - Lock student access (with optional reason)
+- `POST /api/admin/students/:id/unlock` - Unlock student access
 
 ### Subscription Tiers
 - Free: Basic access
@@ -73,6 +88,10 @@ Admin API routes are under `/api/admin/*` namespace and are protected by authent
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-18: Admin student management with status tabs (active/hold/inactive) and lock/unlock functionality
+- 2026-01-18: Student metrics KPIs: total, active, hold, inactive counts, churn rate, new/churned this month
+- 2026-01-18: Enhanced financials dashboard with MRR, ARR, ARPU, LTV calculations
+- 2026-01-18: Stripe integration via Replit connector for payment processing
 - 2026-01-18: Linear progression system with unlock logic - students must complete lessons sequentially
 - 2026-01-18: Lock icons and "Lección bloqueada" toast for locked lessons
 - 2026-01-18: "Marcar como Completada" button for lessons without quizzes
