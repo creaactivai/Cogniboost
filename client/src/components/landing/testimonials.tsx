@@ -1,131 +1,178 @@
-import { Quote, Star } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const testimonials = [
   {
     name: "María García",
     role: "Gerente de Marketing",
-    location: "Ciudad de México",
-    quote: "Después de 3 meses con CogniBoost, conseguí el ascenso que llevaba buscando. Las habilidades de liderazgo y comunicación fueron clave.",
-    rating: 5,
-    beforeLevel: "Junior",
-    afterLevel: "Senior",
-    avatar: "MG",
+    company: "TechStart MX",
+    quote: "Después de 3 meses con CogniBoost, conseguí el ascenso que llevaba buscando. Las habilidades de liderazgo fueron clave.",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
+    initials: "MG",
   },
   {
     name: "Carlos Rodríguez",
-    role: "Ingeniero de Software",
-    location: "São Paulo",
-    quote: "La flexibilidad de aprender a mi ritmo combinada con proyectos reales es exactamente lo que necesitaba para dar el salto a empresas internacionales.",
-    rating: 5,
-    beforeLevel: "Mid",
-    afterLevel: "Staff",
-    avatar: "CR",
+    role: "CTO",
+    company: "SecureNet",
+    quote: "La flexibilidad de aprender a mi ritmo combinada con proyectos reales es exactamente lo que necesitaba.",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+    initials: "CR",
   },
   {
     name: "Ana Silva",
-    role: "Directora de RRHH",
-    location: "Bogotá",
-    quote: "Probé muchos cursos antes. CogniBoost es el primero donde aplicas lo que aprendes inmediatamente. Las cohortes te mantienen comprometida.",
-    rating: 5,
-    beforeLevel: "Especialista",
-    afterLevel: "Directora",
-    avatar: "AS",
+    role: "COO",
+    company: "InnovateCo",
+    quote: "CogniBoost transformó mi carrera. No puedo agradecer lo suficiente el impacto que ha tenido en mi desarrollo profesional.",
+    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+    initials: "AS",
   },
   {
     name: "Diego Fernández",
-    role: "Ejecutivo de Ventas",
-    location: "Buenos Aires",
-    quote: "Los cursos de negociación y ventas son increíblemente prácticos. Duplicé mi comisión en 6 meses aplicando las técnicas aprendidas.",
-    rating: 5,
-    beforeLevel: "$5K",
-    afterLevel: "$12K",
-    avatar: "DF",
-  },
-  {
-    name: "Lucía Morales",
-    role: "Product Manager",
-    location: "Lima",
-    quote: "Las sesiones de mentoría con expertos de la industria cambiaron mi perspectiva. Transicioné de desarrollo a producto gracias a CogniBoost.",
-    rating: 5,
-    beforeLevel: "Dev",
-    afterLevel: "PM",
-    avatar: "LM",
+    role: "CFO",
+    company: "FuturePlanning",
+    quote: "Los cursos de finanzas son increíblemente prácticos. Puedo aplicar lo aprendido inmediatamente en mi trabajo.",
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    initials: "DF",
   },
   {
     name: "Roberto Costa",
-    role: "Emprendedor",
-    location: "Río de Janeiro",
-    quote: "De empleado a fundador de mi startup. El enfoque práctico y las conexiones que hice con otros profesionales hicieron toda la diferencia.",
-    rating: 5,
-    beforeLevel: "Empleado",
-    afterLevel: "CEO",
-    avatar: "RC",
+    role: "Head of Design",
+    company: "CreativeSolutions",
+    quote: "Si pudiera dar 11 estrellas, daría 12. La mejor inversión en mi desarrollo profesional.",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+    initials: "RC",
   },
 ];
 
 export function Testimonials() {
+  const [activeIndex, setActiveIndex] = useState(2);
+
+  const handlePrev = () => {
+    setActiveIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setActiveIndex((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1));
+  };
+
+  const getAdjustedDistance = (index: number) => {
+    const diff = index - activeIndex;
+    const normalizedDiff = ((diff + testimonials.length) % testimonials.length);
+    return normalizedDiff > testimonials.length / 2 ? normalizedDiff - testimonials.length : normalizedDiff;
+  };
+
+  const getCardStyle = (index: number) => {
+    const adjustedDiff = getAdjustedDistance(index);
+    const isActive = index === activeIndex;
+    const absDistance = Math.abs(adjustedDiff);
+    
+    if (absDistance > 2) {
+      return { opacity: 0, transform: "scale(0.7)", zIndex: 0, display: "none" as const };
+    }
+
+    const scale = isActive ? 1 : 0.85 - absDistance * 0.05;
+    const translateX = adjustedDiff * 280;
+    const zIndex = 10 - absDistance;
+    const opacity = isActive ? 1 : 0.7 - absDistance * 0.15;
+
+    return {
+      transform: `translateX(${translateX}px) scale(${scale})`,
+      zIndex,
+      opacity,
+    };
+  };
+
   return (
-    <section className="py-32 bg-card border-y border-border relative overflow-hidden">
-      {/* Floating decorative elements */}
-      <div className="absolute top-24 right-12 w-28 h-28 border-4 border-[hsl(174_58%_56%/0.3)] rounded float-animation" style={{ animationDelay: "0.5s" }} />
-      <div className="absolute bottom-20 left-8 w-20 h-20 border-4 border-primary/40 rounded float-animation" style={{ animationDelay: "2.5s" }} />
-      <div className="absolute top-1/3 left-16 w-14 h-14 border-4 border-[hsl(174_58%_56%/0.2)] rounded float-animation" style={{ animationDelay: "1.5s" }} />
-      
-      <div className="container mx-auto px-6 relative z-10">
-        {/* Section header */}
-        <div className="text-center mb-20">
-          <p className="text-sm text-[hsl(174_58%_56%)] uppercase tracking-widest mb-4">Historias de Éxito</p>
-          <h2 className="text-3xl md:text-5xl font-bold mb-6">
+    <section className="py-24 bg-muted/30 relative overflow-hidden">
+      <div className="container mx-auto px-6">
+        <div className="text-center mb-16">
+          <p className="text-sm text-[hsl(174_58%_56%)] uppercase tracking-widest mb-4">
+            Historias de Éxito
+          </p>
+          <h2 className="text-3xl md:text-5xl font-bold">
             Resultados <span className="text-primary">Reales</span>
-            <br />
-            de Profesionales Reales
           </h2>
         </div>
 
-        {/* Testimonials grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <div 
-              key={index}
-              className="p-8 bg-background border border-border hover-elevate transition-colors duration-300 group rounded"
-            >
-              {/* Quote icon */}
-              <Quote className="w-8 h-8 text-primary/20 mb-4" />
-              
-              {/* Quote text */}
-              <p className="text-foreground text-sm leading-relaxed mb-6">
-                "{testimonial.quote}"
-              </p>
+        <div className="relative h-[400px] flex items-center justify-center">
+          <div className="relative w-full max-w-5xl flex items-center justify-center">
+            {testimonials.map((testimonial, index) => {
+              const style = getCardStyle(index);
+              const isActive = index === activeIndex;
+              const absDistance = Math.abs(getAdjustedDistance(index));
+              const isClickable = absDistance <= 2;
 
-              {/* Rating */}
-              <div className="flex gap-1 mb-6">
-                {Array.from({ length: testimonial.rating }).map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-[hsl(33_92%_66%)] text-[hsl(33_92%_66%)]" />
-                ))}
-              </div>
+              return (
+                <div
+                  key={index}
+                  data-testid={`testimonial-card-${index}`}
+                  className={`absolute w-72 transition-all duration-500 ease-out ${
+                    isClickable ? "cursor-pointer" : ""
+                  }`}
+                  style={style}
+                  onClick={() => isClickable && setActiveIndex(index)}
+                >
+                  <Card
+                    className={`overflow-visible relative ${
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : ""
+                    }`}
+                  >
+                    {isActive && (
+                      <div className="absolute top-4 right-4 w-12 h-12">
+                        <svg viewBox="0 0 50 50" className="w-full h-full opacity-50">
+                          <line x1="25" y1="0" x2="50" y2="25" stroke="currentColor" strokeWidth="2" />
+                          <line x1="35" y1="0" x2="50" y2="15" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                      </div>
+                    )}
 
-              {/* Author */}
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary to-[hsl(174_58%_56%)] flex items-center justify-center text-background font-bold text-sm rounded">
-                  {testimonial.avatar}
-                </div>
-                <div>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-xs text-muted-foreground">{testimonial.role} • {testimonial.location}</p>
-                </div>
-              </div>
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Avatar className="w-12 h-12 border-2 border-background">
+                          <AvatarImage src={testimonial.image} alt={testimonial.name} />
+                          <AvatarFallback>{testimonial.initials}</AvatarFallback>
+                        </Avatar>
+                      </div>
 
-              {/* Level progression */}
-              <div className="mt-6 pt-6 border-t border-border flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase">Crecimiento</span>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-muted text-xs rounded">{testimonial.beforeLevel}</span>
-                  <span className="text-muted-foreground">→</span>
-                  <span className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded">{testimonial.afterLevel}</span>
+                      <p className={`text-sm leading-relaxed mb-4 ${isActive ? "" : "text-foreground"}`}>
+                        "{testimonial.quote}"
+                      </p>
+
+                      <p className={`text-xs ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        - {testimonial.name}, {testimonial.role} at {testimonial.company}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-2 mt-8">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handlePrev}
+            data-testid="testimonial-prev"
+            className="rounded-full"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleNext}
+            data-testid="testimonial-next"
+            className="rounded-full"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
         </div>
       </div>
     </section>

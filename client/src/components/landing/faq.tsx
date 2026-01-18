@@ -1,9 +1,16 @@
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const faqs = [
   {
@@ -41,42 +48,54 @@ const faqs = [
 ];
 
 export function FAQ() {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <section className="py-32 bg-background">
+    <section className="py-24 bg-muted/30">
       <div className="container mx-auto px-6 max-w-4xl">
-        {/* Section header */}
-        <div className="text-center mb-20">
-          <p className="text-sm text-primary uppercase tracking-widest mb-4">Preguntas Frecuentes</p>
-          <h2 className="text-3xl md:text-5xl font-bold mb-6">
-            Preguntas
-            <br />
-            <span className="text-[hsl(174_58%_56%)]">Comunes</span>
-          </h2>
+        <div className="text-center mb-8">
+          <p className="text-sm text-primary uppercase tracking-widest mb-4">
+            Preguntas Frecuentes
+          </p>
         </div>
 
-        {/* FAQ Accordion */}
-        <Accordion type="single" collapsible className="space-y-4">
-          {faqs.map((faq, index) => (
-            <AccordionItem 
-              key={index} 
-              value={`item-${index}`}
-              className="border border-border px-6 data-[state=open]:bg-card rounded"
-            >
-              <AccordionTrigger 
-                className="text-left py-6 hover:no-underline"
-                data-testid={`faq-trigger-${index}`}
-              >
-                <span className="flex items-start gap-4">
-                  <span className="text-primary font-bold text-lg">{String(index + 1).padStart(2, '0')}</span>
-                  <span>{faq.question}</span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="pb-6 pl-10 text-muted-foreground text-sm leading-relaxed">
-                {faq.answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger 
+            className="w-full flex items-center justify-center gap-4 group cursor-pointer py-4"
+            data-testid="faq-main-trigger"
+          >
+            <h2 className="text-3xl md:text-5xl font-bold text-center">
+              Preguntas
+              <br />
+              <span className="text-[hsl(174_58%_56%)]">Comunes</span>
+            </h2>
+            <div className={`w-12 h-12 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}>
+              <ChevronDown className="w-6 h-6 text-muted-foreground" />
+            </div>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="mt-12 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+            <Accordion type="single" collapsible className="space-y-3">
+              {faqs.map((faq, index) => (
+                <AccordionItem
+                  key={index}
+                  value={`item-${index}`}
+                  className="border border-border bg-card px-6 data-[state=open]:bg-card/80 rounded-md"
+                >
+                  <AccordionTrigger
+                    className="text-left py-5 hover:no-underline gap-4"
+                    data-testid={`faq-trigger-${index}`}
+                  >
+                    <span className="text-sm md:text-base">{faq.question}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-5 text-muted-foreground text-sm leading-relaxed">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </section>
   );
