@@ -13,7 +13,7 @@ const steps = [
     number: "02",
     icon: Users,
     title: "Practica en Comunidad",
-    description: "Únete a cohortes de aprendizaje con profesionales como tú. Responsabilidad grupal que elimina la procrastinación.",
+    description: "Únete a salas temáticas con profesionales como tú. Responsabilidad grupal que elimina la procrastinación.",
     color: "turquoise",
     badge: "MÉTODO PROBADO",
   },
@@ -99,7 +99,7 @@ export function ConversationLabsDeepDive() {
     },
     {
       stat: "8-12",
-      label: "PROFESIONALES POR COHORTE",
+      label: "PROFESIONALES POR SALA",
       description: "Grupos pequeños para networking efectivo",
     },
     {
@@ -134,7 +134,7 @@ export function ConversationLabsDeepDive() {
             </h2>
 
             <p className="text-lg opacity-80 leading-relaxed">
-              Los cursos a tu ritmo tienen tasas de abandono del 95%. Nuestras cohortes tienen 
+              Los cursos a tu ritmo tienen tasas de abandono del 95%. Nuestras salas temáticas tienen 
               tasas de finalización del 87%. La diferencia: responsabilidad comunitaria.
             </p>
 

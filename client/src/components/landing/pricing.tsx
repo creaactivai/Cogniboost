@@ -1,6 +1,13 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, Sparkles } from "lucide-react";
+import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBooking } from "@/contexts/booking-context";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 
 const plans = [
   {
@@ -8,61 +15,188 @@ const plans = [
     price: "$0",
     period: "para siempre",
     description: "Perfecto para explorar",
+    icon: Gift,
+    iconColor: "text-[hsl(174_58%_56%)]",
+    iconBg: "bg-[hsl(174_58%_56%/0.15)]",
     features: [
-      { text: "3 cursos introductorios", included: true },
-      { text: "1 sesión de cohorte de prueba", included: true },
-      { text: "Seguimiento básico de progreso", included: true },
+      { text: "3 primeras lecciones", included: true },
+      { text: "1 Examen de nivel", included: true },
+      { text: "1 Sesión de clase en vivo de prueba", included: true },
+      { text: "1 Examen gratis y evaluación", included: true },
       { text: "Biblioteca completa de cursos", included: false },
-      { text: "Acceso a cohortes mensuales", included: false },
-      { text: "Mentoría 1 a 1", included: false },
+      { text: "Clases grupales mensuales", included: false },
       { text: "Certificados", included: false },
-      { text: "Soporte prioritario", included: false },
     ],
     cta: "Comenzar Gratis",
     variant: "outline" as const,
   },
   {
-    name: "Estándar",
-    price: "$29",
+    name: "Flex",
+    price: "$14.99",
     period: "/mes",
-    description: "La opción más popular",
-    popular: true,
+    description: "Para los cortos de tiempo",
+    icon: Zap,
+    iconColor: "text-orange-500",
+    iconBg: "bg-orange-500/15",
+    trial: "Prueba 7 días gratis",
     features: [
-      { text: "Biblioteca completa (100+ cursos)", included: true },
-      { text: "4 cohortes de aprendizaje/mes", included: true },
-      { text: "Seguimiento avanzado de progreso", included: true },
-      { text: "Certificados descargables", included: true },
+      { text: "Biblioteca completa (100+ lecciones)", included: true },
+      { text: "1 clase grupal al mes", included: true },
+      { text: "Seguimiento avanzado y analíticas", included: true },
+      { text: "Certificado descargable", included: true },
       { text: "Soporte por email", included: true },
       { text: "Mentoría 1 a 1", included: false },
-      { text: "Soporte prioritario", included: false },
-      { text: "Ruta de desarrollo personalizada", included: false },
+      { text: "Acceso anticipado a nuevos cursos", included: false },
+    ],
+    cta: "Prueba 7 Días Gratis",
+    variant: "default" as const,
+  },
+  {
+    name: "Estándar",
+    price: "$49.99",
+    period: "/mes",
+    description: "La opción más popular",
+    icon: Star,
+    iconColor: "text-primary",
+    iconBg: "bg-primary/15",
+    popular: true,
+    trial: "Prueba 7 días gratis",
+    features: [
+      { text: "Biblioteca completa (100+ lecciones)", included: true },
+      { text: "8 clases en vivo al mes", included: true },
+      { text: "Seguimiento avanzado y analíticas", included: true },
+      { text: "Certificado descargable", included: true },
+      { text: "Soporte por email", included: true },
+      { text: "Mentoría 1 a 1", included: false },
+      { text: "Acceso anticipado", included: false },
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
   },
   {
     name: "Premium",
-    price: "$79",
+    price: "$99.99",
     period: "/mes",
-    description: "Para profesionales comprometidos",
+    description: "Para estudiantes comprometidos",
+    icon: Crown,
+    iconColor: "text-amber-500",
+    iconBg: "bg-amber-500/15",
+    accent: true,
+    trial: "Prueba 7 días gratis",
     features: [
-      { text: "Todo lo del plan Estándar", included: true },
-      { text: "8 cohortes de aprendizaje/mes", included: true },
-      { text: "2 sesiones de mentoría 1 a 1/mes", included: true },
+      { text: "Todo el plan Estándar", included: true },
+      { text: "4 clases en vivo a la semana", included: true },
+      { text: "1 sesión de mentoría 1 a 1 al mes", included: true },
       { text: "Soporte prioritario", included: true },
-      { text: "Ruta de desarrollo personalizada", included: true },
-      { text: "Grabaciones de sesiones (30 días)", included: true },
-      { text: "Certificación para LinkedIn", included: true },
+      { text: "Ruta de desarrollo y analíticas", included: true },
+      { text: "Grabaciones de mentoría 1-1", included: true },
+      { text: "Certificados para LinkedIn", included: true },
       { text: "Acceso anticipado a nuevos cursos", included: true },
+      { text: "Prioridad de agenda en clases en vivo", included: true },
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
-    accent: true,
   },
 ];
 
+function PricingCard({ plan, openBooking }: { plan: typeof plans[0]; openBooking: () => void }) {
+  const IconComponent = plan.icon;
+  
+  return (
+    <div 
+      className={`
+        relative p-6 border hover-elevate transition-colors duration-300 rounded flex flex-col h-full
+        ${plan.popular ? "border-primary" : "border-border"} 
+        ${plan.accent ? "bg-foreground text-background" : "bg-card"}
+      `}
+      data-testid={`card-plan-${plan.name.toLowerCase()}`}
+    >
+      {/* Popular badge */}
+      {plan.popular && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs uppercase tracking-wider flex items-center gap-1 rounded">
+          <Sparkles className="w-3 h-3" />
+          Popular
+        </div>
+      )}
+
+      {/* Trial badge */}
+      {plan.trial && !plan.popular && (
+        <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 text-xs uppercase tracking-wider rounded ${plan.accent ? "bg-amber-500 text-black" : "bg-muted text-muted-foreground"}`}>
+          {plan.trial}
+        </div>
+      )}
+
+      {/* Plan icon */}
+      <div className={`w-14 h-14 flex items-center justify-center rounded mb-4 ${plan.accent ? "bg-background/10" : plan.iconBg}`}>
+        <IconComponent className={`w-7 h-7 ${plan.accent ? "text-background" : plan.iconColor}`} />
+      </div>
+
+      {/* Plan header */}
+      <div className="mb-6">
+        <p className="text-sm font-medium uppercase tracking-wider opacity-60 mb-1" data-testid={`text-plan-name-${plan.name.toLowerCase()}`}>{plan.name}</p>
+        <div className="flex items-baseline gap-1 mb-2">
+          <span className="text-4xl font-bold" data-testid={`text-plan-price-${plan.name.toLowerCase()}`}>{plan.price}</span>
+          <span className="text-sm opacity-60">{plan.period}</span>
+        </div>
+        <p className="text-sm opacity-60">{plan.description}</p>
+      </div>
+
+      {/* Features */}
+      <ul className="space-y-2.5 mb-6 flex-1">
+        {plan.features.map((feature, index) => (
+          <li key={index} className="flex items-start gap-2.5">
+            {feature.included ? (
+              <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.accent ? "text-amber-400" : "text-primary"}`} />
+            ) : (
+              <X className="w-4 h-4 flex-shrink-0 opacity-30 mt-0.5" />
+            )}
+            <span className={`text-sm leading-tight ${!feature.included && "opacity-40"}`}>
+              {feature.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* CTA */}
+      <Button 
+        className="w-full"
+        variant={plan.variant}
+        onClick={openBooking}
+        data-testid={`button-plan-${plan.name.toLowerCase()}`}
+      >
+        {plan.cta}
+      </Button>
+    </div>
+  );
+}
+
 export function Pricing() {
   const { openBooking } = useBooking();
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(2);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!api) return;
+
+    api.scrollTo(2);
+    setCurrent(api.selectedScrollSnap());
+
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
+
+  const scrollTo = (index: number) => {
+    api?.scrollTo(index);
+  };
 
   return (
     <section className="py-32 bg-background relative overflow-hidden" id="pricing">
@@ -74,7 +208,7 @@ export function Pricing() {
       
       <div className="container mx-auto px-6 relative z-10">
         {/* Section header */}
-        <div className="text-center mb-20">
+        <div className="text-center mb-16">
           <p className="text-sm text-primary uppercase tracking-widest mb-4">Precios</p>
           <h2 className="text-3xl md:text-5xl font-bold mb-6">
             Planes <span className="text-[hsl(174_58%_56%)]">Flexibles</span>
@@ -86,59 +220,71 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* Pricing grid */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {plans.map((plan) => (
-            <div 
-              key={plan.name}
-              className={`relative p-8 border hover-elevate transition-colors duration-300 rounded ${plan.popular ? "border-primary" : "border-border"} ${plan.accent ? "bg-foreground text-background" : "bg-card"}`}
-            >
-              {/* Popular badge */}
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs uppercase tracking-wider flex items-center gap-1 rounded">
-                  <Sparkles className="w-3 h-3" />
-                  Popular
-                </div>
-              )}
-
-              {/* Plan header */}
-              <div className="mb-8">
-                <p className="text-sm font-medium uppercase tracking-wider opacity-60 mb-2">{plan.name}</p>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-5xl font-bold">{plan.price}</span>
-                  <span className="text-sm opacity-60">{plan.period}</span>
-                </div>
-                <p className="text-sm opacity-60">{plan.description}</p>
-              </div>
-
-              {/* Features */}
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    {feature.included ? (
-                      <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-                    ) : (
-                      <X className="w-4 h-4 flex-shrink-0 opacity-30" />
-                    )}
-                    <span className={`text-sm ${!feature.included && "opacity-40"}`}>
-                      {feature.text}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
+        {/* Mobile: Carousel, Desktop: Grid */}
+        {isMobile ? (
+          <>
+            {/* Mobile carousel navigation */}
+            <div className="flex items-center justify-between mb-4">
               <Button 
-                className="w-full"
-                variant={plan.variant}
-                onClick={openBooking}
-                data-testid={`button-plan-${plan.name.toLowerCase()}`}
+                size="icon" 
+                variant="ghost" 
+                onClick={() => api?.scrollPrev()}
+                disabled={current === 0}
+                className="disabled:opacity-30"
+                data-testid="button-pricing-prev"
               >
-                {plan.cta}
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex gap-2">
+                {plans.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => scrollTo(index)}
+                    className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                      index === current ? "bg-primary" : "bg-muted-foreground/30"
+                    }`}
+                    data-testid={`button-pricing-dot-${index}`}
+                    aria-label={`Go to plan ${index + 1}`}
+                  />
+                ))}
+              </div>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                onClick={() => api?.scrollNext()}
+                disabled={current === plans.length - 1}
+                className="disabled:opacity-30"
+                data-testid="button-pricing-next"
+              >
+                <ChevronRight className="w-5 h-5" />
               </Button>
             </div>
-          ))}
-        </div>
+
+            <Carousel
+              setApi={setApi}
+              opts={{
+                align: "center",
+                loop: false,
+              }}
+              className="w-full"
+              data-testid="pricing-carousel"
+            >
+              <CarouselContent className="-ml-4">
+                {plans.map((plan) => (
+                  <CarouselItem key={plan.name} className="pl-4 basis-[85%]">
+                    <PricingCard plan={plan} openBooking={openBooking} />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+          </>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="pricing-grid">
+            {plans.map((plan) => (
+              <PricingCard key={plan.name} plan={plan} openBooking={openBooking} />
+            ))}
+          </div>
+        )}
 
         {/* Trust indicators */}
         <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm text-muted-foreground">

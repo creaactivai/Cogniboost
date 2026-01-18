@@ -197,6 +197,7 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
             size="icon"
             onClick={() => { onClose(); resetModal(); }}
             data-testid="modal-close"
+            aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
           </Button>
