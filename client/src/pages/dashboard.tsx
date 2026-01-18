@@ -9,8 +9,12 @@ import { ConversationLabs } from "@/components/dashboard/conversation-labs";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
+
+const ANONYMOUS_ID_KEY = "cogniboost_anonymous_id";
 
 function HelpSupport() {
   return (
@@ -49,8 +53,37 @@ export default function Dashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [wouterLocation] = useLocation();
   const browserPath = window.location.pathname;
+  const queryClient = useQueryClient();
+  const claimAttemptedRef = useRef(false);
   
   console.log("Dashboard wouter location:", wouterLocation, "Browser path:", browserPath);
+
+  // Fallback: Claim anonymous quiz results if user doesn't have placement level yet
+  useEffect(() => {
+    const claimAnonymousQuiz = async () => {
+      if (!user || claimAttemptedRef.current || user.placementLevel) return;
+      claimAttemptedRef.current = true;
+      
+      const anonymousId = localStorage.getItem(ANONYMOUS_ID_KEY);
+      if (!anonymousId) return;
+      
+      try {
+        const response = await apiRequest("POST", "/api/placement/claim", { anonymousId });
+        const data = await response.json();
+        
+        if (data.claimed) {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          console.log("Claimed anonymous quiz results:", data.computedLevel);
+        }
+      } catch (error) {
+        console.error("Failed to claim anonymous quiz:", error);
+      }
+    };
+    
+    if (user && !user.placementLevel) {
+      claimAnonymousQuiz();
+    }
+  }, [user, queryClient]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

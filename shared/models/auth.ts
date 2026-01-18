@@ -55,7 +55,8 @@ export const users = pgTable("users", {
 // Placement quiz attempts table
 export const placementQuizAttempts = pgTable("placement_quiz_attempts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Nullable for anonymous users
+  anonymousId: varchar("anonymous_id"), // UUID for anonymous users (stored in localStorage)
   status: placementQuizStatusEnum("status").notNull().default("in_progress"),
   currentStep: text("current_step").notNull().default("1"), // Current question number
   currentDifficulty: text("current_difficulty").notNull().default("B1"), // Adaptive difficulty level

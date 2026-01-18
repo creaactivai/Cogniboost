@@ -236,9 +236,13 @@ export interface IStorage {
   createPlacementQuizAttempt(attempt: InsertPlacementQuizAttempt): Promise<PlacementQuizAttempt>;
   getPlacementQuizAttemptById(id: string): Promise<PlacementQuizAttempt | undefined>;
   getPlacementQuizAttemptsByUserId(userId: string): Promise<PlacementQuizAttempt[]>;
+  getPlacementQuizAttemptsByAnonymousId(anonymousId: string): Promise<PlacementQuizAttempt[]>;
   getPlacementQuizAttemptsToday(userId: string): Promise<number>;
+  getPlacementQuizAttemptsTodayByAnonymousId(anonymousId: string, ipHash: string): Promise<number>;
+  getActiveQuizByAnonymousId(anonymousId: string): Promise<PlacementQuizAttempt | undefined>;
   updatePlacementQuizAttempt(id: string, updates: Partial<InsertPlacementQuizAttempt>): Promise<PlacementQuizAttempt | undefined>;
   completePlacementQuiz(attemptId: string, computedLevel: string, confidence: string): Promise<PlacementQuizAttempt | undefined>;
+  claimAnonymousQuizAttempt(anonymousId: string, userId: string): Promise<PlacementQuizAttempt | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1019,14 +1023,75 @@ export class DatabaseStorage implements IStorage {
       .where(eq(placementQuizAttempts.id, attemptId))
       .returning();
     
-    // Also update user's placement results
-    if (updated) {
+    // Also update user's placement results (only if userId exists)
+    if (updated && updated.userId) {
       await db.update(users).set({
         placementLevel: computedLevel,
         placementConfidence: confidence,
         placementAttemptId: attemptId,
         updatedAt: new Date(),
       }).where(eq(users.id, updated.userId));
+    }
+    
+    return updated;
+  }
+
+  async getPlacementQuizAttemptsByAnonymousId(anonymousId: string): Promise<PlacementQuizAttempt[]> {
+    return db.select().from(placementQuizAttempts)
+      .where(eq(placementQuizAttempts.anonymousId, anonymousId))
+      .orderBy(desc(placementQuizAttempts.startedAt));
+  }
+
+  async getPlacementQuizAttemptsTodayByAnonymousId(anonymousId: string, ipHash: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const result = await db.select({ count: count() })
+      .from(placementQuizAttempts)
+      .where(and(
+        eq(placementQuizAttempts.anonymousId, anonymousId),
+        eq(placementQuizAttempts.ipHash, ipHash),
+        sql`${placementQuizAttempts.startedAt} >= ${today}`
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getActiveQuizByAnonymousId(anonymousId: string): Promise<PlacementQuizAttempt | undefined> {
+    const [attempt] = await db.select().from(placementQuizAttempts)
+      .where(and(
+        eq(placementQuizAttempts.anonymousId, anonymousId),
+        eq(placementQuizAttempts.status, "in_progress")
+      ))
+      .orderBy(desc(placementQuizAttempts.startedAt))
+      .limit(1);
+    return attempt;
+  }
+
+  async claimAnonymousQuizAttempt(anonymousId: string, userId: string): Promise<PlacementQuizAttempt | undefined> {
+    // Find the most recent completed attempt for this anonymous user
+    const [attempt] = await db.select().from(placementQuizAttempts)
+      .where(and(
+        eq(placementQuizAttempts.anonymousId, anonymousId),
+        eq(placementQuizAttempts.status, "completed")
+      ))
+      .orderBy(desc(placementQuizAttempts.completedAt))
+      .limit(1);
+    
+    if (!attempt) return undefined;
+    
+    // Update the attempt to associate with the user
+    const [updated] = await db.update(placementQuizAttempts)
+      .set({ userId })
+      .where(eq(placementQuizAttempts.id, attempt.id))
+      .returning();
+    
+    // Update user's placement results
+    if (updated && updated.computedLevel && updated.confidence) {
+      await db.update(users).set({
+        placementLevel: updated.computedLevel,
+        placementConfidence: updated.confidence,
+        placementAttemptId: updated.id,
+        updatedAt: new Date(),
+      }).where(eq(users.id, userId));
     }
     
     return updated;

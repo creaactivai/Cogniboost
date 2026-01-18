@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -7,7 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, CheckCircle, XCircle, ArrowRight, Trophy, Target, BookOpen } from "lucide-react";
+import { Loader2, Clock, CheckCircle, XCircle, ArrowRight, Trophy, Target, BookOpen, User } from "lucide-react";
+
+// Generate or retrieve anonymous ID for quiz tracking
+function getAnonymousId(): string {
+  const STORAGE_KEY = "cogniboost_anonymous_id";
+  let anonymousId = localStorage.getItem(STORAGE_KEY);
+  if (!anonymousId) {
+    anonymousId = crypto.randomUUID();
+    localStorage.setItem(STORAGE_KEY, anonymousId);
+  }
+  return anonymousId;
+}
 
 interface PlacementQuestion {
   text: string;
@@ -62,15 +73,29 @@ export default function PlacementQuiz() {
     totalQuestions: number;
   } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  
+  // Get anonymous ID for non-authenticated users
+  const anonymousId = getAnonymousId();
 
+  // Check for active quiz - supports both authenticated and anonymous users
   const { data: currentQuiz, isLoading: checkingCurrent } = useQuery<CurrentQuizResponse>({
-    queryKey: ["/api/placement/current"],
-    enabled: !!user,
+    queryKey: ["/api/placement/current", anonymousId],
+    queryFn: async () => {
+      const url = user 
+        ? "/api/placement/current" 
+        : `/api/placement/current?anonymousId=${encodeURIComponent(anonymousId)}`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to check current quiz");
+      return response.json();
+    },
+    enabled: !authLoading,
   });
 
   const startQuizMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/placement/start");
+      // Pass anonymousId for non-authenticated users
+      const body = user ? {} : { anonymousId };
+      const response = await apiRequest("POST", "/api/placement/start", body);
       return response.json();
     },
     onSuccess: (data) => {
@@ -94,7 +119,11 @@ export default function PlacementQuiz() {
 
   const answerMutation = useMutation({
     mutationFn: async ({ attemptId, answer }: { attemptId: string; answer: number }) => {
-      const response = await apiRequest("POST", "/api/placement/answer", { attemptId, answer });
+      // Pass anonymousId for non-authenticated users
+      const body = user 
+        ? { attemptId, answer }
+        : { attemptId, answer, anonymousId };
+      const response = await apiRequest("POST", "/api/placement/answer", body);
       return response.json();
     },
     onSuccess: (data: AnswerResult) => {
@@ -149,13 +178,8 @@ export default function PlacementQuiz() {
     }
   }, [quizState?.expiresAt]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      // Redirect to login with return URL back to placement quiz
-      window.location.href = "/api/login?returnTo=/placement-quiz";
-    }
-  }, [authLoading, user]);
-
+  // No redirect - anonymous users can take the quiz!
+  
   if (authLoading || checkingCurrent) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -233,22 +257,56 @@ export default function PlacementQuiz() {
                 </div>
 
                 <div className="space-y-3">
-                  <Button
-                    className="w-full"
-                    onClick={() => setLocation("/onboarding")}
-                    data-testid="button-continue-onboarding"
-                  >
-                    Continuar con la Personalización
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setLocation("/dashboard")}
-                    data-testid="button-go-dashboard"
-                  >
-                    Ir al Dashboard
-                  </Button>
+                  {user ? (
+                    <>
+                      <Button
+                        className="w-full"
+                        onClick={() => setLocation("/onboarding")}
+                        data-testid="button-continue-onboarding"
+                      >
+                        Continuar con la Personalización
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setLocation("/dashboard")}
+                        data-testid="button-go-dashboard"
+                      >
+                        Ir al Dashboard
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-primary/10 border border-primary/20 text-center">
+                        <User className="w-8 h-8 text-primary mx-auto mb-2" />
+                        <p className="font-mono text-sm mb-3">
+                          ¡Crea tu cuenta para guardar tus resultados y acceder a cursos personalizados para tu nivel {quizResult.level}!
+                        </p>
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          // Store the quiz result in localStorage before redirect
+                          localStorage.setItem("cogniboost_quiz_result", JSON.stringify(quizResult));
+                          // Redirect to login with returnTo=/onboarding to ensure claim runs
+                          window.location.href = "/api/login?returnTo=/onboarding";
+                        }}
+                        data-testid="button-signup-after-quiz"
+                      >
+                        Crear Cuenta Gratis
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setLocation("/")}
+                        data-testid="button-go-home"
+                      >
+                        Volver al Inicio
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

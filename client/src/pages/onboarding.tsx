@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ChevronRight, ChevronLeft, Check, Sparkles, BookOpen, Clock, Target, Award } from "lucide-react";
+
+// Storage key for anonymous quiz ID
+const ANONYMOUS_ID_KEY = "cogniboost_anonymous_id";
 
 const steps = [
   { id: 1, title: "Nivel", icon: BookOpen },
@@ -77,6 +80,41 @@ export default function Onboarding() {
     weeklyHoursGoal: "",
     interests: [] as string[],
   });
+
+  const claimAttemptedRef = useRef(false);
+  
+  // Claim anonymous quiz results when user logs in
+  useEffect(() => {
+    const claimAnonymousQuiz = async () => {
+      if (!user || claimAttemptedRef.current) return;
+      claimAttemptedRef.current = true;
+      
+      const anonymousId = localStorage.getItem(ANONYMOUS_ID_KEY);
+      if (!anonymousId) return;
+      
+      try {
+        const response = await apiRequest("POST", "/api/placement/claim", { anonymousId });
+        const data = await response.json();
+        
+        if (data.claimed) {
+          // Refresh user data to get the claimed placement level
+          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+          toast({
+            title: "¡Resultados guardados!",
+            description: `Tu nivel ${data.computedLevel} ha sido guardado en tu perfil.`,
+          });
+          // Pre-fill the level
+          setFormData(prev => ({ ...prev, englishLevel: data.computedLevel }));
+        }
+      } catch (error) {
+        console.error("Failed to claim anonymous quiz:", error);
+      }
+    };
+    
+    if (user && !user.placementLevel) {
+      claimAnonymousQuiz();
+    }
+  }, [user, queryClient, toast]);
 
   // Pre-fill level from placement quiz if available
   useEffect(() => {

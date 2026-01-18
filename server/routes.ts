@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createHash } from "crypto";
 import multer from "multer";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -1248,20 +1249,34 @@ Important:
 
   const MAX_PLACEMENT_ATTEMPTS_PER_DAY = 3;
 
-  // Start a new placement quiz (requires auth)
+  // Helper to hash IP for rate limiting
+  function hashIP(ip: string): string {
+    return createHash('sha256').update(ip + 'cogniboost-salt').digest('hex').slice(0, 32);
+  }
+
+  // Start a new placement quiz (NO AUTH REQUIRED - supports anonymous users)
   app.post("/api/placement/start", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-    
     try {
-      const userId = (req.user as any)?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
+      // Get user ID if authenticated, otherwise use anonymousId
+      const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+      const { anonymousId } = req.body;
+      
+      if (!userId && !anonymousId) {
+        return res.status(400).json({ error: "Se requiere anonymousId para usuarios no autenticados" });
       }
       
+      // Get IP for rate limiting
+      const clientIP = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.ip || 'unknown';
+      const ipHash = hashIP(clientIP);
+      
       // Check rate limiting - max 3 attempts per day
-      const attemptsToday = await storage.getPlacementQuizAttemptsToday(userId);
+      let attemptsToday: number;
+      if (userId) {
+        attemptsToday = await storage.getPlacementQuizAttemptsToday(userId);
+      } else {
+        attemptsToday = await storage.getPlacementQuizAttemptsTodayByAnonymousId(anonymousId, ipHash);
+      }
+      
       if (attemptsToday >= MAX_PLACEMENT_ATTEMPTS_PER_DAY) {
         return res.status(429).json({ 
           error: "Límite de intentos alcanzado", 
@@ -1272,13 +1287,15 @@ Important:
       // Create new quiz attempt
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
       const attempt = await storage.createPlacementQuizAttempt({
-        userId,
+        userId: userId || undefined,
+        anonymousId: userId ? undefined : anonymousId,
         status: "in_progress",
         currentStep: "1",
         currentDifficulty: "B1",
         answers: [],
         totalQuestions: "8",
         correctAnswers: "0",
+        ipHash,
         expiresAt,
       });
       
@@ -1298,14 +1315,11 @@ Important:
     }
   });
 
-  // Submit an answer and get next question
+  // Submit an answer and get next question (NO AUTH REQUIRED - supports anonymous users)
   app.post("/api/placement/answer", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+    const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+    const { attemptId, answer, anonymousId } = req.body;
     
-    const userId = (req.user as any)?.claims?.sub;
-    const { attemptId, answer } = req.body;
     if (!attemptId || answer === undefined) {
       return res.status(400).json({ error: "Missing attemptId or answer" });
     }
@@ -1315,9 +1329,14 @@ Important:
       if (!attempt) {
         return res.status(404).json({ error: "Quiz attempt not found" });
       }
-      if (attempt.userId !== userId) {
+      
+      // Verify ownership - either by userId or anonymousId
+      const isOwner = (userId && attempt.userId === userId) || 
+                      (anonymousId && attempt.anonymousId === anonymousId);
+      if (!isOwner) {
         return res.status(403).json({ error: "Unauthorized" });
       }
+      
       if (attempt.status !== "in_progress") {
         return res.status(400).json({ error: "Quiz already completed or expired" });
       }
@@ -1363,39 +1382,41 @@ Important:
         
         await storage.completePlacementQuiz(attemptId, level, confidence);
         
-        // Send email with placement quiz results
-        try {
-          const user = await storage.getUser(userId);
-          if (user?.email) {
-            const levelDescriptions: Record<string, { name: string; explanation: string }> = {
-              A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
-              A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
-              B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
-              B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
-              C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
-              C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
-            };
-            const confidenceLabels: Record<string, string> = {
-              high: "Alta",
-              medium: "Media", 
-              low: "Baja",
-            };
-            
-            await sendEmail(user.email, "placement_quiz_result", {
-              firstName: user.firstName || "estudiante",
-              level,
-              levelDescription: levelDescriptions[level]?.name || "Intermedio",
-              levelExplanation: levelDescriptions[level]?.explanation || "",
-              correctAnswers: String(correctCount),
-              totalQuestions: String(totalQuestions),
-              confidence: confidenceLabels[confidence] || "Media",
-              onboardingUrl: "https://cogniboost.co/onboarding",
-            });
-            console.log(`Placement quiz result email sent to ${user.email}`);
+        // Send email with placement quiz results (only for authenticated users)
+        if (userId) {
+          try {
+            const user = await storage.getUser(userId);
+            if (user?.email) {
+              const levelDescriptions: Record<string, { name: string; explanation: string }> = {
+                A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
+                A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
+                B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
+                B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
+                C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
+                C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
+              };
+              const confidenceLabels: Record<string, string> = {
+                high: "Alta",
+                medium: "Media", 
+                low: "Baja",
+              };
+              
+              await sendEmail(user.email, "placement_quiz_result", {
+                firstName: user.firstName || "estudiante",
+                level,
+                levelDescription: levelDescriptions[level]?.name || "Intermedio",
+                levelExplanation: levelDescriptions[level]?.explanation || "",
+                correctAnswers: String(correctCount),
+                totalQuestions: String(totalQuestions),
+                confidence: confidenceLabels[confidence] || "Media",
+                onboardingUrl: "https://cogniboost.co/onboarding",
+              });
+              console.log(`Placement quiz result email sent to ${user.email}`);
+            }
+          } catch (emailError) {
+            console.error("Failed to send placement quiz result email:", emailError);
+            // Don't fail the request if email fails
           }
-        } catch (emailError) {
-          console.error("Failed to send placement quiz result email:", emailError);
-          // Don't fail the request if email fails
         }
         
         return res.json({
@@ -1449,16 +1470,23 @@ Important:
     }
   });
 
-  // Get current attempt status (for resuming)
+  // Get current attempt status (for resuming) - supports anonymous users via query param
   app.get("/api/placement/current", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+    const anonymousId = req.query.anonymousId as string | undefined;
+    
+    if (!userId && !anonymousId) {
+      return res.json({ hasActiveQuiz: false });
     }
     
     try {
-      const userId = (req.user as any)?.claims?.sub;
-      const attempts = await storage.getPlacementQuizAttemptsByUserId(userId);
-      const currentAttempt = attempts.find(a => a.status === "in_progress");
+      let currentAttempt;
+      if (userId) {
+        const attempts = await storage.getPlacementQuizAttemptsByUserId(userId);
+        currentAttempt = attempts.find(a => a.status === "in_progress");
+      } else if (anonymousId) {
+        currentAttempt = await storage.getActiveQuizByAnonymousId(anonymousId);
+      }
       
       if (!currentAttempt) {
         return res.json({ hasActiveQuiz: false });
@@ -1488,6 +1516,110 @@ Important:
     } catch (error) {
       console.error("Error fetching current placement quiz:", error);
       res.status(500).json({ error: "Failed to fetch current quiz" });
+    }
+  });
+
+  // Claim anonymous quiz attempt after user registers/logs in
+  app.post("/api/placement/claim", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    const userId = (req.user as any)?.claims?.sub;
+    const { anonymousId } = req.body;
+    
+    if (!anonymousId) {
+      return res.status(400).json({ error: "Missing anonymousId" });
+    }
+    
+    try {
+      // Check if user already has placement results
+      const user = await storage.getUser(userId);
+      if (user?.placementLevel) {
+        return res.json({ 
+          claimed: false, 
+          message: "User already has placement results",
+          existingLevel: user.placementLevel 
+        });
+      }
+      
+      // Try to claim the anonymous attempt
+      const claimed = await storage.claimAnonymousQuizAttempt(anonymousId, userId);
+      
+      if (!claimed) {
+        return res.json({ claimed: false, message: "No completed quiz found for this anonymous ID" });
+      }
+      
+      // Send email with placement quiz results now that user is registered
+      if (user?.email && claimed.computedLevel && claimed.confidence) {
+        try {
+          const levelDescriptions: Record<string, { name: string; explanation: string }> = {
+            A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
+            A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
+            B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
+            B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
+            C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
+            C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
+          };
+          const confidenceLabels: Record<string, string> = {
+            high: "Alta",
+            medium: "Media", 
+            low: "Baja",
+          };
+          
+          await sendEmail(user.email, "placement_quiz_result", {
+            firstName: user.firstName || "estudiante",
+            level: claimed.computedLevel,
+            levelDescription: levelDescriptions[claimed.computedLevel]?.name || "Intermedio",
+            levelExplanation: levelDescriptions[claimed.computedLevel]?.explanation || "",
+            correctAnswers: claimed.correctAnswers,
+            totalQuestions: claimed.totalQuestions,
+            confidence: confidenceLabels[claimed.confidence] || "Media",
+            onboardingUrl: "https://cogniboost.co/onboarding",
+          });
+          console.log(`Placement quiz result email sent to ${user.email} after claim`);
+        } catch (emailError) {
+          console.error("Failed to send placement quiz result email after claim:", emailError);
+        }
+      }
+      
+      res.json({ 
+        claimed: true, 
+        computedLevel: claimed.computedLevel,
+        confidence: claimed.confidence 
+      });
+    } catch (error) {
+      console.error("Error claiming placement quiz:", error);
+      res.status(500).json({ error: "Failed to claim quiz results" });
+    }
+  });
+
+  // Get anonymous placement quiz result (for showing results before signup)
+  app.get("/api/placement/result", async (req, res) => {
+    const anonymousId = req.query.anonymousId as string | undefined;
+    
+    if (!anonymousId) {
+      return res.status(400).json({ error: "Missing anonymousId" });
+    }
+    
+    try {
+      const attempts = await storage.getPlacementQuizAttemptsByAnonymousId(anonymousId);
+      const completedAttempt = attempts.find(a => a.status === "completed");
+      
+      if (!completedAttempt) {
+        return res.json({ hasResult: false });
+      }
+      
+      res.json({
+        hasResult: true,
+        computedLevel: completedAttempt.computedLevel,
+        confidence: completedAttempt.confidence,
+        correctAnswers: parseInt(completedAttempt.correctAnswers),
+        totalQuestions: parseInt(completedAttempt.totalQuestions),
+      });
+    } catch (error) {
+      console.error("Error fetching placement result:", error);
+      res.status(500).json({ error: "Failed to fetch placement result" });
     }
   });
 

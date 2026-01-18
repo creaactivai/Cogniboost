@@ -109,10 +109,14 @@ API Endpoints:
 - 2026-01-18: Admin quiz management at /admin/courses/:courseId/lessons/:lessonId/quiz
 - 2026-01-18: AI-powered placement quiz system (/placement-quiz) with adaptive difficulty (8 questions, B1 starting level)
 - 2026-01-18: Placement quiz uses OpenAI gpt-4o-mini for question generation and answer evaluation
-- 2026-01-18: Rate limiting: max 3 placement attempts per day per user, 30-minute time limit
+- 2026-01-18: Rate limiting: max 3 placement attempts per day per user/anonymousId+IP, 30-minute time limit
 - 2026-01-18: Added "Examen de Nivel" button to landing page hero section
 - 2026-01-18: Onboarding wizard auto-prefills level from placement quiz results with "Recomendado" badge
-- 2026-01-18: Automatic email notification with placement quiz results sent on completion
+- 2026-01-18: Automatic email notification with placement quiz results sent on completion (or after claim for anonymous users)
+- 2026-01-18: Anonymous placement quiz access - no authentication required (low-friction conversion strategy)
+- 2026-01-18: Anonymous users identified by localStorage anonymousId + IP hash for rate limiting
+- 2026-01-18: Quiz results claimed automatically when user signs up (via /api/placement/claim endpoint)
+- 2026-01-18: Claim logic runs in onboarding page and dashboard as fallback
 - 2026-01-17: Implemented new Live Sessions breakout rooms model (live_sessions, session_rooms, room_bookings)
 - 2026-01-17: Added API routes for students to view sessions and book rooms by topic
 - 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)
