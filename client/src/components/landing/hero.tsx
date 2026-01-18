@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Users, BookOpen, Award, Target } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AnimatedSection } from "@/hooks/use-scroll-animation";
 
 export function Hero() {
   const [scrollY, setScrollY] = useState(0);
@@ -61,7 +62,7 @@ export function Hero() {
             <div className="flex flex-row gap-4 flex-wrap">
               <Button 
                 size="lg" 
-                className="bg-accent text-accent-foreground w-[200px] text-base font-mono uppercase tracking-wider rounded-lg justify-center"
+                className="bg-accent text-accent-foreground w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
                 data-testid="button-start-trial"
               >
                 Prueba Gratis
@@ -71,7 +72,7 @@ export function Hero() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-[200px] text-base font-mono uppercase tracking-wider rounded-lg justify-center"
+                  className="w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center"
                   data-testid="button-placement-quiz"
                 >
                   <Target className="mr-2 h-5 w-5" />
@@ -81,11 +82,11 @@ export function Hero() {
               <Button 
                 size="lg"
                 variant="secondary"
-                className="w-[200px] text-base font-mono uppercase tracking-wider rounded-lg justify-center backdrop-blur-sm"
+                className="w-[220px] font-mono uppercase tracking-wider rounded-lg justify-center backdrop-blur-sm"
                 data-testid="button-how-it-works"
               >
                 <Play className="mr-2 h-5 w-5" />
-                Ver Cómo Funciona
+                Cómo Funciona
               </Button>
             </div>
 
@@ -97,28 +98,36 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Right content - Stats cards with hover effects */}
+          {/* Right content - Stats cards with hover effects and slide-in animations */}
           <div className="relative" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
-                <BookOpen className="w-10 h-10 text-primary mb-4" />
-                <p className="text-4xl font-display">100+</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
-              </div>
-              <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
-                <Users className="w-10 h-10 text-accent mb-4" />
-                <p className="text-4xl font-display">500+</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
-              </div>
-              <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
-                <Award className="w-10 h-10 text-primary mb-4" />
-                <p className="text-4xl font-display">95%</p>
-                <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
-              </div>
-              <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300">
-                <p className="text-4xl font-display">A1-C2</p>
-                <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
-              </div>
+              <AnimatedSection animation="fade-left" delay={100}>
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+                  <BookOpen className="w-10 h-10 text-primary mb-4" />
+                  <p className="text-4xl font-display">100+</p>
+                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Cursos Disponibles</p>
+                </div>
+              </AnimatedSection>
+              <AnimatedSection animation="fade-left" delay={200}>
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+                  <Users className="w-10 h-10 text-accent mb-4" />
+                  <p className="text-4xl font-display">500+</p>
+                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Labs en Vivo al Mes</p>
+                </div>
+              </AnimatedSection>
+              <AnimatedSection animation="fade-left" delay={300}>
+                <div className="p-8 bg-card border border-card-border hover-elevate rounded-lg transition-colors duration-300">
+                  <Award className="w-10 h-10 text-primary mb-4" />
+                  <p className="text-4xl font-display">95%</p>
+                  <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
+                </div>
+              </AnimatedSection>
+              <AnimatedSection animation="fade-left" delay={400}>
+                <div className="p-8 bg-primary text-primary-foreground hover-elevate rounded-lg transition-colors duration-300">
+                  <p className="text-4xl font-display">A1-C2</p>
+                  <p className="text-sm font-mono uppercase tracking-wider opacity-80">Todos los Niveles</p>
+                </div>
+              </AnimatedSection>
             </div>
 
             {/* Decorative element with float animation */}

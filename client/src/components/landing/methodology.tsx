@@ -1,4 +1,5 @@
 import { Play, Users, TrendingUp, Sparkles } from "lucide-react";
+import { AnimatedSection } from "@/hooks/use-scroll-animation";
 
 const steps = [
   {
@@ -29,8 +30,8 @@ export function Methodology() {
   return (
     <section className="py-32 bg-card border-y border-border">
       <div className="container mx-auto px-6">
-        {/* Section header */}
-        <div className="text-center mb-20">
+        {/* Section header with slide-from-left animation */}
+        <AnimatedSection animation="fade-left" className="text-center mb-20">
           <p className="text-sm font-mono text-primary uppercase tracking-widest mb-4">CÓMO FUNCIONA</p>
           <h2 className="text-4xl md:text-6xl font-display uppercase mb-6">
             APRENDE <span className="text-primary">→</span> PRACTICA <span className="text-accent">→</span> DOMINA
@@ -39,43 +40,44 @@ export function Methodology() {
             Nuestra metodología de tres pasos comprobada te ayuda a lograr fluidez real en inglés, 
             combinando aprendizaje a tu ritmo con práctica en vivo.
           </p>
-        </div>
+        </AnimatedSection>
 
-        {/* Steps grid */}
+        {/* Steps grid with slide-from-bottom animation */}
         <div className="grid md:grid-cols-3 gap-8">
           {steps.map((step, index) => (
-            <div 
-              key={step.number}
-              className="relative p-8 bg-background border border-border hover-elevate group transition-colors duration-300 rounded-lg"
-            >
-              {/* Badge */}
-              {step.badge && (
-                <div className="absolute -top-3 left-8 px-3 py-1 bg-accent text-accent-foreground text-xs font-mono uppercase tracking-wider">
-                  {step.badge}
+            <AnimatedSection key={step.number} animation="fade-up" delay={index * 150}>
+              <div 
+                className="relative p-8 bg-background border border-border hover-elevate group transition-colors duration-300 rounded-lg h-full"
+              >
+                {/* Badge */}
+                {step.badge && (
+                  <div className="absolute -top-3 left-8 px-3 py-1 bg-accent text-accent-foreground text-xs font-mono uppercase tracking-wider rounded-lg">
+                    {step.badge}
+                  </div>
+                )}
+
+                {/* Step number */}
+                <p className={`text-8xl font-display opacity-10 absolute top-4 right-4 ${step.color === "accent" ? "text-accent" : "text-primary"}`}>
+                  {step.number}
+                </p>
+
+                {/* Icon */}
+                <div className={`w-16 h-16 flex items-center justify-center mb-6 rounded-lg ${step.color === "accent" ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground"}`}>
+                  <step.icon className="w-8 h-8" />
                 </div>
-              )}
 
-              {/* Step number */}
-              <p className={`text-8xl font-display opacity-10 absolute top-4 right-4 ${step.color === "accent" ? "text-accent" : "text-primary"}`}>
-                {step.number}
-              </p>
+                {/* Content */}
+                <h3 className="text-xl font-display uppercase mb-4">{step.title}</h3>
+                <p className="text-muted-foreground font-mono text-sm leading-relaxed">
+                  {step.description}
+                </p>
 
-              {/* Icon */}
-              <div className={`w-16 h-16 flex items-center justify-center mb-6 ${step.color === "accent" ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground"}`}>
-                <step.icon className="w-8 h-8" />
+                {/* Connector line */}
+                {index < steps.length - 1 && (
+                  <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-border z-10" />
+                )}
               </div>
-
-              {/* Content */}
-              <h3 className="text-xl font-display uppercase mb-4">{step.title}</h3>
-              <p className="text-muted-foreground font-mono text-sm leading-relaxed">
-                {step.description}
-              </p>
-
-              {/* Connector line */}
-              {index < steps.length - 1 && (
-                <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-border z-10" />
-              )}
-            </div>
+            </AnimatedSection>
           ))}
         </div>
       </div>
