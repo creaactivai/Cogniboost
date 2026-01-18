@@ -17,6 +17,7 @@ import {
   quizQuestions,
   quizAttempts,
   placementQuizAttempts,
+  leads,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -51,6 +52,8 @@ import {
   type InsertQuizAttempt,
   type PlacementQuizAttempt,
   type InsertPlacementQuizAttempt,
+  type Lead,
+  type InsertLead,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count, and } from "drizzle-orm";
@@ -243,6 +246,13 @@ export interface IStorage {
   updatePlacementQuizAttempt(id: string, updates: Partial<InsertPlacementQuizAttempt>): Promise<PlacementQuizAttempt | undefined>;
   completePlacementQuiz(attemptId: string, computedLevel: string, confidence: string): Promise<PlacementQuizAttempt | undefined>;
   claimAnonymousQuizAttempt(anonymousId: string, userId: string): Promise<PlacementQuizAttempt | undefined>;
+  
+  // Leads
+  createLead(lead: InsertLead): Promise<Lead>;
+  getLeadById(id: string): Promise<Lead | undefined>;
+  getLeadByEmail(email: string): Promise<Lead | undefined>;
+  updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead | undefined>;
+  updateLeadWithQuizResult(id: string, level: string, confidence: string, quizAttemptId: string): Promise<Lead | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1094,6 +1104,46 @@ export class DatabaseStorage implements IStorage {
       }).where(eq(users.id, userId));
     }
     
+    return updated;
+  }
+
+  // Leads
+  async createLead(lead: InsertLead): Promise<Lead> {
+    const [newLead] = await db.insert(leads).values(lead).returning();
+    return newLead;
+  }
+
+  async getLeadById(id: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+    return lead;
+  }
+
+  async getLeadByEmail(email: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads)
+      .where(eq(leads.email, email.toLowerCase()))
+      .orderBy(desc(leads.createdAt))
+      .limit(1);
+    return lead;
+  }
+
+  async updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead | undefined> {
+    const [updated] = await db.update(leads)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateLeadWithQuizResult(id: string, level: string, confidence: string, quizAttemptId: string): Promise<Lead | undefined> {
+    const [updated] = await db.update(leads)
+      .set({ 
+        placementLevel: level, 
+        placementConfidence: confidence, 
+        quizAttemptId,
+        updatedAt: new Date() 
+      })
+      .where(eq(leads.id, id))
+      .returning();
     return updated;
   }
 }

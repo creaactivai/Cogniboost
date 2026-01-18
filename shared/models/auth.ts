@@ -72,7 +72,26 @@ export const placementQuizAttempts = pgTable("placement_quiz_attempts", {
   expiresAt: timestamp("expires_at"), // Quiz expires after 30 minutes
 });
 
+// Leads table for marketing/conversion (pre-quiz info capture)
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name"),
+  phone: varchar("phone"),
+  placementLevel: text("placement_level"), // Filled after quiz completion
+  placementConfidence: text("placement_confidence"),
+  quizAttemptId: varchar("quiz_attempt_id"),
+  convertedToUser: boolean("converted_to_user").notNull().default(false),
+  userId: varchar("user_id").references(() => users.id), // If they later sign up
+  resultEmailSent: boolean("result_email_sent").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type PlacementQuizAttempt = typeof placementQuizAttempts.$inferSelect;
 export type InsertPlacementQuizAttempt = typeof placementQuizAttempts.$inferInsert;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = typeof leads.$inferInsert;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -6,19 +6,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, CheckCircle, XCircle, ArrowRight, Trophy, Target, BookOpen, User } from "lucide-react";
-
-// Generate or retrieve anonymous ID for quiz tracking
-function getAnonymousId(): string {
-  const STORAGE_KEY = "cogniboost_anonymous_id";
-  let anonymousId = localStorage.getItem(STORAGE_KEY);
-  if (!anonymousId) {
-    anonymousId = crypto.randomUUID();
-    localStorage.setItem(STORAGE_KEY, anonymousId);
-  }
-  return anonymousId;
-}
+import { Loader2, Clock, CheckCircle, XCircle, ArrowRight, Trophy, Target, BookOpen, User, Mail } from "lucide-react";
 
 interface PlacementQuestion {
   text: string;
@@ -33,6 +24,7 @@ interface QuizState {
   totalQuestions: number;
   question: PlacementQuestion;
   expiresAt: string;
+  leadId?: string;
 }
 
 interface AnswerResult {
@@ -58,6 +50,13 @@ interface CurrentQuizResponse {
   expiresAt?: string;
 }
 
+interface LeadFormData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
+
 export default function PlacementQuiz() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -73,28 +72,45 @@ export default function PlacementQuiz() {
     totalQuestions: number;
   } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
-  
-  // Get anonymous ID for non-authenticated users
-  const anonymousId = getAnonymousId();
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [leadForm, setLeadForm] = useState<LeadFormData>({
+    email: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+  });
+  const [formErrors, setFormErrors] = useState<Partial<LeadFormData>>({});
 
-  // Check for active quiz - supports both authenticated and anonymous users
+  // Check for active quiz for authenticated users only
   const { data: currentQuiz, isLoading: checkingCurrent } = useQuery<CurrentQuizResponse>({
-    queryKey: ["/api/placement/current", anonymousId],
-    queryFn: async () => {
-      const url = user 
-        ? "/api/placement/current" 
-        : `/api/placement/current?anonymousId=${encodeURIComponent(anonymousId)}`;
-      const response = await fetch(url, { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to check current quiz");
+    queryKey: ["/api/placement/current"],
+    enabled: !authLoading && !!user,
+  });
+
+  // Create lead mutation
+  const createLeadMutation = useMutation({
+    mutationFn: async (data: LeadFormData) => {
+      const response = await apiRequest("POST", "/api/leads", data);
       return response.json();
     },
-    enabled: !authLoading,
+    onSuccess: (data) => {
+      setLeadId(data.leadId);
+      // Immediately start the quiz after creating lead
+      startQuizMutation.mutate(data.leadId);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo guardar tu información",
+        variant: "destructive",
+      });
+    },
   });
 
   const startQuizMutation = useMutation({
-    mutationFn: async () => {
-      // Pass anonymousId for non-authenticated users
-      const body = user ? {} : { anonymousId };
+    mutationFn: async (passedLeadId?: string) => {
+      const currentLeadId = passedLeadId || leadId;
+      const body = user ? {} : { leadId: currentLeadId };
       const response = await apiRequest("POST", "/api/placement/start", body);
       return response.json();
     },
@@ -105,6 +121,7 @@ export default function PlacementQuiz() {
         totalQuestions: data.totalQuestions,
         question: data.question,
         expiresAt: data.expiresAt,
+        leadId: data.leadId,
       });
       setLastFeedback(null);
     },
@@ -119,10 +136,10 @@ export default function PlacementQuiz() {
 
   const answerMutation = useMutation({
     mutationFn: async ({ attemptId, answer }: { attemptId: string; answer: number }) => {
-      // Pass anonymousId for non-authenticated users
+      const currentLeadId = quizState?.leadId || leadId;
       const body = user 
         ? { attemptId, answer }
-        : { attemptId, answer, anonymousId };
+        : { attemptId, answer, anonymousId: currentLeadId };
       const response = await apiRequest("POST", "/api/placement/answer", body);
       return response.json();
     },
@@ -178,8 +195,6 @@ export default function PlacementQuiz() {
     }
   }, [quizState?.expiresAt]);
 
-  // No redirect - anonymous users can take the quiz!
-  
   if (authLoading || checkingCurrent) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -194,6 +209,28 @@ export default function PlacementQuiz() {
   const handleSubmitAnswer = () => {
     if (selectedAnswer === null || !quizState) return;
     answerMutation.mutate({ attemptId: quizState.attemptId, answer: selectedAnswer });
+  };
+
+  const validateLeadForm = (): boolean => {
+    const errors: Partial<LeadFormData> = {};
+    
+    if (!leadForm.email.trim()) {
+      errors.email = "El correo es requerido";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadForm.email)) {
+      errors.email = "Ingresa un correo válido";
+    }
+    
+    if (!leadForm.firstName.trim()) {
+      errors.firstName = "El nombre es requerido";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleLeadFormSubmit = () => {
+    if (!validateLeadForm()) return;
+    createLeadMutation.mutate(leadForm);
   };
 
   const formatTime = (seconds: number) => {
@@ -223,6 +260,7 @@ export default function PlacementQuiz() {
     return labels[confidence] || confidence;
   };
 
+  // Results screen
   if (quizResult) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -256,6 +294,13 @@ export default function PlacementQuiz() {
                   </div>
                 </div>
 
+                <div className="p-4 bg-primary/10 border border-primary/20 text-center">
+                  <Mail className="w-8 h-8 text-primary mx-auto mb-2" />
+                  <p className="font-mono text-sm">
+                    Te hemos enviado tus resultados por correo electrónico.
+                  </p>
+                </div>
+
                 <div className="space-y-3">
                   {user ? (
                     <>
@@ -278,18 +323,10 @@ export default function PlacementQuiz() {
                     </>
                   ) : (
                     <>
-                      <div className="p-4 bg-primary/10 border border-primary/20 text-center">
-                        <User className="w-8 h-8 text-primary mx-auto mb-2" />
-                        <p className="font-mono text-sm mb-3">
-                          ¡Crea tu cuenta para guardar tus resultados y acceder a cursos personalizados para tu nivel {quizResult.level}!
-                        </p>
-                      </div>
                       <Button
                         className="w-full"
                         onClick={() => {
-                          // Store the quiz result in localStorage before redirect
                           localStorage.setItem("cogniboost_quiz_result", JSON.stringify(quizResult));
-                          // Redirect to login with returnTo=/onboarding to ensure claim runs
                           window.location.href = "/api/login?returnTo=/onboarding";
                         }}
                         data-testid="button-signup-after-quiz"
@@ -316,6 +353,7 @@ export default function PlacementQuiz() {
     );
   }
 
+  // Quiz intro + lead capture form (for non-authenticated users)
   if (!quizState) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -348,23 +386,112 @@ export default function PlacementQuiz() {
                   </div>
                 </div>
 
-                <div className="bg-muted p-4">
-                  <p className="font-mono text-sm text-muted-foreground">
-                    Este examen usa inteligencia artificial para adaptar las preguntas según tu desempeño y determinar tu nivel con mayor precisión.
-                  </p>
-                </div>
+                {user ? (
+                  <>
+                    <div className="bg-muted p-4">
+                      <p className="font-mono text-sm text-muted-foreground">
+                        Este examen usa inteligencia artificial para adaptar las preguntas según tu desempeño y determinar tu nivel con mayor precisión.
+                      </p>
+                    </div>
 
-                <Button
-                  className="w-full"
-                  onClick={() => startQuizMutation.mutate()}
-                  disabled={startQuizMutation.isPending}
-                  data-testid="button-start-quiz"
-                >
-                  {startQuizMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Comenzar Examen
-                </Button>
+                    <Button
+                      className="w-full"
+                      onClick={() => startQuizMutation.mutate(undefined)}
+                      disabled={startQuizMutation.isPending}
+                      data-testid="button-start-quiz"
+                    >
+                      {startQuizMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : null}
+                      Comenzar Examen
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-muted p-4">
+                      <p className="font-mono text-sm text-muted-foreground">
+                        Ingresa tu información para recibir tus resultados por correo electrónico.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName" className="font-mono text-sm">
+                            Nombre *
+                          </Label>
+                          <Input
+                            id="firstName"
+                            value={leadForm.firstName}
+                            onChange={(e) => setLeadForm({ ...leadForm, firstName: e.target.value })}
+                            placeholder="Tu nombre"
+                            className={formErrors.firstName ? "border-destructive" : ""}
+                            data-testid="input-first-name"
+                          />
+                          {formErrors.firstName && (
+                            <p className="text-xs text-destructive font-mono">{formErrors.firstName}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName" className="font-mono text-sm">
+                            Apellido
+                          </Label>
+                          <Input
+                            id="lastName"
+                            value={leadForm.lastName}
+                            onChange={(e) => setLeadForm({ ...leadForm, lastName: e.target.value })}
+                            placeholder="Tu apellido"
+                            data-testid="input-last-name"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="font-mono text-sm">
+                          Correo electrónico *
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={leadForm.email}
+                          onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                          placeholder="tu@correo.com"
+                          className={formErrors.email ? "border-destructive" : ""}
+                          data-testid="input-email"
+                        />
+                        {formErrors.email && (
+                          <p className="text-xs text-destructive font-mono">{formErrors.email}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="phone" className="font-mono text-sm">
+                          Teléfono (opcional)
+                        </Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={leadForm.phone}
+                          onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                          placeholder="+52 555 123 4567"
+                          data-testid="input-phone"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      onClick={handleLeadFormSubmit}
+                      disabled={createLeadMutation.isPending || startQuizMutation.isPending}
+                      data-testid="button-start-quiz"
+                    >
+                      {(createLeadMutation.isPending || startQuizMutation.isPending) ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : null}
+                      Comenzar Examen
+                    </Button>
+                  </>
+                )}
 
                 <Button
                   variant="ghost"

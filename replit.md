@@ -89,6 +89,11 @@ API Endpoints:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-18: **Lead capture flow for placement quiz** - users must provide email/name before taking quiz
+- 2026-01-18: Leads table added to database: email, firstName, lastName, phone, placementLevel, quizAttemptId, resultEmailSent
+- 2026-01-18: POST /api/leads endpoint creates lead record before quiz starts
+- 2026-01-18: Quiz results email sent to lead's email address on completion
+- 2026-01-18: Lead record updated with placementLevel, confidence, quizAttemptId after quiz completion
 - 2026-01-18: Added automatic onboarding redirect - new users with onboardingCompleted=false are redirected from / and /dashboard to /onboarding
 - 2026-01-18: Customer onboarding wizard (/onboarding) with 4-step flow: level, goals, availability, interests
 - 2026-01-18: Resend email integration with templates: welcome, onboarding_reminder, course_enrolled, lesson_completed, subscription_activated
@@ -109,14 +114,7 @@ API Endpoints:
 - 2026-01-18: Admin quiz management at /admin/courses/:courseId/lessons/:lessonId/quiz
 - 2026-01-18: AI-powered placement quiz system (/placement-quiz) with adaptive difficulty (8 questions, B1 starting level)
 - 2026-01-18: Placement quiz uses OpenAI gpt-4o-mini for question generation and answer evaluation
-- 2026-01-18: Rate limiting: max 3 placement attempts per day per user/anonymousId+IP, 30-minute time limit
-- 2026-01-18: Added "Examen de Nivel" button to landing page hero section
-- 2026-01-18: Onboarding wizard auto-prefills level from placement quiz results with "Recomendado" badge
-- 2026-01-18: Automatic email notification with placement quiz results sent on completion (or after claim for anonymous users)
-- 2026-01-18: Anonymous placement quiz access - no authentication required (low-friction conversion strategy)
-- 2026-01-18: Anonymous users identified by localStorage anonymousId + IP hash for rate limiting
-- 2026-01-18: Quiz results claimed automatically when user signs up (via /api/placement/claim endpoint)
-- 2026-01-18: Claim logic runs in onboarding page and dashboard as fallback
+- 2026-01-18: Rate limiting: max 3 placement attempts per day per leadId or userId, 30-minute time limit
 - 2026-01-17: Implemented new Live Sessions breakout rooms model (live_sessions, session_rooms, room_bookings)
 - 2026-01-17: Added API routes for students to view sessions and book rooms by topic
 - 2026-01-17: Complete Admin LMS Dashboard with 6 pages (Overview, Courses, Students, Financials, Labs, Instructors)

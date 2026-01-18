@@ -1245,6 +1245,43 @@ Important:
     }
   });
 
+  // ============== LEADS ROUTES ==============
+  
+  // Create a new lead (captures contact info before quiz)
+  app.post("/api/leads", async (req, res) => {
+    try {
+      const leadSchema = z.object({
+        email: z.string().email("Email inválido"),
+        firstName: z.string().min(1, "Nombre requerido"),
+        lastName: z.string().optional(),
+        phone: z.string().optional(),
+      });
+      
+      const validation = leadSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+      
+      const { email, firstName, lastName, phone } = validation.data;
+      
+      // Create the lead
+      const lead = await storage.createLead({
+        email: email.toLowerCase(),
+        firstName,
+        lastName: lastName || null,
+        phone: phone || null,
+      });
+      
+      res.json({ 
+        leadId: lead.id,
+        message: "Lead creado exitosamente" 
+      });
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Error al crear lead" });
+    }
+  });
+
   // ============== PLACEMENT QUIZ ROUTES ==============
 
   const MAX_PLACEMENT_ATTEMPTS_PER_DAY = 3;
@@ -1254,27 +1291,37 @@ Important:
     return createHash('sha256').update(ip + 'cogniboost-salt').digest('hex').slice(0, 32);
   }
 
-  // Start a new placement quiz (NO AUTH REQUIRED - supports anonymous users)
+  // Start a new placement quiz (supports leads and authenticated users)
   app.post("/api/placement/start", async (req, res) => {
     try {
-      // Get user ID if authenticated, otherwise use anonymousId
+      // Get user ID if authenticated, otherwise use leadId
       const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
-      const { anonymousId } = req.body;
+      const { leadId } = req.body;
       
-      if (!userId && !anonymousId) {
-        return res.status(400).json({ error: "Se requiere anonymousId para usuarios no autenticados" });
+      // Require either authenticated user or leadId for quiz
+      if (!userId && !leadId) {
+        return res.status(400).json({ error: "Se requiere completar el formulario de contacto primero" });
+      }
+      
+      // Validate leadId exists if provided
+      if (leadId && !userId) {
+        const lead = await storage.getLeadById(leadId);
+        if (!lead) {
+          return res.status(400).json({ error: "Lead no encontrado. Por favor, completa el formulario de contacto nuevamente." });
+        }
       }
       
       // Get IP for rate limiting
       const clientIP = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.ip || 'unknown';
       const ipHash = hashIP(clientIP);
       
-      // Check rate limiting - max 3 attempts per day
+      // Check rate limiting - max 3 attempts per day based on leadId or userId
       let attemptsToday: number;
       if (userId) {
         attemptsToday = await storage.getPlacementQuizAttemptsToday(userId);
       } else {
-        attemptsToday = await storage.getPlacementQuizAttemptsTodayByAnonymousId(anonymousId, ipHash);
+        // For leads, use the leadId as anonymousId for rate limiting
+        attemptsToday = await storage.getPlacementQuizAttemptsTodayByAnonymousId(leadId, ipHash);
       }
       
       if (attemptsToday >= MAX_PLACEMENT_ATTEMPTS_PER_DAY) {
@@ -1284,11 +1331,11 @@ Important:
         });
       }
       
-      // Create new quiz attempt
+      // Create new quiz attempt - use leadId as anonymousId to link them
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
       const attempt = await storage.createPlacementQuizAttempt({
         userId: userId || undefined,
-        anonymousId: userId ? undefined : anonymousId,
+        anonymousId: userId ? undefined : leadId, // Use leadId as anonymousId
         status: "in_progress",
         currentStep: "1",
         currentDifficulty: "B1",
@@ -1304,6 +1351,7 @@ Important:
       
       res.json({
         attemptId: attempt.id,
+        leadId,
         currentStep: 1,
         totalQuestions: 8,
         question: firstQuestion,
@@ -1382,25 +1430,28 @@ Important:
         
         await storage.completePlacementQuiz(attemptId, level, confidence);
         
-        // Send email with placement quiz results (only for authenticated users)
+        // Level and confidence descriptions for email
+        const levelDescriptions: Record<string, { name: string; explanation: string }> = {
+          A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
+          A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
+          B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
+          B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
+          C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
+          C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
+        };
+        const confidenceLabels: Record<string, string> = {
+          high: "Alta",
+          medium: "Media", 
+          low: "Baja",
+        };
+        
+        // Send email with placement quiz results
+        // For authenticated users, send to their account email
+        // For leads (anonymousId is the leadId), send to the lead's email
         if (userId) {
           try {
             const user = await storage.getUser(userId);
             if (user?.email) {
-              const levelDescriptions: Record<string, { name: string; explanation: string }> = {
-                A1: { name: "Principiante", explanation: "Puedes entender y usar expresiones básicas del día a día y frases sencillas." },
-                A2: { name: "Elemental", explanation: "Puedes comunicarte en tareas simples y rutinarias que requieren intercambio de información." },
-                B1: { name: "Intermedio", explanation: "Puedes desenvolverte en la mayoría de situaciones de viaje y expresar experiencias y opiniones." },
-                B2: { name: "Intermedio Alto", explanation: "Puedes interactuar con fluidez y espontaneidad con hablantes nativos sin esfuerzo." },
-                C1: { name: "Avanzado", explanation: "Puedes expresarte de forma fluida y espontánea para fines sociales, académicos y profesionales." },
-                C2: { name: "Proficiente", explanation: "Puedes entender prácticamente todo y expresarte con precisión en situaciones complejas." },
-              };
-              const confidenceLabels: Record<string, string> = {
-                high: "Alta",
-                medium: "Media", 
-                low: "Baja",
-              };
-              
               await sendEmail(user.email, "placement_quiz_result", {
                 firstName: user.firstName || "estudiante",
                 level,
@@ -1415,7 +1466,32 @@ Important:
             }
           } catch (emailError) {
             console.error("Failed to send placement quiz result email:", emailError);
-            // Don't fail the request if email fails
+          }
+        } else if (attempt.anonymousId) {
+          // anonymousId is the leadId - send email to lead
+          try {
+            const lead = await storage.getLeadById(attempt.anonymousId);
+            if (lead?.email) {
+              // Update lead with quiz results
+              await storage.updateLeadWithQuizResult(lead.id, level, confidence, attemptId);
+              
+              await sendEmail(lead.email, "placement_quiz_result", {
+                firstName: lead.firstName || "estudiante",
+                level,
+                levelDescription: levelDescriptions[level]?.name || "Intermedio",
+                levelExplanation: levelDescriptions[level]?.explanation || "",
+                correctAnswers: String(correctCount),
+                totalQuestions: String(totalQuestions),
+                confidence: confidenceLabels[confidence] || "Media",
+                onboardingUrl: "https://cogniboost.co/onboarding",
+              });
+              
+              // Mark email as sent
+              await storage.updateLead(lead.id, { resultEmailSent: true });
+              console.log(`Placement quiz result email sent to lead ${lead.email}`);
+            }
+          } catch (emailError) {
+            console.error("Failed to send placement quiz result email to lead:", emailError);
           }
         }
         
