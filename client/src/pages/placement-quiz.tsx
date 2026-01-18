@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, CheckCircle, XCircle, ArrowRight, Trophy, Target, BookOpen, User, Mail } from "lucide-react";
+import { Loader2, Clock, ArrowRight, Trophy, Target, BookOpen, CheckCircle, Mail } from "lucide-react";
 
 interface PlacementQuestion {
   text: string;
@@ -64,7 +64,6 @@ export default function PlacementQuiz() {
 
   const [quizState, setQuizState] = useState<QuizState | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [lastFeedback, setLastFeedback] = useState<{ isCorrect: boolean; feedback: string } | null>(null);
   const [quizResult, setQuizResult] = useState<{
     level: string;
     confidence: string;
@@ -123,7 +122,6 @@ export default function PlacementQuiz() {
         expiresAt: data.expiresAt,
         leadId: data.leadId,
       });
-      setLastFeedback(null);
     },
     onError: (error: any) => {
       toast({
@@ -158,7 +156,6 @@ export default function PlacementQuiz() {
           currentStep: data.currentStep!,
           question: data.question!,
         } : null);
-        setLastFeedback(data.previousAnswer || null);
       }
       setSelectedAnswer(null);
     },
@@ -176,7 +173,7 @@ export default function PlacementQuiz() {
       setQuizState({
         attemptId: currentQuiz.attemptId,
         currentStep: currentQuiz.currentStep || 1,
-        totalQuestions: currentQuiz.totalQuestions || 8,
+        totalQuestions: currentQuiz.totalQuestions || 20,
         question: currentQuiz.question,
         expiresAt: currentQuiz.expiresAt,
       });
@@ -374,7 +371,7 @@ export default function PlacementQuiz() {
                 <div className="space-y-4 font-mono text-sm">
                   <div className="flex items-start gap-3">
                     <BookOpen className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <p>8 preguntas adaptativas que evalúan tu gramática, vocabulario y comprensión</p>
+                    <p>20 preguntas que evalúan tu gramática y vocabulario en todos los niveles</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <Clock className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -390,7 +387,7 @@ export default function PlacementQuiz() {
                   <>
                     <div className="bg-muted p-4">
                       <p className="font-mono text-sm text-muted-foreground">
-                        Este examen usa inteligencia artificial para adaptar las preguntas según tu desempeño y determinar tu nivel con mayor precisión.
+                        Este examen evalúa tu conocimiento de gramática y vocabulario en inglés para determinar tu nivel CEFR con precisión.
                       </p>
                     </div>
 
@@ -534,25 +531,6 @@ export default function PlacementQuiz() {
 
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-2xl">
-          {lastFeedback && (
-            <div
-              className={`mb-4 p-4 flex items-start gap-3 ${
-                lastFeedback.isCorrect ? "bg-green-500/10 border-green-500" : "bg-destructive/10 border-destructive"
-              } border`}
-              data-testid="feedback-banner"
-            >
-              {lastFeedback.isCorrect ? (
-                <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-              ) : (
-                <XCircle className="w-5 h-5 text-destructive shrink-0" />
-              )}
-              <div className="font-mono text-sm">
-                <span className="font-semibold">{lastFeedback.isCorrect ? "¡Correcto!" : "Incorrecto"}</span>
-                <p className="text-muted-foreground mt-1">{lastFeedback.feedback}</p>
-              </div>
-            </div>
-          )}
-
           <Card className="border-border">
             <CardHeader>
               <div className="flex items-center justify-between">

@@ -60,10 +60,11 @@ export const placementQuizAttempts = pgTable("placement_quiz_attempts", {
   status: placementQuizStatusEnum("status").notNull().default("in_progress"),
   currentStep: text("current_step").notNull().default("1"), // Current question number
   currentDifficulty: text("current_difficulty").notNull().default("B1"), // Adaptive difficulty level
-  answers: jsonb("answers").notNull().default([]), // Array of {question, answer, isCorrect, difficulty}
+  answers: jsonb("answers").notNull().default([]), // Array of {questionId, answer, isCorrect, difficulty}
+  questionIds: jsonb("question_ids").default([]), // Array of static question IDs for this quiz
   computedLevel: text("computed_level"), // Final computed level A1-C2
   confidence: text("confidence"), // low, medium, high
-  totalQuestions: text("total_questions").notNull().default("8"),
+  totalQuestions: text("total_questions").notNull().default("20"),
   correctAnswers: text("correct_answers").notNull().default("0"),
   ipHash: text("ip_hash"), // Hashed IP for rate limiting
   userAgentHash: text("user_agent_hash"),

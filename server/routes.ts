@@ -8,6 +8,7 @@ import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { sendEmail, type EmailTemplate } from "./resendClient";
+import { selectQuizQuestions, placementQuestions, calculatePlacementLevel, type PlacementQuestion as StaticPlacementQuestion } from "@shared/placementQuestions";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -1331,6 +1332,11 @@ Important:
         });
       }
       
+      // Select static questions for this quiz (20 questions total)
+      const TOTAL_QUESTIONS = 20;
+      const selectedQuestions = selectQuizQuestions(TOTAL_QUESTIONS);
+      const questionIds = selectedQuestions.map(q => q.id);
+      
       // Create new quiz attempt - use leadId as anonymousId to link them
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
       const attempt = await storage.createPlacementQuizAttempt({
@@ -1340,21 +1346,27 @@ Important:
         currentStep: "1",
         currentDifficulty: "B1",
         answers: [],
-        totalQuestions: "8",
+        totalQuestions: String(TOTAL_QUESTIONS),
         correctAnswers: "0",
         ipHash,
         expiresAt,
+        questionIds, // Store selected question IDs
       });
       
-      // Generate first question using OpenAI
-      const firstQuestion = await generatePlacementQuestion("B1", 1, []);
+      // Get the first static question
+      const firstQuestion = selectedQuestions[0];
       
       res.json({
         attemptId: attempt.id,
         leadId,
         currentStep: 1,
-        totalQuestions: 8,
-        question: firstQuestion,
+        totalQuestions: TOTAL_QUESTIONS,
+        question: {
+          text: firstQuestion.text,
+          options: firstQuestion.options,
+          type: "multiple_choice",
+          difficulty: firstQuestion.difficulty,
+        },
         expiresAt: attempt.expiresAt,
       });
     } catch (error) {
@@ -1396,37 +1408,35 @@ Important:
       const currentStep = parseInt(attempt.currentStep);
       const totalQuestions = parseInt(attempt.totalQuestions);
       const currentAnswers = (attempt.answers as any[]) || [];
+      const questionIds = (attempt.questionIds as string[]) || [];
       
-      // Evaluate the answer using AI
-      const evaluation = await evaluatePlacementAnswer(
-        attempt.currentDifficulty,
-        currentAnswers[currentAnswers.length - 1]?.question || "",
-        answer
-      );
+      // Get the current question from static bank
+      const currentQuestionId = questionIds[currentStep - 1];
+      const currentQuestion = placementQuestions.find(q => q.id === currentQuestionId);
+      
+      if (!currentQuestion) {
+        return res.status(500).json({ error: "Question not found" });
+      }
+      
+      // Simple correct answer check (no AI needed)
+      const isCorrect = answer === currentQuestion.correctAnswer;
       
       // Update answers array
       const newAnswers = [...currentAnswers, {
         step: currentStep,
-        question: evaluation.question,
+        questionId: currentQuestionId,
         answer,
-        isCorrect: evaluation.isCorrect,
-        difficulty: attempt.currentDifficulty,
+        isCorrect,
+        difficulty: currentQuestion.difficulty,
       }];
       
       const correctCount = newAnswers.filter(a => a.isCorrect).length;
       
-      // Calculate next difficulty (adaptive)
-      const nextDifficulty = calculateNextDifficulty(
-        attempt.currentDifficulty,
-        evaluation.isCorrect,
-        correctCount,
-        currentStep
-      );
-      
       // Check if quiz is complete
       if (currentStep >= totalQuestions) {
-        // Calculate final level and confidence
-        const { level, confidence } = calculateFinalLevel(newAnswers);
+        // Calculate final level based on correct answers
+        const result = calculatePlacementLevel(newAnswers);
+        const { level, confidence } = result;
         
         await storage.completePlacementQuiz(attemptId, level, confidence);
         
@@ -1504,24 +1514,31 @@ Important:
         });
       }
       
-      // Update attempt and generate next question
+      // Get next question from static bank
+      const nextQuestionId = questionIds[currentStep]; // currentStep is 0-indexed for next
+      const nextQuestion = placementQuestions.find(q => q.id === nextQuestionId);
+      
+      if (!nextQuestion) {
+        return res.status(500).json({ error: "Next question not found" });
+      }
+      
+      // Update attempt
       await storage.updatePlacementQuizAttempt(attemptId, {
         currentStep: String(currentStep + 1),
-        currentDifficulty: nextDifficulty,
+        currentDifficulty: nextQuestion.difficulty,
         answers: newAnswers,
         correctAnswers: String(correctCount),
       });
-      
-      const nextQuestion = await generatePlacementQuestion(nextDifficulty, currentStep + 1, newAnswers);
       
       res.json({
         completed: false,
         currentStep: currentStep + 1,
         totalQuestions,
-        question: nextQuestion,
-        previousAnswer: {
-          isCorrect: evaluation.isCorrect,
-          feedback: evaluation.feedback,
+        question: {
+          text: nextQuestion.text,
+          options: nextQuestion.options,
+          type: "multiple_choice",
+          difficulty: nextQuestion.difficulty,
         },
       });
     } catch (error) {
@@ -1575,18 +1592,25 @@ Important:
       }
       
       const currentStep = parseInt(currentAttempt.currentStep);
-      const question = await generatePlacementQuestion(
-        currentAttempt.currentDifficulty,
-        currentStep,
-        (currentAttempt.answers as any[]) || []
-      );
+      const questionIds = (currentAttempt.questionIds as string[]) || [];
+      const currentQuestionId = questionIds[currentStep - 1];
+      const currentQuestion = placementQuestions.find(q => q.id === currentQuestionId);
+      
+      if (!currentQuestion) {
+        return res.json({ hasActiveQuiz: false });
+      }
       
       res.json({
         hasActiveQuiz: true,
         attemptId: currentAttempt.id,
         currentStep,
         totalQuestions: parseInt(currentAttempt.totalQuestions),
-        question,
+        question: {
+          text: currentQuestion.text,
+          options: currentQuestion.options,
+          type: "multiple_choice",
+          difficulty: currentQuestion.difficulty,
+        },
         expiresAt: currentAttempt.expiresAt,
       });
     } catch (error) {
