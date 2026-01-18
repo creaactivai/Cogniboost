@@ -20,7 +20,6 @@ export function Hero() {
         className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20"
         style={{ transform: `translateY(${scrollY * 0.1}px)` }}
       />
-      
       {/* Animated accent blobs with parallax */}
       <div 
         className="absolute top-20 right-20 w-96 h-96 bg-primary/15 blur-3xl float-animation"
@@ -30,7 +29,6 @@ export function Hero() {
         className="absolute bottom-20 left-20 w-80 h-80 bg-[hsl(174_58%_56%/0.15)] blur-3xl float-animation"
         style={{ animationDelay: "3s", transform: `translateY(${scrollY * 0.15}px)` }}
       />
-      
       <div className="relative z-10 container mx-auto px-6 py-20">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left content */}
@@ -38,7 +36,7 @@ export function Hero() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 rounded">
               <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              <span className="text-sm uppercase tracking-wider">Para Profesionales Hispanohablantes</span>
+              <span className="text-sm uppercase tracking-wider">Para Hispanohablantes</span>
             </div>
 
             {/* Main headline - New brand messaging */}
