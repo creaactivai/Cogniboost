@@ -1036,5 +1036,80 @@ Important:
     }
   });
 
+  // Admin: Get all students
+  app.get("/api/admin/students", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      let students;
+      if (status && ['active', 'hold', 'inactive'].includes(status as string)) {
+        students = await storage.getUsersByStatus(status as 'active' | 'hold' | 'inactive');
+      } else {
+        students = await storage.getAllUsers();
+      }
+      res.json(students);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+      res.status(500).json({ error: "Failed to fetch students" });
+    }
+  });
+
+  // Admin: Get student metrics (KPIs)
+  app.get("/api/admin/students/metrics", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await storage.getStudentMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching student metrics:", error);
+      res.status(500).json({ error: "Failed to fetch student metrics" });
+    }
+  });
+
+  // Admin: Update student status
+  app.patch("/api/admin/students/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status || !['active', 'hold', 'inactive'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      const updated = await storage.updateUser(req.params.id, { status });
+      if (!updated) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating student status:", error);
+      res.status(500).json({ error: "Failed to update student status" });
+    }
+  });
+
+  // Admin: Lock student access
+  app.post("/api/admin/students/:id/lock", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const updated = await storage.lockUser(req.params.id, reason);
+      if (!updated) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error locking student:", error);
+      res.status(500).json({ error: "Failed to lock student" });
+    }
+  });
+
+  // Admin: Unlock student access
+  app.post("/api/admin/students/:id/unlock", requireAdmin, async (req, res) => {
+    try {
+      const updated = await storage.unlockUser(req.params.id);
+      if (!updated) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error unlocking student:", error);
+      res.status(500).json({ error: "Failed to unlock student" });
+    }
+  });
+
   return httpServer;
 }

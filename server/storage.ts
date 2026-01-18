@@ -140,6 +140,27 @@ export interface IStorage {
   
   // Users
   getUser(userId: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  getUsersByStatus(status: 'active' | 'hold' | 'inactive'): Promise<User[]>;
+  updateUser(userId: string, updates: Partial<{
+    status: 'active' | 'hold' | 'inactive';
+    isLocked: boolean;
+    lockedAt: Date | null;
+    lockedReason: string | null;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+  }>): Promise<User | undefined>;
+  lockUser(userId: string, reason?: string): Promise<User | undefined>;
+  unlockUser(userId: string): Promise<User | undefined>;
+  getStudentMetrics(): Promise<{
+    totalStudents: number;
+    activeStudents: number;
+    holdStudents: number;
+    inactiveStudents: number;
+    churnRate: number;
+    newStudentsThisMonth: number;
+    churnedThisMonth: number;
+  }>;
   
   // Live Sessions (new breakout rooms model)
   getLiveSessions(): Promise<LiveSession[]>;
@@ -593,6 +614,102 @@ export class DatabaseStorage implements IStorage {
   async getUser(userId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.isAdmin, false)).orderBy(desc(users.createdAt));
+  }
+
+  async getUsersByStatus(status: 'active' | 'hold' | 'inactive'): Promise<User[]> {
+    return db.select().from(users)
+      .where(and(eq(users.isAdmin, false), eq(users.status, status)))
+      .orderBy(desc(users.createdAt));
+  }
+
+  async updateUser(userId: string, updates: Partial<{
+    status: 'active' | 'hold' | 'inactive';
+    isLocked: boolean;
+    lockedAt: Date | null;
+    lockedReason: string | null;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+  }>): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async lockUser(userId: string, reason?: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ 
+        isLocked: true, 
+        lockedAt: new Date(), 
+        lockedReason: reason || null,
+        status: 'inactive',
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async unlockUser(userId: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ 
+        isLocked: false, 
+        lockedAt: null, 
+        lockedReason: null,
+        status: 'active',
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getStudentMetrics(): Promise<{
+    totalStudents: number;
+    activeStudents: number;
+    holdStudents: number;
+    inactiveStudents: number;
+    churnRate: number;
+    newStudentsThisMonth: number;
+    churnedThisMonth: number;
+  }> {
+    const allStudents = await db.select().from(users).where(eq(users.isAdmin, false));
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const totalStudents = allStudents.length;
+    const activeStudents = allStudents.filter(u => u.status === 'active').length;
+    const holdStudents = allStudents.filter(u => u.status === 'hold').length;
+    const inactiveStudents = allStudents.filter(u => u.status === 'inactive').length;
+    
+    const newStudentsThisMonth = allStudents.filter(u => 
+      u.createdAt && new Date(u.createdAt) >= startOfMonth
+    ).length;
+    
+    const churnedThisMonth = allStudents.filter(u => 
+      u.status === 'inactive' && u.updatedAt && new Date(u.updatedAt) >= startOfMonth
+    ).length;
+    
+    const previousActiveCount = activeStudents + churnedThisMonth;
+    const churnRate = previousActiveCount > 0 
+      ? Math.round((churnedThisMonth / previousActiveCount) * 100 * 100) / 100
+      : 0;
+    
+    return {
+      totalStudents,
+      activeStudents,
+      holdStudents,
+      inactiveStudents,
+      churnRate,
+      newStudentsThisMonth,
+      churnedThisMonth
+    };
   }
 
   // Live Sessions
