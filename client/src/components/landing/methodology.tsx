@@ -46,7 +46,7 @@ export function Methodology() {
           {steps.map((step, index) => (
             <div 
               key={step.number}
-              className="relative p-8 bg-background border border-border hover-elevate group"
+              className={`relative p-8 bg-background border border-border hover-scale group transition-all duration-300 ${step.color === "accent" ? "hover-glow-accent" : "hover-glow"}`}
             >
               {/* Badge */}
               {step.badge && (
