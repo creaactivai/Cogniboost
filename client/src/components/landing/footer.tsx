@@ -1,4 +1,4 @@
-import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok } from "react-icons/si";
+import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok, SiWhatsapp } from "react-icons/si";
 import logoImage from "@assets/Frame_2_1768763364518.png";
 
 const footerLinks = {
@@ -22,6 +22,7 @@ const footerLinks = {
 };
 
 const socialLinks = [
+  { icon: SiWhatsapp, href: "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ", label: "WhatsApp" },
   { icon: SiLinkedin, href: "#", label: "LinkedIn" },
   { icon: SiInstagram, href: "#", label: "Instagram" },
   { icon: SiYoutube, href: "#", label: "YouTube" },
