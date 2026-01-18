@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer';
 
 // Send email using template
 export async function sendEmail(
@@ -345,6 +345,173 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    lead_day1_followup: {
+      subject: '📚 Cursos recomendados para tu nivel ${data.level || ""}',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .course-card { background: #2a2a2a; padding: 20px; margin: 15px 0; border-left: 4px solid #33CBFB; }
+            .course-card h3 { color: #ffffff; margin: 0 0 10px 0; }
+            .course-card p { margin: 0; color: #999999; }
+            .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
+            <p>Basándonos en tu resultado de nivel <strong>${data.level || 'B1'}</strong>, hemos seleccionado los cursos perfectos para ti:</p>
+            <div class="course-card">
+              <h3>Inglés de Negocios - ${data.level || 'B1'}</h3>
+              <p>Domina el vocabulario profesional y las presentaciones en inglés.</p>
+            </div>
+            <div class="course-card">
+              <h3>Conversaciones Cotidianas - ${data.level || 'B1'}</h3>
+              <p>Practica situaciones del día a día con confianza.</p>
+            </div>
+            <div class="course-card">
+              <h3>Gramática Esencial - ${data.level || 'B1'}</h3>
+              <p>Refuerza las estructuras gramaticales clave de tu nivel.</p>
+            </div>
+            <p>Cada curso incluye lecciones en video, ejercicios prácticos y quizzes interactivos.</p>
+            <a href="https://cogniboost.co" class="cta">VER TODOS LOS CURSOS</a>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+              <p style="font-size: 10px; margin-top: 10px;"><a href="https://cogniboost.co/unsubscribe?email=${data.email || ''}" style="color: #666666;">Cancelar suscripción</a></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    lead_day3_lab_invite: {
+      subject: '🎙️ Practica inglés EN VIVO con otros estudiantes',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .highlight-box { background: linear-gradient(135deg, #33CBFB 0%, #1a8ab5 100%); padding: 30px; text-align: center; margin: 20px 0; }
+            .highlight-box h2 { color: #ffffff; margin: 0; font-size: 24px; }
+            .highlight-box p { color: #ffffff; margin: 10px 0 0 0; }
+            .benefit { display: flex; align-items: flex-start; margin: 15px 0; }
+            .benefit-icon { color: #FD335A; font-size: 20px; margin-right: 10px; }
+            .cta { display: inline-block; background: #FD335A; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¿Listo para hablar inglés, ${data.firstName || 'estudiante'}?</h1>
+            <p>Sabemos que practicar conversación es la parte más difícil de aprender inglés. Por eso creamos los <strong>Laboratorios de Conversación</strong>.</p>
+            <div class="highlight-box">
+              <h2>LABORATORIOS EN VIVO</h2>
+              <p>Sesiones grupales de práctica con estudiantes de tu nivel</p>
+            </div>
+            <p><strong>Lo que obtienes:</strong></p>
+            <ul style="color: #cccccc; padding-left: 20px;">
+              <li style="margin: 10px 0;">Grupos pequeños (máx. 6 personas) de nivel ${data.level || 'B1'}</li>
+              <li style="margin: 10px 0;">Temas variados: negocios, viajes, tecnología, cultura</li>
+              <li style="margin: 10px 0;">Moderador que guía la conversación</li>
+              <li style="margin: 10px 0;">Feedback personalizado al final</li>
+              <li style="margin: 10px 0;">Sin juzgamientos - todos estamos aprendiendo</li>
+            </ul>
+            <p>Tu primer laboratorio es <strong>GRATIS</strong> para que pruebes sin compromiso.</p>
+            <a href="https://cogniboost.co" class="cta">RESERVAR MI LABORATORIO GRATIS</a>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+              <p style="font-size: 10px; margin-top: 10px;"><a href="https://cogniboost.co/unsubscribe?email=${data.email || ''}" style="color: #666666;">Cancelar suscripción</a></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    lead_day7_offer: {
+      subject: '🎁 Oferta especial: 50% OFF en tu primer mes',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #FD335A; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .offer-box { background: linear-gradient(135deg, #FD335A 0%, #c4264a 100%); padding: 30px; text-align: center; margin: 20px 0; }
+            .offer-box h2 { color: #ffffff; margin: 0; font-size: 48px; }
+            .offer-box p { color: #ffffff; margin: 10px 0 0 0; font-size: 18px; }
+            .price-compare { text-align: center; margin: 20px 0; }
+            .old-price { color: #888888; text-decoration: line-through; font-size: 24px; }
+            .new-price { color: #33CBFB; font-size: 36px; font-weight: bold; }
+            .timer { background: #2a2a2a; padding: 15px; text-align: center; margin: 20px 0; color: #FD335A; font-weight: bold; }
+            .cta { display: inline-block; background: #FD335A; color: #ffffff; padding: 20px 40px; text-decoration: none; font-weight: bold; margin: 20px 0; font-size: 18px; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Última oportunidad, ${data.firstName || 'estudiante'}!</h1>
+            <p>Hace una semana completaste tu examen de nivel y descubriste que estás en <strong>nivel ${data.level || 'B1'}</strong>.</p>
+            <p>Queremos ayudarte a dar el siguiente paso con una oferta que no podrás rechazar:</p>
+            <div class="offer-box">
+              <h2>50% OFF</h2>
+              <p>En tu primer mes de suscripción Premium</p>
+            </div>
+            <div class="price-compare">
+              <div class="old-price">$79 USD/mes</div>
+              <div class="new-price">$39.50 USD</div>
+              <p style="color: #888888;">Solo tu primer mes</p>
+            </div>
+            <p><strong>Con Premium obtienes:</strong></p>
+            <ul style="color: #cccccc; padding-left: 20px;">
+              <li style="margin: 10px 0;">Acceso a TODOS los cursos (A1 a C2)</li>
+              <li style="margin: 10px 0;">Laboratorios de conversación ILIMITADOS</li>
+              <li style="margin: 10px 0;">Quizzes y certificaciones oficiales</li>
+              <li style="margin: 10px 0;">Soporte prioritario</li>
+            </ul>
+            <div class="timer">
+              Esta oferta expira en 48 horas
+            </div>
+            <a href="https://cogniboost.co?offer=WELCOME50" class="cta">ACTIVAR MI 50% OFF</a>
+            <p style="text-align: center; color: #888888; font-size: 12px;">Usa el código: WELCOME50</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+              <p style="font-size: 10px; margin-top: 10px;"><a href="https://cogniboost.co/unsubscribe?email=${data.email || ''}" style="color: #666666;">Cancelar suscripción</a></p>
             </div>
           </div>
         </body>

@@ -73,6 +73,9 @@ export const placementQuizAttempts = pgTable("placement_quiz_attempts", {
   expiresAt: timestamp("expires_at"), // Quiz expires after 30 minutes
 });
 
+// Lead status enum for marketing funnel
+export const leadStatusEnum = pgEnum("lead_status", ["new", "engaged", "nurture", "qualified", "converted", "inactive"]);
+
 // Leads table for marketing/conversion (pre-quiz info capture)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -80,12 +83,49 @@ export const leads = pgTable("leads", {
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name"),
   phone: varchar("phone"),
+  
+  // Placement quiz results
   placementLevel: text("placement_level"), // Filled after quiz completion
   placementConfidence: text("placement_confidence"),
   quizAttemptId: varchar("quiz_attempt_id"),
+  
+  // Lead scoring and status
+  status: leadStatusEnum("lead_status").notNull().default("new"),
+  score: text("score").notNull().default("0"), // 0-100 lead score
+  
+  // Source/UTM tracking
+  source: text("source"), // organic, paid, referral, social
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmContent: text("utm_content"),
+  referrerUrl: text("referrer_url"),
+  landingPage: text("landing_page"),
+  
+  // Conversion tracking
   convertedToUser: boolean("converted_to_user").notNull().default(false),
   userId: varchar("user_id").references(() => users.id), // If they later sign up
+  convertedAt: timestamp("converted_at"),
+  
+  // Email sequence tracking
   resultEmailSent: boolean("result_email_sent").notNull().default(false),
+  resultEmailSentAt: timestamp("result_email_sent_at"),
+  day1EmailSent: boolean("day1_email_sent").notNull().default(false),
+  day1EmailSentAt: timestamp("day1_email_sent_at"),
+  day3EmailSent: boolean("day3_email_sent").notNull().default(false),
+  day3EmailSentAt: timestamp("day3_email_sent_at"),
+  day7EmailSent: boolean("day7_email_sent").notNull().default(false),
+  day7EmailSentAt: timestamp("day7_email_sent_at"),
+  
+  // Engagement tracking
+  lastEmailOpenedAt: timestamp("last_email_opened_at"),
+  lastEmailClickedAt: timestamp("last_email_clicked_at"),
+  emailOpenCount: text("email_open_count").notNull().default("0"),
+  emailClickCount: text("email_click_count").notNull().default("0"),
+  
+  // Lifecycle dates
+  quizCompletedAt: timestamp("quiz_completed_at"),
+  lastActivityAt: timestamp("last_activity_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
