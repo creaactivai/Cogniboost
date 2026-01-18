@@ -58,6 +58,7 @@ export const lessons = pgTable("lessons", {
   orderIndex: integer("order_index").notNull(),
   pdfMaterials: text("pdf_materials").array(), // URLs to PDF files in object storage
   isPreview: boolean("is_preview").notNull().default(false),
+  isOpen: boolean("is_open").notNull().default(false), // Open lessons bypass prerequisite checks
   isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -78,6 +79,7 @@ export const lessonProgress = pgTable("lesson_progress", {
   lessonId: varchar("lesson_id").references(() => lessons.id).notNull(),
   watchedSeconds: integer("watched_seconds").notNull().default(0),
   isCompleted: boolean("is_completed").notNull().default(false),
+  quizPassed: boolean("quiz_passed").notNull().default(false), // Track if user passed the lesson's quiz
   lastWatchedAt: timestamp("last_watched_at").defaultNow(),
 });
 

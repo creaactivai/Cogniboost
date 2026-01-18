@@ -111,6 +111,23 @@ export interface IStorage {
   // Lesson Progress
   getLessonProgressByUserId(userId: string): Promise<LessonProgress[]>;
   getAllLessonProgress(): Promise<LessonProgress[]>;
+  getCourseProgressWithUnlockStatus(userId: string, courseId: string): Promise<{
+    lessons: Array<{
+      id: string;
+      title: string;
+      orderIndex: number;
+      isOpen: boolean;
+      isPreview: boolean;
+      isCompleted: boolean;
+      quizPassed: boolean;
+      hasQuiz: boolean;
+      isUnlocked: boolean;
+    }>;
+    overallProgress: number;
+  }>;
+  markLessonComplete(userId: string, lessonId: string): Promise<LessonProgress>;
+  updateLessonProgress(userId: string, lessonId: string, watchedSeconds: number): Promise<LessonProgress>;
+  markQuizPassed(userId: string, lessonId: string): Promise<LessonProgress>;
   
   // Admin Analytics
   getAdminStats(): Promise<{
@@ -373,6 +390,180 @@ export class DatabaseStorage implements IStorage {
 
   async getAllLessonProgress(): Promise<LessonProgress[]> {
     return db.select().from(lessonProgress);
+  }
+
+  async getCourseProgressWithUnlockStatus(userId: string, courseId: string): Promise<{
+    lessons: Array<{
+      id: string;
+      title: string;
+      orderIndex: number;
+      isOpen: boolean;
+      isPreview: boolean;
+      isCompleted: boolean;
+      quizPassed: boolean;
+      hasQuiz: boolean;
+      isUnlocked: boolean;
+    }>;
+    overallProgress: number;
+  }> {
+    // Get all lessons for the course ordered by orderIndex
+    const courseLessons = await db.select()
+      .from(lessons)
+      .where(eq(lessons.courseId, courseId))
+      .orderBy(lessons.orderIndex);
+    
+    // Get user's progress for all lessons in this course
+    const userProgress = await db.select()
+      .from(lessonProgress)
+      .where(eq(lessonProgress.userId, userId));
+    
+    // Get all quizzes for lessons in this course
+    const lessonQuizzes = await db.select()
+      .from(quizzes)
+      .where(eq(quizzes.courseId, courseId));
+    
+    // Create a map of lessonId -> progress
+    const progressMap = new Map(userProgress.map(p => [p.lessonId, p]));
+    
+    // Create a map of lessonId -> has quiz
+    const quizMap = new Map(lessonQuizzes.map(q => [q.lessonId, true]));
+    
+    // Calculate unlock status for each lesson
+    const lessonsWithStatus = courseLessons.map((lesson, index) => {
+      const progress = progressMap.get(lesson.id);
+      const hasQuiz = quizMap.has(lesson.id);
+      const isCompleted = progress?.isCompleted ?? false;
+      const quizPassed = progress?.quizPassed ?? false;
+      
+      // Determine if lesson is unlocked:
+      // 1. First lesson is always unlocked
+      // 2. Open lessons are always unlocked
+      // 3. Preview lessons are always unlocked
+      // 4. Sequential lessons require previous lesson to be completed AND quiz passed (if it has one)
+      let isUnlocked = false;
+      
+      if (index === 0 || lesson.isOpen || lesson.isPreview) {
+        isUnlocked = true;
+      } else {
+        // Check previous sequential lesson (skip open lessons)
+        let prevIndex = index - 1;
+        while (prevIndex >= 0 && courseLessons[prevIndex].isOpen) {
+          prevIndex--;
+        }
+        
+        if (prevIndex < 0) {
+          // No previous sequential lesson, this one is unlocked
+          isUnlocked = true;
+        } else {
+          const prevLesson = courseLessons[prevIndex];
+          const prevProgress = progressMap.get(prevLesson.id);
+          const prevHasQuiz = quizMap.has(prevLesson.id);
+          const prevCompleted = prevProgress?.isCompleted ?? false;
+          const prevQuizPassed = prevProgress?.quizPassed ?? false;
+          
+          // Unlock if previous is completed AND (no quiz OR quiz passed)
+          isUnlocked = prevCompleted && (!prevHasQuiz || prevQuizPassed);
+        }
+      }
+      
+      return {
+        id: lesson.id,
+        title: lesson.title,
+        orderIndex: lesson.orderIndex,
+        isOpen: lesson.isOpen,
+        isPreview: lesson.isPreview,
+        isCompleted,
+        quizPassed,
+        hasQuiz,
+        isUnlocked,
+      };
+    });
+    
+    // Calculate overall progress (percentage of completed lessons)
+    const completedCount = lessonsWithStatus.filter(l => l.isCompleted).length;
+    const overallProgress = courseLessons.length > 0 
+      ? Math.round((completedCount / courseLessons.length) * 100) 
+      : 0;
+    
+    return {
+      lessons: lessonsWithStatus,
+      overallProgress,
+    };
+  }
+
+  async markLessonComplete(userId: string, lessonId: string): Promise<LessonProgress> {
+    // Check if progress record exists
+    const [existing] = await db.select()
+      .from(lessonProgress)
+      .where(and(
+        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.lessonId, lessonId)
+      ));
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db.update(lessonProgress)
+        .set({ isCompleted: true, lastWatchedAt: new Date() })
+        .where(eq(lessonProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const [created] = await db.insert(lessonProgress)
+        .values({ userId, lessonId, isCompleted: true, watchedSeconds: 0 })
+        .returning();
+      return created;
+    }
+  }
+
+  async updateLessonProgress(userId: string, lessonId: string, watchedSeconds: number): Promise<LessonProgress> {
+    // Check if progress record exists
+    const [existing] = await db.select()
+      .from(lessonProgress)
+      .where(and(
+        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.lessonId, lessonId)
+      ));
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db.update(lessonProgress)
+        .set({ watchedSeconds, lastWatchedAt: new Date() })
+        .where(eq(lessonProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const [created] = await db.insert(lessonProgress)
+        .values({ userId, lessonId, watchedSeconds })
+        .returning();
+      return created;
+    }
+  }
+
+  async markQuizPassed(userId: string, lessonId: string): Promise<LessonProgress> {
+    // Check if progress record exists
+    const [existing] = await db.select()
+      .from(lessonProgress)
+      .where(and(
+        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.lessonId, lessonId)
+      ));
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db.update(lessonProgress)
+        .set({ quizPassed: true, lastWatchedAt: new Date() })
+        .where(eq(lessonProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const [created] = await db.insert(lessonProgress)
+        .values({ userId, lessonId, quizPassed: true, watchedSeconds: 0 })
+        .returning();
+      return created;
+    }
   }
 
   // Admin Analytics

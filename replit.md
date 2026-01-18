@@ -73,6 +73,11 @@ Admin API routes are under `/api/admin/*` namespace and are protected by authent
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-18: Linear progression system with unlock logic - students must complete lessons sequentially
+- 2026-01-18: Lock icons and "Lección bloqueada" toast for locked lessons
+- 2026-01-18: "Marcar como Completada" button for lessons without quizzes
+- 2026-01-18: Quiz pass automatically marks quizPassed and isCompleted in lessonProgress
+- 2026-01-18: Admin "isOpen" toggle bypasses prerequisites for individual lessons
 - 2026-01-18: Quiz system complete with AI generation (OpenAI gpt-4o-mini)
 - 2026-01-18: Student quiz-taking interface in course-viewer.tsx with timer, results, retry
 - 2026-01-18: Admin quiz management at /admin/courses/:courseId/lessons/:lessonId/quiz
@@ -84,6 +89,29 @@ Admin API routes are under `/api/admin/*` namespace and are protected by authent
 - 2026-01-17: Complete Spanish translation of all UI components
 - 2026-01-17: Implemented bilingual topic filtering (English keys, Spanish labels)
 - 2026-01-17: Fixed language selector in settings (Inglés, Español, Portugués)
+
+### Linear Progression System
+Students must complete lessons in sequential order within each course:
+- **First lesson**: Always unlocked
+- **Subsequent lessons**: Require previous lesson to be completed AND quiz passed (if previous lesson has a quiz)
+- **Open lessons** (isOpen=true): Bypass all prerequisites; admin can toggle this for individual lessons
+- **Preview lessons** (isPreview=true): Always unlocked for marketing purposes
+
+Unlock logic in `server/storage.ts`:
+1. Skip open lessons when searching for the previous sequential lesson
+2. If no previous sequential lesson exists (all previous are open), current lesson is unlocked
+3. Otherwise, check if previous lesson is completed AND (no quiz OR quiz passed)
+
+UI Components:
+- Lock icon displayed on locked lessons
+- "Lección bloqueada" toast when clicking locked lesson
+- "Marcar como Completada" button for lessons without quizzes
+- CheckCircle icon for completed lessons
+
+API Endpoints:
+- `GET /api/courses/:id/progress` - Returns lesson progress with unlock status
+- `POST /api/lessons/:id/complete` - Marks lesson as completed
+- Quiz pass automatically marks both `quizPassed` and `isCompleted` in lessonProgress
 
 ### Conversation Labs (Breakout Rooms Model)
 The new model supports multiple topic rooms within each live session:

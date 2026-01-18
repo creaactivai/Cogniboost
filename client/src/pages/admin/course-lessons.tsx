@@ -29,6 +29,7 @@ export default function AdminCourseLessons() {
     orderIndex: 0,
     pdfMaterials: [] as string[],
     isPreview: false,
+    isOpen: false,
     isPublished: false,
   });
 
@@ -101,6 +102,7 @@ export default function AdminCourseLessons() {
       orderIndex: lessons?.length || 0,
       pdfMaterials: [],
       isPreview: false,
+      isOpen: false,
       isPublished: false,
     });
     setEditingLesson(null);
@@ -116,6 +118,7 @@ export default function AdminCourseLessons() {
       orderIndex: lesson.orderIndex,
       pdfMaterials: lesson.pdfMaterials || [],
       isPreview: lesson.isPreview,
+      isOpen: lesson.isOpen,
       isPublished: lesson.isPublished,
     });
     setIsDialogOpen(true);
@@ -371,6 +374,16 @@ export default function AdminCourseLessons() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      checked={formData.isOpen}
+                      onChange={(e) => setFormData({ ...formData, isOpen: e.target.checked })}
+                      className="w-4 h-4"
+                      data-testid="checkbox-lesson-open"
+                    />
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>Lección Abierta (sin prerrequisitos)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
                       checked={formData.isPublished}
                       onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
                       className="w-4 h-4"
@@ -444,6 +457,9 @@ export default function AdminCourseLessons() {
                     </Badge>
                     {lesson.isPreview && (
                       <Badge variant="outline">Vista Previa</Badge>
+                    )}
+                    {lesson.isOpen && (
+                      <Badge variant="outline" className="border-primary text-primary">Abierta</Badge>
                     )}
                     <Link href={`/admin/courses/${courseId}/lessons/${lesson.id}/quiz`}>
                       <Button

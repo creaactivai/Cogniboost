@@ -214,6 +214,60 @@ export async function registerRoutes(
     }
   });
 
+  // ============== PROGRESS TRACKING ROUTES ==============
+
+  // Get user's progress for a course with unlock status for each lesson
+  app.get("/api/courses/:courseId/progress", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { courseId } = req.params;
+      const progress = await storage.getCourseProgressWithUnlockStatus(userId, courseId);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching course progress:", error);
+      res.status(500).json({ error: "Failed to fetch course progress" });
+    }
+  });
+
+  // Mark a lesson as completed
+  app.post("/api/lessons/:lessonId/complete", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { lessonId } = req.params;
+      const result = await storage.markLessonComplete(userId, lessonId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error marking lesson complete:", error);
+      res.status(500).json({ error: "Failed to mark lesson complete" });
+    }
+  });
+
+  // Update lesson progress (watched time)
+  app.post("/api/lessons/:lessonId/progress", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { lessonId } = req.params;
+      const { watchedSeconds } = req.body;
+      const result = await storage.updateLessonProgress(userId, lessonId, watchedSeconds);
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating lesson progress:", error);
+      res.status(500).json({ error: "Failed to update lesson progress" });
+    }
+  });
+
   // ============== ADMIN API ROUTES ==============
 
   // Admin middleware - check if user is authenticated and is an admin
@@ -947,6 +1001,12 @@ Important:
         answers: answers.map(String),
         isPassed
       });
+
+      // If quiz passed, mark lesson as completed and quizPassed
+      if (isPassed && quiz.lessonId) {
+        await storage.markQuizPassed(userId, quiz.lessonId);
+        await storage.markLessonComplete(userId, quiz.lessonId);
+      }
 
       res.json({
         attempt,

@@ -21,6 +21,9 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronRight,
+  Lock,
+  Unlock,
+  Loader2,
 } from "lucide-react";
 import type { Course, Lesson, Quiz, QuizQuestion } from "@shared/schema";
 
@@ -46,6 +49,23 @@ interface QuizResult {
   score: number;
   isPassed: boolean;
   passingScore: number;
+}
+
+interface LessonProgressItem {
+  id: string;
+  title: string;
+  orderIndex: number;
+  isOpen: boolean;
+  isPreview: boolean;
+  isCompleted: boolean;
+  quizPassed: boolean;
+  hasQuiz: boolean;
+  isUnlocked: boolean;
+}
+
+interface CourseProgress {
+  lessons: LessonProgressItem[];
+  overallProgress: number;
 }
 
 export function CourseViewer() {
@@ -79,11 +99,42 @@ export function CourseViewer() {
     enabled: !!courseId,
   });
 
+  const { data: courseProgress, refetch: refetchProgress, isLoading: isLoadingProgress } = useQuery<CourseProgress>({
+    queryKey: ["/api/courses", courseId, "progress"],
+    enabled: !!courseId,
+  });
+
+  // Create a map for quick lookup of lesson unlock status
+  const lessonProgressMap = new Map(
+    courseProgress?.lessons.map(l => [l.id, l]) || []
+  );
+
   const selectedLesson = lessons?.find(l => l.id === selectedLessonId);
 
   const { data: quiz, isLoading: quizLoading, refetch: refetchQuiz } = useQuery<QuizWithQuestions>({
     queryKey: ["/api/lessons", selectedLessonId, "quiz"],
     enabled: !!selectedLessonId && showQuiz,
+  });
+
+  const markCompleteMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const response = await apiRequest("POST", `/api/lessons/${lessonId}/complete`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchProgress();
+      toast({
+        title: "¡Lección completada!",
+        description: "Has completado esta lección exitosamente.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo marcar la lección como completada.",
+        variant: "destructive",
+      });
+    },
   });
 
   const submitQuizMutation = useMutation({
@@ -94,6 +145,10 @@ export function CourseViewer() {
     onSuccess: (result: QuizResult) => {
       setQuizResult(result);
       setTimeLeft(null);
+      // Refetch progress to update unlock status if quiz passed
+      if (result.isPassed) {
+        refetchProgress();
+      }
       toast({
         title: result.isPassed ? "¡Felicidades!" : "Inténtalo de nuevo",
         description: result.isPassed 
@@ -193,46 +248,78 @@ export function CourseViewer() {
           <h2 className="font-mono font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">
             Contenido del Curso
           </h2>
-          {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => (
-            <Card
-              key={lesson.id}
-              className={`p-3 cursor-pointer hover-elevate ${
-                selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : ''
-              }`}
-              onClick={() => {
-                setSelectedLessonId(lesson.id);
-                setShowQuiz(false);
-                setQuizResult(null);
-                setLocation(`/dashboard/courses/${courseId}/lessons/${lesson.id}`);
-              }}
-              data-testid={`card-lesson-select-${lesson.id}`}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 flex items-center justify-center text-xs font-mono"
-                  style={{ backgroundColor: selectedLessonId === lesson.id ? '#33CBFB' : '#e5e5e5' }}
-                >
-                  {index + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono text-sm truncate">{lesson.title}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {lesson.duration > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {lesson.duration} min
-                      </span>
-                    )}
+          {isLoadingProgress && (
+            <div className="text-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+              <p className="text-xs text-muted-foreground mt-2">Cargando progreso...</p>
+            </div>
+          )}
+          {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
+            const progress = lessonProgressMap.get(lesson.id);
+            // Use strict server-side unlock status only; don't fallback to client-side logic
+            // that could bypass prerequisites before data loads
+            const isUnlocked = isLoadingProgress 
+              ? false // While loading, treat all lessons as locked to prevent bypass
+              : (progress?.isUnlocked ?? (index === 0 || lesson.isPreview || lesson.isOpen));
+            const isCompleted = progress?.isCompleted ?? false;
+            
+            return (
+              <Card
+                key={lesson.id}
+                className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
+                  selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : ''
+                }`}
+                onClick={() => {
+                  if (!isUnlocked) {
+                    toast({
+                      title: "Lección bloqueada",
+                      description: "Completa las lecciones anteriores para desbloquear esta.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setSelectedLessonId(lesson.id);
+                  setShowQuiz(false);
+                  setQuizResult(null);
+                  setLocation(`/dashboard/courses/${courseId}/lessons/${lesson.id}`);
+                }}
+                data-testid={`card-lesson-select-${lesson.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 flex items-center justify-center text-xs font-mono"
+                    style={{ 
+                      backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id ? '#33CBFB' : '#e5e5e5'),
+                      color: isCompleted || selectedLessonId === lesson.id ? 'white' : 'inherit'
+                    }}
+                  >
+                    {isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm truncate">{lesson.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {lesson.duration > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {lesson.duration} min
+                        </span>
+                      )}
+                      {lesson.isOpen && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">Abierta</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {!isUnlocked ? (
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                  ) : selectedLessonId === lesson.id ? (
+                    <ChevronDown className="w-4 h-4 text-primary" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  )}
                 </div>
-                {selectedLessonId === lesson.id ? (
-                  <ChevronDown className="w-4 h-4 text-primary" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         <div className="lg:col-span-2">
@@ -275,6 +362,41 @@ export function CourseViewer() {
                         ))}
                       </div>
                     )}
+
+                    {/* Mark as Complete Button */}
+                    {(() => {
+                      const lessonProgress = lessonProgressMap.get(selectedLesson.id);
+                      const isCompleted = lessonProgress?.isCompleted ?? false;
+                      const hasQuiz = lessonProgress?.hasQuiz ?? false;
+                      
+                      // Only show complete button if lesson has no quiz (lessons with quiz are completed via quiz)
+                      if (!hasQuiz) {
+                        return (
+                          <div className="mt-4 pt-4 border-t">
+                            <Button
+                              onClick={() => markCompleteMutation.mutate(selectedLesson.id)}
+                              disabled={isCompleted || markCompleteMutation.isPending}
+                              className="w-full"
+                              variant={isCompleted ? "outline" : "default"}
+                              data-testid="button-mark-complete"
+                            >
+                              {isCompleted ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Lección Completada
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-4 h-4 mr-2" />
+                                  Marcar como Completada
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </Card>
 
                   <Card className="p-6">
