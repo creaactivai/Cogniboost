@@ -39,9 +39,8 @@ export function FinalCTA() {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button 
-              variant="outline" 
               size="lg"
-              className="border-background/30 text-background hover:bg-background/10 px-10 py-7 text-lg font-mono uppercase tracking-wider"
+              className="bg-primary text-primary-foreground px-10 py-7 text-lg font-mono uppercase tracking-wider"
               data-testid="button-cta-book-demo"
             >
               <Calendar className="mr-2 h-5 w-5" />
