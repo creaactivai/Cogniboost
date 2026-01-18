@@ -117,7 +117,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="font-mono text-sm text-muted-foreground">
-            © {new Date().getFullYear()} CogniBoost. Todos los derechos reservados.
+            © {new Date().getFullYear()} CogniBoost. Todos los derechos reservados. By <a href="https://creaactiva.co" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Creaactiva.co</a>
           </p>
           <p className="font-mono text-sm text-muted-foreground">
             Hecho con amor para Latinoamérica
