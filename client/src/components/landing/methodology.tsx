@@ -130,7 +130,7 @@ export function ConversationLabsDeepDive() {
               <br />
               Basado en
               <br />
-              <span className="text-[hsl(174_58%_56%)]">Grupos temáticos</span>
+              <span className="text-[hsl(174_58%_56%)]">Salas temáticas</span>
             </h2>
 
             <p className="text-lg opacity-80 leading-relaxed">
