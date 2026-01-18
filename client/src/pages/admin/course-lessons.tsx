@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList } from "lucide-react";
 import type { Course, Lesson } from "@shared/schema";
 
 export default function AdminCourseLessons() {
@@ -445,6 +445,16 @@ export default function AdminCourseLessons() {
                     {lesson.isPreview && (
                       <Badge variant="outline">Vista Previa</Badge>
                     )}
+                    <Link href={`/admin/courses/${courseId}/lessons/${lesson.id}/quiz`}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        data-testid={`button-quiz-lesson-${lesson.id}`}
+                        title="Gestionar Quiz"
+                      >
+                        <ClipboardList className="w-4 h-4" />
+                      </Button>
+                    </Link>
                     <Button
                       size="icon"
                       variant="ghost"

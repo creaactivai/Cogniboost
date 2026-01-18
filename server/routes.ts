@@ -314,6 +314,20 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Get lesson by ID
+  app.get("/api/admin/lessons/:id", requireAdmin, async (req, res) => {
+    try {
+      const lesson = await storage.getLessonById(req.params.id);
+      if (!lesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+      res.json(lesson);
+    } catch (error) {
+      console.error("Error fetching lesson:", error);
+      res.status(500).json({ error: "Failed to fetch lesson" });
+    }
+  });
+
   // Admin: Create lesson
   app.post("/api/admin/lessons", requireAdmin, async (req, res) => {
     try {
