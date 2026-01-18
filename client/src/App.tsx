@@ -19,7 +19,7 @@ import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
 
 function HomePage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const currentPath = window.location.pathname;
   
   if (isLoading) {
@@ -30,8 +30,13 @@ function HomePage() {
     );
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated && user) {
     if (currentPath === "/" || currentPath === "") {
+      // Redirect new users who haven't completed onboarding to the onboarding wizard
+      if (!user.onboardingCompleted) {
+        window.location.href = "/onboarding";
+        return null;
+      }
       window.location.href = "/dashboard";
       return null;
     }

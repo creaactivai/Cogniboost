@@ -89,10 +89,12 @@ API Endpoints:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-18: Added automatic onboarding redirect - new users with onboardingCompleted=false are redirected from / and /dashboard to /onboarding
 - 2026-01-18: Customer onboarding wizard (/onboarding) with 4-step flow: level, goals, availability, interests
 - 2026-01-18: Resend email integration with templates: welcome, onboarding_reminder, course_enrolled, lesson_completed, subscription_activated
 - 2026-01-18: Auto welcome email on new user signup, onboarding reminder system for incomplete profiles
 - 2026-01-18: Admin onboarding page (/admin/onboarding) with stats and send reminder functionality
+- 2026-01-18: Added Zod validation for onboarding API endpoint and email template whitelist for admin emails
 - 2026-01-18: Admin student management with status tabs (active/hold/inactive) and lock/unlock functionality
 - 2026-01-18: Student metrics KPIs: total, active, hold, inactive counts, churn rate, new/churned this month
 - 2026-01-18: Enhanced financials dashboard with MRR, ARR, ARPU, LTV calculations

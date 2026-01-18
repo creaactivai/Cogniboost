@@ -56,7 +56,11 @@ export default function Dashboard() {
     if (!isLoading && !isAuthenticated) {
       window.location.href = "/api/login";
     }
-  }, [isLoading, isAuthenticated]);
+    // Redirect users who haven't completed onboarding
+    if (!isLoading && isAuthenticated && user && !user.onboardingCompleted) {
+      window.location.href = "/onboarding";
+    }
+  }, [isLoading, isAuthenticated, user]);
 
   if (isLoading) {
     return (
