@@ -40,7 +40,7 @@ export async function getResendClient() {
   const { apiKey, fromEmail } = await getCredentials();
   return {
     client: new Resend(apiKey),
-    fromEmail: fromEmail || 'noreply@cogniboost.co'
+    fromEmail: fromEmail || 'info@inscripciones.cogniboost.co'
   };
 }
 
