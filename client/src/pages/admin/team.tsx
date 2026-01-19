@@ -83,8 +83,8 @@ export default function AdminTeam() {
           </Card>
           <Card className="p-4" data-testid="card-team-instructors-count">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#33CBFB]/15 flex items-center justify-center rounded">
-                <UserCheck className="w-5 h-5 text-[#33CBFB]" />
+              <div className="w-10 h-10 bg-success/15 flex items-center justify-center rounded">
+                <UserCheck className="w-5 h-5 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{instructors?.filter(i => i.isActive).length || 0}</p>
@@ -94,8 +94,8 @@ export default function AdminTeam() {
           </Card>
           <Card className="p-4" data-testid="card-team-total">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-amber-500/15 flex items-center justify-center rounded">
-                <Users className="w-5 h-5 text-amber-500" />
+              <div className="w-10 h-10 bg-accent/15 flex items-center justify-center rounded">
+                <Users className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{(admins?.length || 0) + (instructors?.length || 0)}</p>
@@ -216,7 +216,7 @@ export default function AdminTeam() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
                           <AvatarImage src={instructor.avatarUrl || undefined} />
-                          <AvatarFallback className="bg-[#33CBFB] text-black">
+                          <AvatarFallback className="bg-success text-success-foreground">
                             {instructor.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "IN"}
                           </AvatarFallback>
                         </Avatar>

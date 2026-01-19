@@ -28,25 +28,29 @@ export default function AdminOverview() {
       title: "Estudiantes Totales",
       value: stats?.totalStudents || 0,
       icon: Users,
-      color: "#33CBFB",
+      bgColor: "bg-success",
+      textColor: "text-success-foreground",
     },
     {
       title: "Cursos Activos",
       value: stats?.totalCourses || 0,
       icon: BookOpen,
-      color: "#FD335A",
+      bgColor: "bg-primary",
+      textColor: "text-primary-foreground",
     },
     {
       title: "Laboratorios",
       value: stats?.totalLabs || 0,
       icon: Calendar,
-      color: "#33CBFB",
+      bgColor: "bg-accent",
+      textColor: "text-accent-foreground",
     },
     {
       title: "Ingresos Totales",
       value: `$${Number(stats?.totalRevenue || 0).toLocaleString()}`,
       icon: DollarSign,
-      color: "#10B981",
+      bgColor: "bg-success",
+      textColor: "text-success-foreground",
     },
   ];
 
@@ -57,24 +61,17 @@ export default function AdminOverview() {
           {statCards.map((stat, index) => (
             <Card key={index} className="p-4" data-testid={`card-stat-${index}`}>
               <div className="flex items-center justify-between mb-3">
-                <div 
-                  className="w-10 h-10 flex items-center justify-center"
-                  style={{ backgroundColor: stat.color }}
-                >
-                  <stat.icon className="w-5 h-5 text-black" />
+                <div className={`w-10 h-10 flex items-center justify-center ${stat.bgColor}`}>
+                  <stat.icon className={`w-5 h-5 ${stat.textColor}`} />
                 </div>
               </div>
               <p 
-                className="text-2xl font-black mb-1" 
-                style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+                className="text-2xl font-display uppercase tracking-tight mb-1" 
                 data-testid={`text-stat-value-${index}`}
               >
                 {statsLoading ? "..." : stat.value}
               </p>
-              <p 
-                className="text-sm text-muted-foreground"
-                style={{ fontFamily: 'JetBrains Mono, monospace' }}
-              >
+              <p className="text-sm font-mono text-muted-foreground">
                 {stat.title}
               </p>
             </Card>
@@ -84,19 +81,16 @@ export default function AdminOverview() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <Card className="p-4">
-              <h2 
-                className="text-lg font-black mb-4" 
-                style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              >
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
                 Cursos Recientes
               </h2>
               <div className="space-y-3">
                 {coursesLoading ? (
-                  <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                  <p className="font-mono text-muted-foreground">
                     Cargando cursos...
                   </p>
                 ) : courses?.length === 0 ? (
-                  <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                  <p className="font-mono text-muted-foreground">
                     No hay cursos todavía
                   </p>
                 ) : (
@@ -107,14 +101,11 @@ export default function AdminOverview() {
                       data-testid={`course-item-${course.id}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 flex items-center justify-center"
-                          style={{ backgroundColor: '#33CBFB' }}
-                        >
-                          <BookOpen className="w-5 h-5 text-black" />
+                        <div className="w-10 h-10 flex items-center justify-center bg-primary">
+                          <BookOpen className="w-5 h-5 text-primary-foreground" />
                         </div>
                         <div>
-                          <p className="font-medium" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                          <p className="font-mono font-medium">
                             {course.title}
                           </p>
                           <p className="text-xs text-muted-foreground">
@@ -122,10 +113,7 @@ export default function AdminOverview() {
                           </p>
                         </div>
                       </div>
-                      <Badge 
-                        variant={course.isPublished ? "default" : "secondary"}
-                        style={{ backgroundColor: course.isPublished ? '#33CBFB' : undefined }}
-                      >
+                      <Badge variant={course.isPublished ? "default" : "secondary"}>
                         {course.isPublished ? "Publicado" : "Borrador"}
                       </Badge>
                     </div>
@@ -137,16 +125,13 @@ export default function AdminOverview() {
 
           <div>
             <Card className="p-4">
-              <h2 
-                className="text-lg font-black mb-4" 
-                style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              >
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
                 Suscripciones
               </h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
+                    <span className="text-sm font-mono">
                       Suscripciones Activas
                     </span>
                     <span className="font-bold" data-testid="text-active-subs">
@@ -156,7 +141,7 @@ export default function AdminOverview() {
                   <Progress value={stats?.activeSubscriptions ? 100 : 0} className="h-2" />
                 </div>
                 {stats?.activeSubscriptions === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                  <p className="text-sm font-mono text-muted-foreground text-center py-2">
                     Sin suscriptores aún
                   </p>
                 )}
@@ -164,16 +149,13 @@ export default function AdminOverview() {
             </Card>
 
             <Card className="p-4 mt-4">
-              <h2 
-                className="text-lg font-black mb-4" 
-                style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              >
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
                 Laboratorios en Vivo
               </h2>
               <div className="space-y-2">
                 <div className="p-2 bg-muted/50 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#33CBFB]" />
-                  <span className="text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                  <Calendar className="w-4 h-4 text-success" />
+                  <span className="text-sm font-mono">
                     {stats?.totalLabs || 0} sesiones configuradas
                   </span>
                 </div>

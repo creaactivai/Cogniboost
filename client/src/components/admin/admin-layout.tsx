@@ -52,8 +52,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <div className="flex items-center gap-4">
               <SidebarTrigger data-testid="button-admin-sidebar-toggle" />
               <h1 
-                className="text-xl font-black" 
-                style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
+                className="text-xl font-display uppercase tracking-tight" 
                 data-testid="text-admin-page-title"
               >
                 {title}

@@ -9,7 +9,8 @@ import {
   ChevronLeft,
   Mail,
   Target,
-  UsersRound
+  UsersRound,
+  GraduationCap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,24 +80,26 @@ export function AdminSidebar() {
   return (
     <Sidebar className="border-r border-border">
       <SidebarHeader className="p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#33CBFB] flex items-center justify-center">
-            <span className="text-black font-black text-sm" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>C</span>
+        <Link href="/">
+          <div className="flex items-center gap-2 cursor-pointer" data-testid="link-admin-logo">
+            <div className="w-8 h-8 bg-primary flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <span className="font-display text-lg uppercase tracking-tight">
+                COGNI<span className="text-primary">BOOST</span>
+              </span>
+              <p className="text-xs font-mono text-muted-foreground">
+                Panel Administrativo
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-black text-lg" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
-              CogniBoost
-            </h1>
-            <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              Panel Administrativo
-            </p>
-          </div>
-        </div>
+        </Link>
       </SidebarHeader>
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
             Gestión
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -110,7 +113,7 @@ export function AdminSidebar() {
                   >
                     <Link href={item.url}>
                       <item.icon className="w-4 h-4" />
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{item.title}</span>
+                      <span className="font-mono">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -124,7 +127,7 @@ export function AdminSidebar() {
         <Link href="/">
           <Button variant="ghost" className="w-full justify-start gap-2" data-testid="button-back-to-site">
             <ChevronLeft className="w-4 h-4" />
-            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>Volver al Sitio</span>
+            <span className="font-mono">Volver al Sitio</span>
           </Button>
         </Link>
       </SidebarFooter>
