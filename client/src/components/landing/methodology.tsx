@@ -5,15 +5,15 @@ const steps = [
   {
     number: "01",
     icon: Play,
-    title: "Aprende de Expertos",
-    description: "Cursos diseñados por profesionales activos en la industria. Habilidades prácticas que puedes aplicar desde el día uno, no teoría abstracta.",
+    title: "Aprende con Clases Guiadas",
+    description: "Clases pregrabadas y en vivo para dominar la estructura y el vocabulario antes de hablar. A tu ritmo, con enfoque práctico e inglés situacional.",
     color: "primary",
   },
   {
     number: "02",
     icon: Users,
-    title: "Practica en Comunidad",
-    description: "Únete a salas temáticas con profesionales como tú. Responsabilidad grupal que elimina la procrastinación.",
+    title: "Conversation Labs",
+    description: "Sesiones en vivo sobre temas de tu interés, con prompts guiados y expertos dándote feedback en tiempo real.",
     color: "turquoise",
     badge: "MÉTODO PROBADO",
   },
@@ -21,7 +21,7 @@ const steps = [
     number: "03",
     icon: TrendingUp,
     title: "Avanza Tu Carrera",
-    description: "Proyectos reales, conexiones profesionales y resultados medibles que impulsan tu crecimiento profesional.",
+    description: "Proyectos reales, conexiones profesionales y resultados medibles que impulsan tu crecimiento profesional y personal.",
     color: "primary",
   },
 ];
@@ -130,7 +130,7 @@ export function ConversationLabsDeepDive() {
               <br />
               Basado en
               <br />
-              <span className="text-[hsl(174_58%_56%)]">Salas temáticas</span>
+              <span className="text-[hsl(174_58%_56%)]">Salas Temáticas</span>
             </h2>
 
             <p className="text-lg opacity-80 leading-relaxed">

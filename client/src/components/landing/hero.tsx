@@ -46,15 +46,15 @@ export function Hero() {
 
             {/* Main headline - New brand messaging */}
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
-              Deja de coleccionar certificados.
+              El inglés no es el problema.
               <br />
-              <span className="text-primary">Empieza a construir carreras.</span>
+              <span className="text-primary">El método sí.</span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg">
-              Educación orientada a resultados diseñada para aplicación en el mundo real. 
-              Aprende de profesionales, no de académicos.
+              <span className="font-semibold text-foreground">Metodología Class Labs:</span> Aprende inglés usándolo, no memorizándolo. 
+              Clases diseñadas para la vida real y el mundo profesional.
             </p>
 
             {/* CTA Buttons - Purple primary per brand guidelines */}
@@ -95,7 +95,7 @@ export function Hero() {
             {/* Social proof */}
             <div className="pt-4">
               <p className="text-sm text-muted-foreground">
-                Únete a <span className="text-foreground font-semibold">500+</span> profesionales avanzando sus carreras
+                Únete a <span className="text-foreground font-semibold">500+</span> profesionales y jóvenes avanzando sus carreras
               </p>
             </div>
           </div>
@@ -106,15 +106,15 @@ export function Hero() {
               <AnimatedSection animation="fade-left" delay={100} className="h-full">
                 <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <BookOpen className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-3xl font-bold">100+</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Cursos Prácticos</p>
+                  <p className="text-3xl font-bold">250+</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Lecciones</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={200} className="h-full">
                 <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <Users className="w-8 h-8 text-[hsl(174_58%_56%)] mb-3" />
                   <p className="text-3xl font-bold">500+</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Sesiones en Vivo</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Profesionales Activos</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={300} className="h-full">
