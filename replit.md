@@ -215,3 +215,9 @@ API Endpoints:
 - PostgreSQL database with Drizzle ORM
 - Replit Auth for authentication
 - Object Storage for file uploads
+
+### Stripe Integration (TODO)
+- Stripe connector was dismissed by user - needs to be set up later
+- Pricing plans: Flex ($14.99/mo), Estándar ($49.99/mo), Premium ($99.99/mo)
+- Direct purchase buttons ready but need Stripe connection for checkout
+- Once Stripe is connected, create products/prices and update checkout flow
