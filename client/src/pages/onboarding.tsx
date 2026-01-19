@@ -136,7 +136,7 @@ export default function Onboarding() {
         title: "¡Perfil completado!",
         description: "Tu experiencia de aprendizaje ha sido personalizada.",
       });
-      setLocation("/dashboard");
+      setLocation("/choose-plan");
     },
     onError: () => {
       toast({
@@ -459,15 +459,6 @@ export default function Onboarding() {
             </CardContent>
           </Card>
 
-          <p className="text-center font-mono text-sm text-muted-foreground mt-4">
-            <button
-              onClick={() => setLocation("/dashboard")}
-              className="underline hover:text-foreground"
-              data-testid="link-skip-onboarding"
-            >
-              Omitir por ahora
-            </button>
-          </p>
         </div>
       </main>
     </div>

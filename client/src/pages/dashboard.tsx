@@ -1,4 +1,4 @@
-import { Route, Switch, useRoute, useLocation } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Subscription } from "@shared/schema";
 
 const ANONYMOUS_ID_KEY = "cogniboost_anonymous_id";
 
@@ -20,28 +21,28 @@ function HelpSupport() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Help & Support</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Ayuda y Soporte</h1>
         <p className="font-mono text-muted-foreground">
-          Get help with your learning journey
+          Obtén ayuda con tu camino de aprendizaje
         </p>
       </div>
       <div className="grid gap-4 max-w-2xl">
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">FAQs</h3>
+          <h3 className="font-mono font-semibold mb-2">Preguntas Frecuentes</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Find answers to common questions about courses, labs, and your account.
+            Encuentra respuestas a preguntas comunes sobre cursos, labs y tu cuenta.
           </p>
         </div>
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">Contact Support</h3>
+          <h3 className="font-mono font-semibold mb-2">Contactar Soporte</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Email us at support@cogniboost.co for personalized assistance.
+            Escríbenos a support@cogniboost.co para asistencia personalizada.
           </p>
         </div>
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">Community</h3>
+          <h3 className="font-mono font-semibold mb-2">Comunidad</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Join our Discord community to connect with other learners.
+            Únete a nuestra comunidad de Discord para conectar con otros estudiantes.
           </p>
         </div>
       </div>
@@ -51,12 +52,15 @@ function HelpSupport() {
 
 export default function Dashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
-  const [wouterLocation] = useLocation();
-  const browserPath = window.location.pathname;
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const claimAttemptedRef = useRef(false);
-  
-  console.log("Dashboard wouter location:", wouterLocation, "Browser path:", browserPath);
+
+  // Fetch user subscription to verify access
+  const { data: subscription, isLoading: subscriptionLoading } = useQuery<Subscription>({
+    queryKey: ["/api/subscription"],
+    enabled: isAuthenticated,
+  });
 
   // Fallback: Claim anonymous quiz results if user doesn't have placement level yet
   useEffect(() => {
@@ -88,25 +92,50 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       window.location.href = "/api/login";
+      return;
     }
+    
+    // Redirect admins to admin panel
+    if (!isLoading && isAuthenticated && user?.isAdmin) {
+      setLocation("/admin");
+      return;
+    }
+    
     // Redirect users who haven't completed onboarding
     if (!isLoading && isAuthenticated && user && !user.onboardingCompleted) {
-      window.location.href = "/onboarding";
+      setLocation("/onboarding");
+      return;
     }
-  }, [isLoading, isAuthenticated, user]);
+    
+    // Check subscription - only allow paid users to access dashboard
+    if (!isLoading && !subscriptionLoading && isAuthenticated && user?.onboardingCompleted) {
+      const tier = subscription?.tier || "free";
+      if (tier === "free") {
+        // Redirect free users to choose a plan
+        setLocation("/choose-plan");
+        return;
+      }
+    }
+  }, [isLoading, isAuthenticated, user, subscription, subscriptionLoading, setLocation]);
 
-  if (isLoading) {
+  if (isLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Loading...</p>
+          <p className="font-mono text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
+    return null;
+  }
+
+  // Don't render dashboard for free tier users
+  const tier = subscription?.tier || "free";
+  if (tier === "free" && user?.onboardingCompleted) {
     return null;
   }
 

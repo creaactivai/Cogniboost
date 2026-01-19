@@ -117,6 +117,46 @@ export async function registerRoutes(
     }
   });
 
+  // Get user enrollments with course info and progress
+  app.get("/api/enrollments/with-progress", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const enrollments = await storage.getEnrollmentsByUserId(userId);
+      
+      // Get course details and calculate progress for each enrollment
+      const enrichedEnrollments = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const course = await storage.getCourseById(enrollment.courseId);
+          const lessons = await storage.getLessonsByCourseId(enrollment.courseId);
+          const lessonProgress = await storage.getLessonProgressByUserId(userId);
+          
+          // Calculate completion percentage
+          const courseLessonIds = lessons.map(l => l.id);
+          const completedLessons = lessonProgress.filter(
+            lp => courseLessonIds.includes(lp.lessonId) && lp.isCompleted
+          ).length;
+          const progress = lessons.length > 0 
+            ? Math.round((completedLessons / lessons.length) * 100) 
+            : 0;
+          
+          return {
+            ...enrollment,
+            course,
+            progress,
+          };
+        })
+      );
+      
+      res.json(enrichedEnrollments);
+    } catch (error) {
+      console.error("Error fetching enrollments with progress:", error);
+      res.status(500).json({ error: "Failed to fetch enrollments" });
+    }
+  });
+
   // Enroll in a course
   app.post("/api/enrollments", async (req, res) => {
     try {

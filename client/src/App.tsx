@@ -24,6 +24,7 @@ import AdminTeam from "@/pages/admin/team";
 import SobreNosotros from "@/pages/sobre-nosotros";
 import Legal from "@/pages/legal";
 import PurchaseComplete from "@/pages/purchase-complete";
+import ChoosePlan from "@/pages/choose-plan";
 import { CookieConsent } from "@/components/cookie-consent";
 
 function HomePage() {
@@ -40,11 +41,18 @@ function HomePage() {
 
   if (isAuthenticated && user) {
     if (currentPath === "/" || currentPath === "") {
+      // Redirect admins to admin panel
+      if (user.isAdmin) {
+        window.location.href = "/admin";
+        return null;
+      }
       // Redirect new users who haven't completed onboarding to the onboarding wizard
       if (!user.onboardingCompleted) {
         window.location.href = "/onboarding";
         return null;
       }
+      // After onboarding, go to dashboard (which checks subscription)
+      // Dashboard will redirect free users to choose-plan
       window.location.href = "/dashboard";
       return null;
     }
@@ -64,6 +72,7 @@ function Router() {
       <Route path="/sobre-nosotros" component={SobreNosotros} />
       <Route path="/legal" component={Legal} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/choose-plan" component={ChoosePlan} />
       <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
       <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />

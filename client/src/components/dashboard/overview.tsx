@@ -11,12 +11,13 @@ import {
   Calendar,
   ArrowRight,
   Flame,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import type { LiveSession, SessionRoom } from "@shared/schema";
+import type { LiveSession, SessionRoom, UserStats, Enrollment, Course } from "@shared/schema";
 
 const courseTopicsEs: Record<string, string> = {
   "Business English": "Inglés de Negocios",
@@ -37,9 +38,10 @@ interface StatCardProps {
   value: string | number;
   sublabel?: string;
   color?: "primary" | "accent";
+  isLoading?: boolean;
 }
 
-function StatCard({ icon: Icon, label, value, sublabel, color = "primary" }: StatCardProps) {
+function StatCard({ icon: Icon, label, value, sublabel, color = "primary", isLoading }: StatCardProps) {
   return (
     <Card className="p-6 border-border hover-elevate">
       <div className="flex items-start justify-between mb-4">
@@ -52,8 +54,14 @@ function StatCard({ icon: Icon, label, value, sublabel, color = "primary" }: Sta
           </span>
         )}
       </div>
-      <p className="text-3xl font-display mb-1">{value}</p>
-      <p className="text-sm font-mono text-muted-foreground">{label}</p>
+      {isLoading ? (
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      ) : (
+        <>
+          <p className="text-3xl font-display mb-1">{value}</p>
+          <p className="text-sm font-mono text-muted-foreground">{label}</p>
+        </>
+      )}
     </Card>
   );
 }
@@ -62,28 +70,30 @@ interface CourseCardProps {
   title: string;
   level: string;
   progress: number;
-  thumbnail?: string;
+  courseId: string;
 }
 
-function ContinueLearningCard({ title, level, progress, thumbnail }: CourseCardProps) {
+function ContinueLearningCard({ title, level, progress, courseId }: CourseCardProps) {
   return (
-    <Card className="p-4 border-border hover-elevate group">
-      <div className="flex gap-4">
-        <div className="w-24 h-16 bg-muted flex items-center justify-center flex-shrink-0">
-          <Play className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-mono">{level}</span>
+    <Link href={`/dashboard/courses/${courseId}`}>
+      <Card className="p-4 border-border hover-elevate group cursor-pointer">
+        <div className="flex gap-4">
+          <div className="w-24 h-16 bg-muted flex items-center justify-center flex-shrink-0">
+            <Play className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
-          <p className="font-mono text-sm truncate mb-2">{title}</p>
-          <div className="flex items-center gap-2">
-            <Progress value={progress} className="h-1 flex-1" />
-            <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-mono">{level}</span>
+            </div>
+            <p className="font-mono text-sm truncate mb-2">{title}</p>
+            <div className="flex items-center gap-2">
+              <Progress value={progress} className="h-1 flex-1" />
+              <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
+            </div>
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }
 
@@ -143,11 +153,21 @@ function UpcomingSessionCard({ session }: UpcomingSessionCardProps) {
   );
 }
 
+type EnrollmentWithCourse = Enrollment & { course?: Course };
+
 export function DashboardOverview() {
   const { user } = useAuth();
 
   const { data: sessions = [] } = useQuery<LiveSession[]>({
     queryKey: ["/api/live-sessions"],
+  });
+
+  const { data: userStats, isLoading: statsLoading } = useQuery<UserStats>({
+    queryKey: ["/api/user-stats"],
+  });
+
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useQuery<EnrollmentWithCourse[]>({
+    queryKey: ["/api/enrollments/with-progress"],
   });
 
   const sessionsWithRooms: SessionWithRooms[] = sessions.map(session => ({
@@ -160,20 +180,9 @@ export function DashboardOverview() {
     .filter(s => new Date(s.scheduledAt) > now)
     .slice(0, 2);
 
-  const stats = {
-    hoursStudied: 24.5,
-    coursesCompleted: 3,
-    labsAttended: 12,
-    currentLevel: "B1",
-    xpPoints: 2450,
-    streak: 7,
-  };
-
-  const continueLearning = [
-    { title: "Inglés de Negocios: Reuniones y Presentaciones", level: "B1", progress: 65 },
-    { title: "Conversaciones Cotidianas: En la Oficina", level: "A2", progress: 40 },
-    { title: "Gramática Esencial: Tiempos Pasados", level: "B1", progress: 20 },
-  ];
+  const hoursStudied = userStats?.totalHoursStudied ? parseFloat(userStats.totalHoursStudied as string) : 0;
+  const currentLevel = userStats?.currentLevel || user?.placementLevel || "A1";
+  const xpPoints = userStats?.xpPoints || 0;
 
   return (
     <div className="space-y-8">
@@ -186,19 +195,44 @@ export function DashboardOverview() {
             Continúa tu camino hacia la fluidez en inglés
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30">
-          <Flame className="w-5 h-5 text-accent" />
-          <span className="font-mono text-sm">
-            Racha de <span className="font-bold">{stats.streak} días</span>
-          </span>
-        </div>
+        {xpPoints > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30">
+            <Flame className="w-5 h-5 text-accent" />
+            <span className="font-mono text-sm">
+              <span className="font-bold">{xpPoints} XP</span> acumulados
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Clock} label="Horas Estudiadas" value={stats.hoursStudied} sublabel="Este mes" />
-        <StatCard icon={BookOpen} label="Cursos Completados" value={stats.coursesCompleted} />
-        <StatCard icon={Users} label="Labs Asistidos" value={stats.labsAttended} color="accent" />
-        <StatCard icon={TrendingUp} label="Nivel Actual" value={stats.currentLevel} sublabel={`${stats.xpPoints} XP`} />
+        <StatCard 
+          icon={Clock} 
+          label="Horas Estudiadas" 
+          value={hoursStudied.toFixed(1)} 
+          sublabel="Total" 
+          isLoading={statsLoading}
+        />
+        <StatCard 
+          icon={BookOpen} 
+          label="Cursos Completados" 
+          value={userStats?.coursesCompleted || 0} 
+          isLoading={statsLoading}
+        />
+        <StatCard 
+          icon={Users} 
+          label="Labs Asistidos" 
+          value={userStats?.labsAttended || 0} 
+          color="accent" 
+          isLoading={statsLoading}
+        />
+        <StatCard 
+          icon={TrendingUp} 
+          label="Nivel Actual" 
+          value={currentLevel} 
+          sublabel={`${xpPoints} XP`} 
+          isLoading={statsLoading}
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
@@ -213,9 +247,37 @@ export function DashboardOverview() {
             </Link>
           </div>
           <div className="space-y-3">
-            {continueLearning.map((course, index) => (
-              <ContinueLearningCard key={index} {...course} />
-            ))}
+            {enrollmentsLoading ? (
+              <Card className="p-6 border-border text-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+                <p className="text-xs font-mono text-muted-foreground">
+                  Cargando tus cursos...
+                </p>
+              </Card>
+            ) : enrollments.length > 0 ? (
+              enrollments.slice(0, 3).map((enrollment) => (
+                <ContinueLearningCard 
+                  key={enrollment.id} 
+                  title={enrollment.course?.title || "Curso"} 
+                  level={enrollment.course?.level || "A1"} 
+                  progress={(enrollment as any).progress || 0}
+                  courseId={enrollment.courseId}
+                />
+              ))
+            ) : (
+              <Card className="p-6 border-border text-center">
+                <BookOpen className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm font-mono text-muted-foreground mb-4">
+                  Aún no estás inscrito en ningún curso
+                </p>
+                <Link href="/dashboard/courses">
+                  <Button data-testid="button-explore-courses">
+                    Explorar Cursos
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </Card>
+            )}
           </div>
         </div>
 
