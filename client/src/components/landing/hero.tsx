@@ -95,7 +95,7 @@ export function Hero() {
             {/* Social proof */}
             <div className="pt-4">
               <p className="text-sm text-muted-foreground">
-                Únete a <span className="text-foreground font-semibold">5,000+</span> profesionales avanzando sus carreras
+                Únete a <span className="text-foreground font-semibold">500+</span> profesionales avanzando sus carreras
               </p>
             </div>
           </div>
@@ -138,7 +138,6 @@ export function Hero() {
           </div>
         </div>
       </div>
-
     </section>
   );
 }
