@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification';
 
 // Send email using template
 export async function sendEmail(
@@ -512,6 +512,156 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
               <p style="font-size: 10px; margin-top: 10px;"><a href="https://cogniboost.co/unsubscribe?email=${data.email || ''}" style="color: #666666;">Cancelar suscripción</a></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    class_booking_confirmation: {
+      subject: '¡Tu clase gratis está confirmada! 📅',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #1a1a40; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: bold; color: #667EEA; }
+            h1 { color: #1a1a40; margin: 0; font-size: 24px; }
+            p { line-height: 1.6; color: #4a4a4a; }
+            .class-card { background: linear-gradient(135deg, #667EEA 0%, #4FD1C5 100%); padding: 25px; margin: 20px 0; border-radius: 8px; color: #ffffff; }
+            .class-card h2 { margin: 0 0 15px 0; font-size: 22px; }
+            .class-details { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 4px; margin-top: 15px; }
+            .class-details p { color: #ffffff; margin: 5px 0; }
+            .tips { background: #f0f4ff; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #667EEA; }
+            .tips h3 { color: #667EEA; margin: 0 0 10px 0; }
+            .tips ul { margin: 0; padding-left: 20px; color: #4a4a4a; }
+            .tips li { margin: 8px 0; }
+            .cta { display: inline-block; background: #667EEA; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; border-radius: 4px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #888888; font-size: 12px; }
+            .highlight { color: #4FD1C5; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CogniBoost</div>
+            </div>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
+            <p>Tu clase gratis ha sido <span class="highlight">confirmada exitosamente</span>. Aquí están los detalles:</p>
+            <div class="class-card">
+              <h2>${data.sessionTitle || 'Clase de Práctica'}</h2>
+              <div class="class-details">
+                <p><strong>Fecha:</strong> ${data.sessionDate || 'Por confirmar'}</p>
+                <p><strong>Hora:</strong> ${data.sessionTime || 'Por confirmar'}</p>
+                <p><strong>Tema:</strong> ${data.roomTopic || 'Conversación General'}</p>
+                <p><strong>Nivel:</strong> ${data.roomLevel || 'Todos los niveles'}</p>
+                <p><strong>Duración:</strong> ${data.sessionDuration || '45'} minutos</p>
+              </div>
+            </div>
+            <div class="tips">
+              <h3>Prepárate para tu clase:</h3>
+              <ul>
+                <li>Asegúrate de tener buena conexión a internet</li>
+                <li>Busca un lugar tranquilo sin distracciones</li>
+                <li>Ten a la mano audífonos con micrófono</li>
+                <li>Llega 5 minutos antes para probar tu audio</li>
+              </ul>
+            </div>
+            <p>Te enviaremos un recordatorio antes de la clase con el enlace para unirte.</p>
+            <p>¡Nos vemos pronto!</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>CogniBoost - Desarrollo Profesional</p>
+              <p>PMB 1420, 10900 Research Blvd Ste 160C, Austin, TX 78759</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    class_booking_notification: {
+      subject: '📋 Nueva reserva de clase gratis',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #1a1a40; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #667EEA; }
+            .logo { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: bold; color: #667EEA; }
+            .badge { background: #4FD1C5; color: #ffffff; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-top: 10px; }
+            h1 { color: #1a1a40; margin: 0; font-size: 22px; }
+            p { line-height: 1.6; color: #4a4a4a; }
+            .info-section { margin: 20px 0; }
+            .info-section h3 { color: #667EEA; margin: 0 0 15px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+            .info-row { display: flex; margin: 10px 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+            .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+            .info-label { color: #888888; width: 120px; font-size: 14px; }
+            .info-value { color: #1a1a40; font-weight: 500; }
+            .footer { text-align: center; margin-top: 30px; color: #888888; font-size: 12px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CogniBoost Admin</div>
+              <div class="badge">NUEVA RESERVA</div>
+            </div>
+            <h1>Se ha registrado una nueva reserva de clase gratis</h1>
+            
+            <div class="info-section">
+              <h3>Información del Estudiante</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Nombre:</span>
+                  <span class="info-value">${data.studentName || 'No proporcionado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email:</span>
+                  <span class="info-value">${data.studentEmail || 'No proporcionado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Teléfono:</span>
+                  <span class="info-value">${data.studentPhone || 'No proporcionado'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="info-section">
+              <h3>Detalles de la Clase</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Sesión:</span>
+                  <span class="info-value">${data.sessionTitle || 'Clase de Práctica'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Fecha:</span>
+                  <span class="info-value">${data.sessionDate || 'Por confirmar'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Hora:</span>
+                  <span class="info-value">${data.sessionTime || 'Por confirmar'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Tema:</span>
+                  <span class="info-value">${data.roomTopic || 'Conversación General'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Nivel:</span>
+                  <span class="info-value">${data.roomLevel || 'Todos los niveles'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Este es un correo automático del sistema CogniBoost</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
             </div>
           </div>
         </body>
