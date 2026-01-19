@@ -159,7 +159,7 @@ function PricingCard({ plan, openBooking }: { plan: typeof plans[0]; openBooking
 
       {/* CTA */}
       <Button 
-        className="w-full"
+        className={`w-full ${plan.name === "Gratis" ? "bg-[#4ed0c3] text-foreground hover:bg-[#4ed0c3]/90" : ""}`}
         variant={plan.variant}
         onClick={openBooking}
         data-testid={`button-plan-${plan.name.toLowerCase()}`}
