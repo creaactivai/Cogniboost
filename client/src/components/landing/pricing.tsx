@@ -384,7 +384,7 @@ export function Pricing() {
         <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
-            <span>Sin tarjeta de crédito</span>
+            <span>Clase Gratis</span>
           </div>
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
@@ -392,7 +392,7 @@ export function Pricing() {
           </div>
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-primary" />
-            <span>Garantía de 7 días</span>
+            <span>7 días gratis</span>
           </div>
         </div>
       </div>

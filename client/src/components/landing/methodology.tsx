@@ -93,24 +93,24 @@ export function Methodology() {
 export function ConversationLabsDeepDive() {
   const benefits = [
     {
-      stat: "10x",
-      label: "RETORNO DE INVERSIÓN",
-      description: "Incremento salarial promedio de nuestros graduados",
-    },
-    {
-      stat: "8-12",
-      label: "PROFESIONALES POR SALA",
-      description: "Grupos pequeños para networking efectivo",
-    },
-    {
       stat: "20+",
-      label: "INDUSTRIAS CUBIERTAS",
-      description: "Desde tech hasta finanzas, marketing y más",
+      label: "TEMAS DE INTERÉS",
+      description: "Desde tech hasta finanzas, desde entretenimiento hasta deportes",
     },
     {
-      stat: "4",
+      stat: "8",
       label: "SEMANAS PROMEDIO",
-      description: "Tiempo para completar cada módulo práctico",
+      description: "Tiempo estimado para completar cada módulo",
+    },
+    {
+      stat: "87%",
+      label: "TASA DE FINALIZACIÓN",
+      description: "Vs 5% en cursos tradicionales a tu ritmo",
+    },
+    {
+      stat: "100%",
+      label: "TEMAS RELEVANTES",
+      description: "Hablas de lo que te interesa y ayuda a tu carrera",
     },
   ];
 
@@ -134,13 +134,15 @@ export function ConversationLabsDeepDive() {
             </h2>
 
             <p className="text-lg opacity-80 leading-relaxed">
-              Los cursos a tu ritmo tienen tasas de abandono del 95%. Nuestras salas temáticas tienen 
-              tasas de finalización del 87%. La diferencia: responsabilidad comunitaria.
+              Los cursos donde te indican sobre qué temas aprender y qué hablar tienen tasas de abandono del 95%. 
+              Nuestras salas temáticas tienen tasas de finalización del 87%. La diferencia: hablas de temas que 
+              te interesan y ayudan a tu carrera y crecimiento personal.
             </p>
 
             <p className="text-lg opacity-80 leading-relaxed">
-              Avanza junto a profesionales con objetivos similares. Sesiones en vivo semanales 
-              con expertos de la industria. Proyectos reales que puedes mostrar a empleadores.
+              Avanzas junto a profesionales y estudiantes con objetivos similares. Aplicando lo aprendido en 
+              sesiones en vivo sobre tus temas de interés, guiados por instructores nativos y nivel C2. 
+              Proyectos reales que puedes mostrar y aplicar en tu trabajo y día a día.
             </p>
           </div>
 

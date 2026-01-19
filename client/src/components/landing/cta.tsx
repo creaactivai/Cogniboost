@@ -18,15 +18,14 @@ export function FinalCTA() {
         <div className="max-w-4xl mx-auto text-center">
           {/* Headline */}
           <h2 className="text-4xl md:text-5xl font-bold mb-8">
-            ¿Listo para
+            ¿Listo para hablar inglés
             <br />
-            <span className="text-primary">Elevar Tu Carrera?</span>
+            <span className="text-primary">con seguridad y fluidez?</span>
           </h2>
 
           {/* Subtext */}
           <p className="text-xl opacity-80 mb-12 max-w-2xl mx-auto">
-            Únete a miles de profesionales hispanohablantes que están acelerando 
-            su crecimiento profesional con habilidades prácticas y aplicables.
+            Únete a una comunidad que aprende inglés usándolo de verdad.
           </p>
 
           {/* CTA Buttons */}
@@ -53,11 +52,11 @@ export function FinalCTA() {
 
           {/* Trust badges */}
           <div className="flex flex-wrap justify-center gap-8 mt-16 text-sm opacity-60">
-            <span>Sin tarjeta de crédito</span>
+            <span>Clase Gratis</span>
             <span>•</span>
-            <span>Primera semana gratis</span>
+            <span>Cancela cuando quieras</span>
             <span>•</span>
-            <span>Garantía de satisfacción</span>
+            <span>7 días gratis</span>
           </div>
         </div>
       </div>

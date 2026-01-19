@@ -15,35 +15,35 @@ import {
 const faqs = [
   {
     question: "¿En qué se diferencia CogniBoost de otros cursos online?",
-    answer: "A diferencia de los cursos grabados que tienen tasas de abandono del 95%, CogniBoost combina contenido experto con cohortes de aprendizaje activo. Avanzas con un grupo de profesionales que te mantienen comprometido. Además, trabajas en proyectos reales que puedes mostrar a empleadores.",
+    answer: "A diferencia de los cursos donde te dicen qué temas aprender y de qué hablar (que tienen tasas de abandono del 95%), CogniBoost usa Class Labs donde hablas de temas que te interesan y ayudan a tu carrera. Avanzas con profesionales y estudiantes con objetivos similares, guiados por instructores nativos nivel C2. Por eso tenemos tasas de finalización del 87%.",
   },
   {
-    question: "¿Cómo funcionan las cohortes?",
-    answer: "Cada cohorte tiene 8-12 profesionales con objetivos similares. Avanzan juntos durante 4-6 semanas, con sesiones en vivo semanales con expertos y espacios de discusión. La responsabilidad grupal es lo que impulsa las tasas de finalización del 87%.",
+    question: "¿Cómo funcionan los Class Labs?",
+    answer: "Cada Class Lab tiene 8-12 profesionales con objetivos similares. Avanzan juntos durante 8 semanas promedio, con sesiones en vivo sobre temas de tu interés y expertos dándote feedback en tiempo real. La combinación de temas relevantes y comunidad es lo que impulsa las tasas de finalización del 87%.",
   },
   {
     question: "¿Los cursos son en vivo o pregrabados?",
-    answer: "Combinamos ambos formatos. Tienes acceso a contenido pregrabado para estudiar a tu ritmo, más sesiones en vivo semanales con expertos y tu cohorte. Este modelo híbrido maximiza flexibilidad y responsabilidad.",
+    answer: "Combinamos ambos formatos. Tienes acceso a contenido pregrabado para estudiar a tu ritmo, más sesiones en vivo semanales en Class Labs sobre temas de tu interés. Este modelo híbrido maximiza flexibilidad y resultados.",
   },
   {
-    question: "¿Puedo cambiar mi nivel de suscripción?",
-    answer: "¡Por supuesto! Puedes subir o bajar tu plan en cualquier momento. Las mejoras toman efecto inmediatamente, y recibirás crédito por la porción no utilizada de tu plan actual. Los cambios a planes menores toman efecto al final de tu período de facturación actual.",
+    question: "¿Puedo cancelar mi suscripción?",
+    answer: "¡Por supuesto! Puedes cancelar en cualquier momento y no se te cobrará el próximo mes. Ten en cuenta que no se acredita la porción no utilizada del período actual. Los cambios a planes menores toman efecto al final de tu período de facturación.",
   },
   {
     question: "¿Ofrecen certificados?",
-    answer: "Sí. Al completar cada curso recibes un certificado digital verificable que puedes compartir en LinkedIn. Más importante aún, tendrás un proyecto real que demuestra tus nuevas habilidades a empleadores potenciales.",
+    answer: "Sí. Al completar cada curso recibes un certificado digital verificable que puedes compartir en LinkedIn. Más importante aún, tendrás proyectos reales que demuestran tus nuevas habilidades a empleadores potenciales.",
   },
   {
-    question: "¿Qué áreas de desarrollo cubren?",
-    answer: "Cubrimos 20+ áreas incluyendo Liderazgo, Product Management, Data Analytics, Marketing Digital, Ventas B2B, Finanzas, y habilidades de comunicación. El catálogo se actualiza mensualmente según demanda del mercado.",
+    question: "¿Cuáles temas están disponibles en las sesiones en vivo?",
+    answer: "Nuestros Class Labs cubren más de 20 áreas que incluyen categorías principales como Negocios en General, Entretenimiento, Cultura, Deporte, Relaciones Interpersonales, y más. Dentro de cada categoría hay labs específicos como Real Estate en Negocios, Películas en Entretenimiento, etc.",
   },
   {
     question: "¿Cómo sé qué curso es el correcto para mí?",
-    answer: "Cuando te registras, realizas una evaluación que identifica tus fortalezas, áreas de mejora y objetivos profesionales. Te recomendamos un camino de aprendizaje personalizado basado en tu perfil y metas.",
+    answer: "Cuando te registras, realizas una evaluación que identifica tus fortalezas, áreas de mejora y objetivos personales y profesionales. Te recomendamos un camino de aprendizaje personalizado basado en tu perfil y metas específicas.",
   },
   {
     question: "¿Qué métodos de pago aceptan?",
-    answer: "Aceptamos todas las principales tarjetas de crédito a nivel mundial. Para usuarios latinoamericanos, también aceptamos métodos de pago locales a través de MercadoPago, incluyendo PIX en Brasil, Boleto Bancário, y tarjetas de débito locales en México, Argentina y Colombia.",
+    answer: "Aceptamos todas las tarjetas de crédito y débito a nivel mundial. También aceptamos métodos de pago como PayPal, Google Pay, Apple Pay, y Pay Over Time en Estados Unidos.",
   },
 ];
 
