@@ -84,9 +84,9 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="flex items-center cursor-pointer" data-testid="link-user-dashboard">
+                    <Link href="/admin" className="flex items-center cursor-pointer" data-testid="link-admin-overview">
                       <User className="mr-2 h-4 w-4" />
-                      <span>Mi Dashboard</span>
+                      <span>Panel Admin</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

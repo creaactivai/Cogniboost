@@ -8,8 +8,17 @@ import type { Payment, Subscription } from "@shared/schema";
 
 const tierLabels: Record<string, string> = {
   free: "Gratis",
+  flex: "Flex",
   standard: "Estándar",
   premium: "Prémium",
+};
+
+// Precios oficiales de planes (deben coincidir con landing page)
+const PLAN_PRICES = {
+  free: 0,
+  flex: 14.99,
+  standard: 49.99,
+  premium: 99.99,
 };
 
 interface AdminStats {
@@ -56,7 +65,10 @@ export default function AdminFinancials() {
   ) || {};
 
   const totalSubs = subscriptions?.length || 1;
-  const mrr = (tierCounts.standard || 0) * 29 + (tierCounts.premium || 0) * 79;
+  const mrr = 
+    (tierCounts.flex || 0) * PLAN_PRICES.flex + 
+    (tierCounts.standard || 0) * PLAN_PRICES.standard + 
+    (tierCounts.premium || 0) * PLAN_PRICES.premium;
   const arr = mrr * 12;
 
   return (
@@ -264,59 +276,41 @@ export default function AdminFinancials() {
           </Card>
 
           <Card className="p-4">
-            <h2 
-              className="text-lg font-black mb-4" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-            >
+            <h2 className="text-lg font-display uppercase tracking-tight mb-4">
               Distribución de Planes
             </h2>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between mb-2">
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
-                    Gratis
-                  </span>
+                  <span className="text-sm font-mono">Gratis</span>
                   <span className="font-bold">{tierCounts.free || 0}</span>
                 </div>
-                <Progress 
-                  value={((tierCounts.free || 0) / totalSubs) * 100} 
-                  className="h-2" 
-                />
+                <Progress value={((tierCounts.free || 0) / totalSubs) * 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
-                    Estándar ($29/mes)
-                  </span>
+                  <span className="text-sm font-mono">Flex (${PLAN_PRICES.flex}/mes)</span>
+                  <span className="font-bold">{tierCounts.flex || 0}</span>
+                </div>
+                <Progress value={((tierCounts.flex || 0) / totalSubs) * 100} className="h-2" />
+              </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-mono">Estándar (${PLAN_PRICES.standard}/mes)</span>
                   <span className="font-bold">{tierCounts.standard || 0}</span>
                 </div>
-                <Progress 
-                  value={((tierCounts.standard || 0) / totalSubs) * 100} 
-                  className="h-2"
-                  style={{ "--progress-background": "#33CBFB" } as React.CSSProperties}
-                />
+                <Progress value={((tierCounts.standard || 0) / totalSubs) * 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace' }} className="text-sm">
-                    Prémium ($79/mes)
-                  </span>
+                  <span className="text-sm font-mono">Prémium (${PLAN_PRICES.premium}/mes)</span>
                   <span className="font-bold">{tierCounts.premium || 0}</span>
                 </div>
-                <Progress 
-                  value={((tierCounts.premium || 0) / totalSubs) * 100} 
-                  className="h-2"
-                  style={{ "--progress-background": "#FD335A" } as React.CSSProperties}
-                />
+                <Progress value={((tierCounts.premium || 0) / totalSubs) * 100} className="h-2" />
               </div>
 
               <div className="pt-4 border-t border-border">
-                <h3 
-                  className="font-bold mb-3" 
-                  style={{ fontFamily: 'JetBrains Mono, monospace' }}
-                >
-                  Métricas Clave
-                </h3>
+                <h3 className="font-bold font-mono mb-3">Métricas Clave</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>ARPU (Prom./Usuario)</span>
@@ -326,13 +320,13 @@ export default function AdminFinancials() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Retención</span>
-                    <span className="font-bold text-[#10B981]">
+                    <span className="font-bold text-success">
                       {metrics ? 100 - metrics.churnRate : 100}%
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>LTV Estimado</span>
-                    <span className="font-bold text-[#33CBFB]">
+                    <span className="font-bold text-primary">
                       ${metrics?.activeStudents && mrr 
                         ? Math.round((mrr / metrics.activeStudents) * 12 * (100 / Math.max(metrics.churnRate, 1)))
                         : 0}
@@ -342,24 +336,23 @@ export default function AdminFinancials() {
               </div>
 
               <div className="pt-4 border-t border-border">
-                <h3 
-                  className="font-bold mb-3" 
-                  style={{ fontFamily: 'JetBrains Mono, monospace' }}
-                >
-                  Precios de Planes
-                </h3>
+                <h3 className="font-bold font-mono mb-3">Precios de Planes</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Gratis</span>
                     <span className="font-bold">$0/mes</span>
                   </div>
                   <div className="flex justify-between text-sm">
+                    <span>Flex</span>
+                    <span className="font-bold text-accent">${PLAN_PRICES.flex}/mes</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
                     <span>Estándar</span>
-                    <span className="font-bold text-[#33CBFB]">$29/mes</span>
+                    <span className="font-bold text-primary">${PLAN_PRICES.standard}/mes</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Prémium</span>
-                    <span className="font-bold text-[#FD335A]">$79/mes</span>
+                    <span className="font-bold text-success">${PLAN_PRICES.premium}/mes</span>
                   </div>
                 </div>
               </div>

@@ -80,7 +80,7 @@ export function AdminSidebar() {
   return (
     <Sidebar className="border-r border-border">
       <SidebarHeader className="p-4 border-b border-border">
-        <Link href="/">
+        <Link href="/admin">
           <div className="flex items-center gap-2 cursor-pointer" data-testid="link-admin-logo">
             <div className="w-8 h-8 bg-primary flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-primary-foreground" />
