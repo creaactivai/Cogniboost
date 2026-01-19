@@ -6,44 +6,44 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const testimonials = [
   {
-    name: "María García",
-    role: "Gerente de Marketing",
-    company: "TechStart MX",
-    quote: "Después de 3 meses con CogniBoost, conseguí el ascenso que llevaba buscando. Las habilidades de liderazgo fueron clave.",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
-    initials: "MG",
+    name: "Dorca NG",
+    role: "Empresaria",
+    company: "",
+    quote: "Me encanta este curso y la profesora es increíble. He aprendido muchísimas cosas. He estudiado en muchísimos institutos y dar con este ha sido la mejor decisión de mi vida.",
+    image: "",
+    initials: "DN",
   },
   {
-    name: "Carlos Rodríguez",
-    role: "CTO",
-    company: "SecureNet",
-    quote: "La flexibilidad de aprender a mi ritmo combinada con proyectos reales es exactamente lo que necesitaba.",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-    initials: "CR",
+    name: "Roberto Encarnación",
+    role: "Active Member",
+    company: "ARMY",
+    quote: "Seré breve: NO LO DUDES, INSCRÍBETE. Lo que más me sorprendió de este curso es que lo practicas inmediatamente. Perdí el miedo de hablarlo y de ser un A2 pasé a un B2 en solo 2 meses.",
+    image: "",
+    initials: "RE",
   },
   {
-    name: "Ana Silva",
-    role: "COO",
-    company: "InnovateCo",
-    quote: "CogniBoost transformó mi carrera. No puedo agradecer lo suficiente el impacto que ha tenido en mi desarrollo profesional.",
-    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-    initials: "AS",
+    name: "Lawdelina Paulino",
+    role: "Empresaria",
+    company: "Housing Dominicana / Dento Imagen",
+    quote: "Recomiendo este curso de inglés con total confianza. Cada día adquiero nuevos conocimientos. La profesora es sumamente profesional y atenta, creando un ambiente de aprendizaje ideal.",
+    image: "",
+    initials: "LP",
   },
   {
-    name: "Diego Fernández",
-    role: "CFO",
-    company: "FuturePlanning",
-    quote: "Los cursos de finanzas son increíblemente prácticos. Puedo aplicar lo aprendido inmediatamente en mi trabajo.",
-    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-    initials: "DF",
+    name: "Mayvelin Consuegra",
+    role: "Locutora Profesional",
+    company: "",
+    quote: "Estoy fascinada con esta plataforma. Tengo más de 45 años y estoy aprendiendo. Las clases pre-grabadas son claras, precisas, digeribles. Las clases en vivo son mágicas, la pedagogía es de alta gama.",
+    image: "",
+    initials: "MC",
   },
   {
-    name: "Roberto Costa",
-    role: "Head of Design",
-    company: "CreativeSolutions",
-    quote: "Si pudiera dar 11 estrellas, daría 12. La mejor inversión en mi desarrollo profesional.",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
-    initials: "RC",
+    name: "Joel Tavarez",
+    role: "Estudiante",
+    company: "",
+    quote: "La forma de dar clases y explicar los temas es excelente, se aprende y entiende rápido.",
+    image: "",
+    initials: "JT",
   },
 ];
 
@@ -144,7 +144,7 @@ export function Testimonials() {
                       </p>
 
                       <p className={`text-xs ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                        - {testimonial.name}, {testimonial.role} at {testimonial.company}
+                        - {testimonial.name}, {testimonial.role}{testimonial.company ? ` - ${testimonial.company}` : ""}
                       </p>
                     </CardContent>
                   </Card>
