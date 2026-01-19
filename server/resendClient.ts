@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification';
 
 // Send email using template
 export async function sendEmail(
@@ -339,8 +339,15 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <p style="margin: 0;"><strong>¿Qué significa nivel ${data.level || 'B1'}?</strong></p>
               <p style="margin: 10px 0 0 0;">${data.levelExplanation || 'Puedes desenvolverte en situaciones cotidianas y expresar experiencias y opiniones básicas.'}</p>
             </div>
-            <p><strong>Tu próximo paso:</strong> Completa tu perfil para que podamos recomendarte cursos perfectos para tu nivel.</p>
-            <a href="${data.onboardingUrl || 'https://cogniboost.co/onboarding'}" class="cta">COMENZAR MI APRENDIZAJE</a>
+            <div style="background: linear-gradient(135deg, #FD335A 0%, #c4264a 100%); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center;">
+              <p style="color: #ffffff; font-size: 18px; margin: 0 0 10px 0; font-weight: bold;">¡Es el momento perfecto para dar el siguiente paso!</p>
+              <p style="color: rgba(255,255,255,0.9); margin: 0 0 20px 0;">Ya conoces tu nivel. Ahora elige el plan que te llevará a la fluidez.</p>
+              <a href="https://cogniboost.co/#pricing" style="display: inline-block; background: #ffffff; color: #FD335A; padding: 15px 35px; text-decoration: none; font-weight: bold; border-radius: 4px; font-size: 16px;">VER PLANES Y PRECIOS</a>
+            </div>
+            <p style="text-align: center; color: #888888; margin: 15px 0;">¿Prefieres probar primero?</p>
+            <p style="text-align: center;">
+              <a href="https://cogniboost.co/#live-labs" style="color: #33CBFB; font-weight: bold; text-decoration: none;">Agenda una clase gratis de prueba →</a>
+            </p>
             <p>¡Estamos emocionados de acompañarte en tu viaje hacia la fluidez en inglés!</p>
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
@@ -559,6 +566,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
                 <p><strong>Tema:</strong> ${data.roomTopic || 'Conversación General'}</p>
                 <p><strong>Nivel:</strong> ${data.roomLevel || 'Todos los niveles'}</p>
                 <p><strong>Duración:</strong> ${data.sessionDuration || '45'} minutos</p>
+                ${data.meetingUrl ? '<p style="margin-top: 15px;"><strong>Link de la clase:</strong></p><p><a href="' + data.meetingUrl + '" style="color: #ffffff; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 4px; text-decoration: none; display: inline-block; margin-top: 5px;">' + data.meetingUrl + '</a></p>' : '<p style="margin-top: 10px;"><em>Te enviaremos el link de la reunión antes de la clase.</em></p>'}
               </div>
             </div>
             <div class="tips">
@@ -655,6 +663,153 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
                 <div class="info-row">
                   <span class="info-label">Nivel:</span>
                   <span class="info-value">${data.roomLevel || 'Todos los niveles'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Este es un correo automático del sistema CogniBoost</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    demo_booking_confirmation: {
+      subject: '¡Tu demo de 15 minutos está confirmado!',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #1a1a40; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: bold; color: #667EEA; }
+            h1 { color: #1a1a40; margin: 0; font-size: 24px; }
+            p { line-height: 1.6; color: #4a4a4a; }
+            .demo-card { background: linear-gradient(135deg, #F6AD55 0%, #ED8936 100%); padding: 25px; margin: 20px 0; border-radius: 8px; color: #ffffff; }
+            .demo-card h2 { margin: 0 0 15px 0; font-size: 22px; }
+            .demo-details { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 4px; margin-top: 15px; }
+            .demo-details p { color: #ffffff; margin: 5px 0; }
+            .meeting-link { background: #667EEA; color: #ffffff; padding: 15px 25px; border-radius: 4px; text-decoration: none; display: inline-block; margin: 15px 0; font-weight: bold; }
+            .what-to-expect { background: #fff3e0; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #F6AD55; }
+            .what-to-expect h3 { color: #ED8936; margin: 0 0 10px 0; }
+            .what-to-expect ul { margin: 0; padding-left: 20px; color: #4a4a4a; }
+            .what-to-expect li { margin: 8px 0; }
+            .cta { display: inline-block; background: #667EEA; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; border-radius: 4px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #888888; font-size: 12px; }
+            .highlight { color: #F6AD55; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CogniBoost</div>
+            </div>
+            <h1>¡Hola \${data.firstName || 'estudiante'}!</h1>
+            <p>Tu <span class="highlight">demo personalizado de 15 minutos</span> ha sido confirmado. En esta sesión conocerás cómo CogniBoost puede ayudarte a alcanzar tus metas de inglés.</p>
+            <div class="demo-card">
+              <h2>Demo Personalizado</h2>
+              <div class="demo-details">
+                <p><strong>Fecha:</strong> \${data.sessionDate || 'Por confirmar'}</p>
+                <p><strong>Hora:</strong> \${data.sessionTime || 'Por confirmar'}</p>
+                <p><strong>Duración:</strong> 15 minutos</p>
+                \${data.meetingUrl ? '<p><strong>Link:</strong> <a href="' + data.meetingUrl + '" style="color: #ffffff;">' + data.meetingUrl + '</a></p>' : '<p><em>Te enviaremos el link de la reunión pronto.</em></p>'}
+              </div>
+            </div>
+            <div class="what-to-expect">
+              <h3>¿Qué esperar en tu demo?</h3>
+              <ul>
+                <li>Conocerás la plataforma y sus funcionalidades</li>
+                <li>Responderemos todas tus preguntas</li>
+                <li>Te mostraremos los cursos ideales para tu nivel</li>
+                <li>Recibirás una oferta exclusiva al final</li>
+              </ul>
+            </div>
+            <p>¡Nos vemos pronto!</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>CogniBoost - Desarrollo Profesional</p>
+              <p>PMB 1420, 10900 Research Blvd Ste 160C, Austin, TX 78759</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    demo_booking_notification: {
+      subject: 'Nueva reserva de DEMO - 15 min',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #1a1a40; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #F6AD55; }
+            .logo { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: bold; color: #667EEA; }
+            .badge { background: #F6AD55; color: #ffffff; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-top: 10px; }
+            h1 { color: #1a1a40; margin: 0; font-size: 22px; }
+            p { line-height: 1.6; color: #4a4a4a; }
+            .info-section { margin: 20px 0; }
+            .info-section h3 { color: #F6AD55; margin: 0 0 15px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+            .info-row { display: flex; margin: 10px 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+            .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+            .info-label { color: #888888; width: 120px; font-size: 14px; }
+            .info-value { color: #1a1a40; font-weight: 500; }
+            .action-required { background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #F6AD55; margin: 20px 0; }
+            .action-required p { margin: 0; color: #ED8936; font-weight: 500; }
+            .footer { text-align: center; margin-top: 30px; color: #888888; font-size: 12px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CogniBoost Admin</div>
+              <div class="badge">NUEVO DEMO</div>
+            </div>
+            <h1>Se ha registrado una nueva solicitud de DEMO (15 min)</h1>
+            
+            <div class="action-required">
+              <p>Acción requerida: Preparar demo personalizado de 15 minutos</p>
+            </div>
+            
+            <div class="info-section">
+              <h3>Información del Prospecto</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Nombre:</span>
+                  <span class="info-value">\${data.studentName || 'No proporcionado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email:</span>
+                  <span class="info-value">\${data.studentEmail || 'No proporcionado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Teléfono:</span>
+                  <span class="info-value">\${data.studentPhone || 'No proporcionado'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="info-section">
+              <h3>Detalles del Demo</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Tipo:</span>
+                  <span class="info-value">Demo Personalizado (15 min)</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Fecha:</span>
+                  <span class="info-value">\${data.sessionDate || 'Por confirmar'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Hora:</span>
+                  <span class="info-value">\${data.sessionTime || 'Por confirmar'}</span>
                 </div>
               </div>
             </div>

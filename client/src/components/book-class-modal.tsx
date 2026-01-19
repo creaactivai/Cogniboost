@@ -15,6 +15,7 @@ interface BookClassModalProps {
   isOpen: boolean;
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLButtonElement>;
+  bookingType?: 'class' | 'demo';
 }
 
 type Step = "form" | "calendar" | "confirm";
@@ -24,7 +25,7 @@ interface SessionWithRooms extends LiveSession {
   instructor?: { name: string; avatarUrl?: string };
 }
 
-export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalProps) {
+export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'class' }: BookClassModalProps) {
   const [step, setStep] = useState<Step>("form");
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
   const [selectedSession, setSelectedSession] = useState<SessionWithRooms | null>(null);
@@ -79,21 +80,24 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
     mutationFn: async (roomId: string) => {
       if (isAuthenticated) {
         // Authenticated users use the regular endpoint
-        return apiRequest("POST", "/api/room-bookings", { roomId });
+        return apiRequest("POST", "/api/room-bookings", { roomId, bookingType });
       } else {
         // Guests use the guest endpoint with form data
         return apiRequest("POST", "/api/room-bookings/guest", { 
           roomId, 
           email: formData.email,
           name: formData.name,
-          phone: formData.phone || undefined
+          phone: formData.phone || undefined,
+          bookingType
         });
       }
     },
     onSuccess: () => {
       toast({
-        title: "Clase Reservada",
-        description: "Tu clase ha sido reservada exitosamente. Revisa tu correo para la confirmación.",
+        title: bookingType === 'demo' ? "Demo Reservado" : "Clase Reservada",
+        description: bookingType === 'demo' 
+          ? "Tu demo de 15 minutos ha sido reservado. Revisa tu correo para la confirmación."
+          : "Tu clase ha sido reservada exitosamente. Revisa tu correo para la confirmación.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/live-sessions"] });
       onClose();
@@ -200,7 +204,7 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">
-              {step === "form" && "Reserva tu Clase Gratis"}
+              {step === "form" && (bookingType === 'demo' ? "Agenda tu Demo de 15 min" : "Reserva tu Clase Gratis")}
               {step === "calendar" && "Selecciona una Fecha"}
               {step === "confirm" && "Confirmar Reserva"}
             </h2>
@@ -220,7 +224,9 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
           {step === "form" && (
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Ingresa tus datos para reservar tu clase gratuita con uno de nuestros expertos.
+                {bookingType === 'demo' 
+                  ? "Ingresa tus datos para agendar un demo personalizado de 15 minutos donde conocerás la plataforma."
+                  : "Ingresa tus datos para reservar tu clase gratuita con uno de nuestros expertos."}
               </p>
               
               <div className="space-y-2">

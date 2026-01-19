@@ -107,7 +107,7 @@ const plans = [
   },
 ];
 
-function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0]; openBooking: () => void; onCheckout: (priceId: string, planName: string) => void }) {
+function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0]; openBooking: (type?: 'class' | 'demo') => void; onCheckout: (priceId: string, planName: string) => void }) {
   const IconComponent = plan.icon;
 
   const handleClick = () => {

@@ -62,7 +62,7 @@ export function Hero() {
               <Button 
                 size="lg" 
                 className="w-[200px] justify-center"
-                onClick={openBooking}
+                onClick={() => openBooking('class')}
                 data-testid="button-free-class"
               >
                 <Calendar className="mr-2 h-5 w-5" />

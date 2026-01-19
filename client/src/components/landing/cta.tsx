@@ -33,7 +33,7 @@ export function FinalCTA() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
-              onClick={openBooking}
+              onClick={() => openBooking('class')}
               data-testid="button-cta-free-class"
             >
               <Calendar className="mr-2 h-5 w-5" />
@@ -43,7 +43,7 @@ export function FinalCTA() {
               size="lg"
               variant="outline"
               className="border-background/30 text-background bg-[#4ed0c3]"
-              onClick={openBooking}
+              onClick={() => openBooking('demo')}
               data-testid="button-cta-book-demo"
             >
               <Calendar className="mr-2 h-5 w-5" />

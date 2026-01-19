@@ -888,7 +888,8 @@ export async function registerRoutes(
     studentName: string,
     studentPhone: string | undefined,
     room: any,
-    session: any
+    session: any,
+    bookingType: 'class' | 'demo' = 'class'
   ) {
     // Validate required data
     if (!studentEmail || !session?.scheduledAt) {
@@ -908,28 +909,37 @@ export async function registerRoutes(
       minute: "2-digit"
     });
 
+    // Get meeting link from room or session
+    const meetingUrl = room?.roomUrl || session?.meetingUrl || "";
+
+    // Choose template based on booking type
+    const studentTemplate = bookingType === 'demo' ? 'demo_booking_confirmation' : 'class_booking_confirmation';
+    const adminTemplate = bookingType === 'demo' ? 'demo_booking_notification' : 'class_booking_notification';
+
     // Send confirmation to student
-    await sendEmail(studentEmail, "class_booking_confirmation", {
+    await sendEmail(studentEmail, studentTemplate, {
       firstName: studentName?.split(" ")[0] || "Estudiante",
-      sessionTitle: session.title || "Clase de Práctica",
+      sessionTitle: session.title || (bookingType === 'demo' ? "Demo Personalizado" : "Clase de Práctica"),
       sessionDate: dateStr,
       sessionTime: timeStr,
       roomTopic: room?.topic || "Conversación General",
       roomLevel: room?.level || "Todos los niveles",
-      sessionDuration: String(session.duration || 45)
+      sessionDuration: String(bookingType === 'demo' ? 15 : (session.duration || 45)),
+      meetingUrl: meetingUrl
     });
 
     // Send notification to academy
     const academyEmail = "cognimight@gmail.com";
-    await sendEmail(academyEmail, "class_booking_notification", {
+    await sendEmail(academyEmail, adminTemplate, {
       studentName: studentName || "No proporcionado",
       studentEmail,
       studentPhone: studentPhone || "No proporcionado",
-      sessionTitle: session.title || "Clase de Práctica",
+      sessionTitle: session.title || (bookingType === 'demo' ? "Demo Personalizado" : "Clase de Práctica"),
       sessionDate: dateStr,
       sessionTime: timeStr,
       roomTopic: room?.topic || "Conversación General",
-      roomLevel: room?.level || "Todos los niveles"
+      roomLevel: room?.level || "Todos los niveles",
+      meetingUrl: meetingUrl
     });
   }
 
@@ -977,7 +987,7 @@ export async function registerRoutes(
   // Book a room (guest - uses lead info)
   app.post("/api/room-bookings/guest", async (req, res) => {
     try {
-      const { roomId, email, name, phone } = req.body;
+      const { roomId, email, name, phone, bookingType = 'class' } = req.body;
       if (!roomId) {
         return res.status(400).json({ error: "Room ID is required" });
       }
@@ -988,6 +998,34 @@ export async function registerRoutes(
       // Create a guest booking using prefixed email as the userId to differentiate from auth users
       const guestUserId = `guest:${email}`;
       const booking = await storage.createRoomBooking({ userId: guestUserId, roomId });
+
+      // Update lead status and source for tracking in admin dashboard
+      try {
+        const existingLead = await storage.getLeadByEmail(email.toLowerCase());
+        if (existingLead) {
+          // Update lead with booking info
+          await storage.updateLead(existingLead.id, {
+            status: 'engaged',
+            source: bookingType === 'demo' ? 'demo_booking' : 'class_booking'
+          });
+        } else {
+          // Create a new lead if they didn't exist (should rarely happen since form creates lead first)
+          const nameParts = (name || "").trim().split(/\s+/);
+          const firstName = nameParts[0] || "Sin nombre";
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+          await storage.createLead({
+            email: email.toLowerCase(),
+            firstName,
+            lastName,
+            phone: phone || null,
+            source: bookingType === 'demo' ? 'demo_booking' : 'class_booking',
+            status: 'engaged'
+          });
+        }
+      } catch (leadError) {
+        console.error("Error updating lead for booking:", leadError);
+        // Don't fail the booking if lead update fails
+      }
 
       // Get room and session details for email
       const room = await storage.getSessionRoomById(roomId);
@@ -1000,7 +1038,8 @@ export async function registerRoutes(
               name || "Estudiante",
               phone,
               room,
-              session
+              session,
+              bookingType as 'class' | 'demo'
             );
           } catch (emailError) {
             console.error("Error sending booking confirmation emails:", emailError);
