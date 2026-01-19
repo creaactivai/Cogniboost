@@ -241,7 +241,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
       `
     },
     subscription_activated: {
-      subject: '¡Tu suscripción está activa! 🚀',
+      subject: '¡Tu suscripción está activa! 🚀 Empieza tu onboarding',
       html: `
         <!DOCTYPE html>
         <html>
@@ -255,6 +255,10 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             p { line-height: 1.6; color: #cccccc; }
             .plan { background: linear-gradient(135deg, #33CBFB 0%, #FD335A 100%); padding: 30px; text-align: center; margin: 20px 0; }
             .plan h2 { color: #ffffff; margin: 0; font-size: 28px; }
+            .step { background: #2a2a2a; padding: 20px; margin: 15px 0; border-left: 4px solid #33CBFB; }
+            .step-number { display: inline-block; background: #33CBFB; color: #000; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: bold; margin-right: 10px; }
+            .step h3 { color: #ffffff; margin: 0 0 10px 0; display: inline; }
+            .step p { margin: 10px 0 0 0; color: #999999; }
             .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
             .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
           </style>
@@ -269,15 +273,34 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <h2>PLAN ${(data.planName || 'PREMIUM').toUpperCase()}</h2>
               <p style="color: #ffffff; margin: 10px 0 0 0;">Acceso completo activado</p>
             </div>
+            <p><strong>Tu acceso está listo.</strong> Ahora sigue estos 3 pasos para comenzar:</p>
+            <div class="step">
+              <span class="step-number">1</span>
+              <h3>Accede a tu Dashboard</h3>
+              <p>Inicia sesión y explora tu nuevo espacio de aprendizaje personalizado.</p>
+            </div>
+            <div class="step">
+              <span class="step-number">2</span>
+              <h3>Toma el Quiz de Nivel</h3>
+              <p>Descubre tu nivel actual para recomendarte los cursos perfectos.</p>
+            </div>
+            <div class="step">
+              <span class="step-number">3</span>
+              <h3>Reserva tu Primer Class Lab</h3>
+              <p>Practica conversación en vivo con otros estudiantes de tu nivel.</p>
+            </div>
+            <p style="text-align: center;">
+              <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">EMPEZAR AHORA</a>
+            </p>
             <p>Ahora tienes acceso a:</p>
             <ul style="color: #cccccc;">
               <li>Todos los cursos de nivel A1-C2</li>
-              <li>Laboratorios de Conversación ilimitados</li>
-              <li>Quizzes y certificaciones</li>
+              <li>Class Labs (Laboratorios de Conversación) en vivo</li>
+              <li>Quizzes interactivos y certificaciones</li>
+              <li>Instructores nativos nivel C2</li>
               <li>Soporte prioritario</li>
             </ul>
-            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">IR A MI DASHBOARD</a>
-            <p>¡Aprovecha al máximo tu suscripción!</p>
+            <p>¿Tienes preguntas? Responde a este email y te ayudamos.</p>
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
