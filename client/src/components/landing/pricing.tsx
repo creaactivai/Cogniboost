@@ -316,10 +316,10 @@ export function Pricing() {
                 align: "center",
                 loop: false,
               }}
-              className="w-full"
+              className="w-full overflow-visible"
               data-testid="pricing-carousel"
             >
-              <CarouselContent className="-ml-4">
+              <CarouselContent className="-ml-4 pt-6 pb-2">
                 {plans.map((plan) => (
                   <CarouselItem key={plan.name} className="pl-4 basis-[85%]">
                     <PricingCard plan={plan} openBooking={openBooking} onCheckout={handleCheckout} />
