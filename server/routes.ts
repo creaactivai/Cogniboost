@@ -920,7 +920,7 @@ export async function registerRoutes(
     });
 
     // Send notification to academy
-    const academyEmail = "info@cognimight.com";
+    const academyEmail = "cognimight@gmail.com";
     await sendEmail(academyEmail, "class_booking_notification", {
       studentName: studentName || "No proporcionado",
       studentEmail,
