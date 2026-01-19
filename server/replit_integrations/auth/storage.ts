@@ -3,6 +3,12 @@ import { db } from "../../db";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "../../resendClient";
 
+// Super admin emails that automatically get admin access during beta
+const SUPER_ADMIN_EMAILS = [
+  'cognimight@gmail.com',
+  'acreaactiva@gmail.com',
+];
+
 // Interface for auth storage operations
 // (IMPORTANT) These user operations are mandatory for Replit Auth.
 export interface IAuthStorage {
@@ -21,13 +27,17 @@ class AuthStorage implements IAuthStorage {
     const existingUser = await this.getUser(userData.id!);
     const isNewUser = !existingUser;
 
+    // Auto-grant admin to super admin emails during beta
+    const isSuperAdmin = userData.email && SUPER_ADMIN_EMAILS.includes(userData.email.toLowerCase());
+    const userDataWithAdmin = isSuperAdmin ? { ...userData, isAdmin: true } : userData;
+
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values(userDataWithAdmin)
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userData,
+          ...userDataWithAdmin,
           updatedAt: new Date(),
         },
       })
