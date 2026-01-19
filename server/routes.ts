@@ -8,6 +8,7 @@ import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { sendEmail, type EmailTemplate } from "./resendClient";
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { selectQuizQuestions, placementQuestions, calculatePlacementLevel, type PlacementQuestion as StaticPlacementQuestion } from "@shared/placementQuestions";
 
 const openai = new OpenAI({
@@ -204,6 +205,124 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // ============== STRIPE PAYMENT ROUTES ==============
+
+  // Stripe price IDs for each plan (to be updated after creating products in Stripe dashboard)
+  const STRIPE_PRICE_IDS: Record<string, string> = {
+    flex: process.env.STRIPE_PRICE_FLEX || "",
+    standard: process.env.STRIPE_PRICE_STANDARD || "",
+    premium: process.env.STRIPE_PRICE_PREMIUM || "",
+  };
+
+  // Get Stripe publishable key
+  app.get("/api/stripe/config", async (req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error fetching Stripe config:", error);
+      res.status(500).json({ error: "Stripe not configured" });
+    }
+  });
+
+  // Create checkout session for subscription
+  app.post("/api/stripe/create-checkout-session", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { priceId, planName } = req.body;
+      
+      if (!priceId) {
+        return res.status(400).json({ error: "Price ID is required" });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get or create Stripe customer
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || undefined,
+          metadata: {
+            userId: userId,
+          },
+        });
+        customerId = customer.id;
+        await storage.updateUser(userId, { stripeCustomerId: customerId });
+      }
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: {
+            userId: userId,
+            planName: planName || "subscription",
+          },
+        },
+        success_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard?payment=success`,
+        cancel_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard?payment=cancelled`,
+        locale: "es",
+        metadata: {
+          userId: userId,
+          planName: planName || "subscription",
+        },
+      });
+
+      res.json({ sessionId: session.id, url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Create customer portal session for subscription management
+  app.post("/api/stripe/create-portal-session", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ error: "No Stripe customer found" });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard/settings`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ error: "Failed to create portal session" });
     }
   });
 

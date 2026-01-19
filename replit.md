@@ -221,8 +221,30 @@ API Endpoints:
 - Replit Auth for authentication
 - Object Storage for file uploads
 
-### Stripe Integration (TODO)
-- Stripe connector was dismissed by user - needs to be set up later
-- Pricing plans: Flex ($14.99/mo), Estándar ($49.99/mo), Premium ($99.99/mo)
-- Direct purchase buttons ready but need Stripe connection for checkout
-- Once Stripe is connected, create products/prices and update checkout flow
+### Stripe Integration
+The Stripe checkout flow is implemented and ready. To complete the setup:
+
+1. **Connect Stripe Account**: Use the Stripe connector in Replit to connect your Stripe account
+2. **Create Products in Stripe Dashboard**: Create 3 subscription products with prices:
+   - Flex: $14.99/month
+   - Estándar: $49.99/month  
+   - Premium: $99.99/month
+3. **Set Environment Variables**: After creating products, copy the price IDs and set:
+   - `VITE_STRIPE_PRICE_FLEX` - Price ID for Flex plan
+   - `VITE_STRIPE_PRICE_STANDARD` - Price ID for Estándar plan
+   - `VITE_STRIPE_PRICE_PREMIUM` - Price ID for Premium plan
+
+**API Endpoints:**
+- `GET /api/stripe/config` - Returns Stripe publishable key
+- `POST /api/stripe/create-checkout-session` - Creates Stripe checkout session with 7-day trial
+- `POST /api/stripe/create-portal-session` - Creates customer portal session for subscription management
+
+**Checkout Flow:**
+- User clicks on a paid plan → Creates checkout session → Redirects to Stripe Checkout
+- After successful payment → Redirects to /dashboard?payment=success
+- Webhook handlers update user status based on subscription events
+
+**Webhook Handlers (server/webhookHandlers.ts):**
+- Subscription updates: Sets user status to active/hold/inactive
+- Payment failed: Sets user status to hold
+- Payment succeeded: Sets user status to active

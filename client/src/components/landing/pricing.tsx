@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBooking } from "@/contexts/booking-context";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Carousel,
   CarouselContent,
@@ -29,6 +31,7 @@ const plans = [
     ],
     cta: "Comenzar Gratis",
     variant: "outline" as const,
+    stripePriceId: null,
   },
   {
     name: "Flex",
@@ -50,6 +53,7 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
+    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_FLEX || null,
   },
   {
     name: "Estándar",
@@ -72,6 +76,7 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
+    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_STANDARD || null,
   },
   {
     name: "Premium",
@@ -96,11 +101,20 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
+    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_PREMIUM || null,
   },
 ];
 
-function PricingCard({ plan, openBooking }: { plan: typeof plans[0]; openBooking: () => void }) {
+function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0]; openBooking: () => void; onCheckout: (priceId: string, planName: string) => void }) {
   const IconComponent = plan.icon;
+
+  const handleClick = () => {
+    if (plan.stripePriceId) {
+      onCheckout(plan.stripePriceId, plan.name);
+    } else {
+      openBooking();
+    }
+  };
   
   return (
     <div 
@@ -161,7 +175,7 @@ function PricingCard({ plan, openBooking }: { plan: typeof plans[0]; openBooking
       <Button 
         className={`w-full ${plan.name === "Gratis" ? "bg-[#4ed0c3] text-foreground hover:bg-[#4ed0c3]/90" : ""}`}
         variant={plan.variant}
-        onClick={openBooking}
+        onClick={handleClick}
         data-testid={`button-plan-${plan.name.toLowerCase()}`}
       >
         {plan.cta}
@@ -172,9 +186,11 @@ function PricingCard({ plan, openBooking }: { plan: typeof plans[0]; openBooking
 
 export function Pricing() {
   const { openBooking } = useBooking();
+  const { toast } = useToast();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(2);
   const [isMobile, setIsMobile] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -182,6 +198,40 @@ export function Pricing() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  const handleCheckout = async (priceId: string, planName: string) => {
+    setIsCheckingOut(true);
+    try {
+      const response = await apiRequest("POST", "/api/stripe/create-checkout-session", {
+        priceId,
+        planName,
+      });
+      const data = await response.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL received");
+      }
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      if (error.message?.includes("Unauthorized") || error.message?.includes("401")) {
+        toast({
+          title: "Inicia sesión primero",
+          description: "Debes iniciar sesión para suscribirte a un plan.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error al procesar",
+          description: "Hubo un problema al iniciar el pago. Por favor intenta de nuevo.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
 
   useEffect(() => {
     if (!api) return;
@@ -272,7 +322,7 @@ export function Pricing() {
               <CarouselContent className="-ml-4">
                 {plans.map((plan) => (
                   <CarouselItem key={plan.name} className="pl-4 basis-[85%]">
-                    <PricingCard plan={plan} openBooking={openBooking} />
+                    <PricingCard plan={plan} openBooking={openBooking} onCheckout={handleCheckout} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
@@ -281,7 +331,7 @@ export function Pricing() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="pricing-grid">
             {plans.map((plan) => (
-              <PricingCard key={plan.name} plan={plan} openBooking={openBooking} />
+              <PricingCard key={plan.name} plan={plan} openBooking={openBooking} onCheckout={handleCheckout} />
             ))}
           </div>
         )}
