@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import type { LiveSession, SessionRoom } from "@shared/schema";
 
 interface BookClassModalProps {
@@ -31,6 +32,7 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
   const [isAnimating, setIsAnimating] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   const { data: sessions, isLoading: loadingSessions } = useQuery<SessionWithRooms[]>({
     queryKey: ["/api/live-sessions"],
@@ -75,12 +77,23 @@ export function BookClassModal({ isOpen, onClose, triggerRef }: BookClassModalPr
 
   const bookRoomMutation = useMutation({
     mutationFn: async (roomId: string) => {
-      return apiRequest("POST", "/api/room-bookings", { roomId });
+      if (isAuthenticated) {
+        // Authenticated users use the regular endpoint
+        return apiRequest("POST", "/api/room-bookings", { roomId });
+      } else {
+        // Guests use the guest endpoint with form data
+        return apiRequest("POST", "/api/room-bookings/guest", { 
+          roomId, 
+          email: formData.email,
+          name: formData.name,
+          phone: formData.phone || undefined
+        });
+      }
     },
     onSuccess: () => {
       toast({
         title: "Clase Reservada",
-        description: "Tu clase ha sido reservada exitosamente. Te enviaremos un recordatorio.",
+        description: "Tu clase ha sido reservada exitosamente. Revisa tu correo para la confirmación.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/live-sessions"] });
       onClose();

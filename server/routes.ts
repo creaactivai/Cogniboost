@@ -890,6 +890,12 @@ export async function registerRoutes(
     room: any,
     session: any
   ) {
+    // Validate required data
+    if (!studentEmail || !session?.scheduledAt) {
+      console.log("Missing required data for booking confirmation email");
+      return;
+    }
+
     const sessionDate = new Date(session.scheduledAt);
     const dateStr = sessionDate.toLocaleDateString("es-ES", {
       weekday: "long",
@@ -904,26 +910,26 @@ export async function registerRoutes(
 
     // Send confirmation to student
     await sendEmail(studentEmail, "class_booking_confirmation", {
-      firstName: studentName.split(" ")[0],
-      sessionTitle: session.title,
+      firstName: studentName?.split(" ")[0] || "Estudiante",
+      sessionTitle: session.title || "Clase de Práctica",
       sessionDate: dateStr,
       sessionTime: timeStr,
-      roomTopic: room.topic,
-      roomLevel: room.level,
+      roomTopic: room?.topic || "Conversación General",
+      roomLevel: room?.level || "Todos los niveles",
       sessionDuration: String(session.duration || 45)
     });
 
     // Send notification to academy
     const academyEmail = "info@cognimight.com";
     await sendEmail(academyEmail, "class_booking_notification", {
-      studentName,
+      studentName: studentName || "No proporcionado",
       studentEmail,
       studentPhone: studentPhone || "No proporcionado",
-      sessionTitle: session.title,
+      sessionTitle: session.title || "Clase de Práctica",
       sessionDate: dateStr,
       sessionTime: timeStr,
-      roomTopic: room.topic,
-      roomLevel: room.level
+      roomTopic: room?.topic || "Conversación General",
+      roomLevel: room?.level || "Todos los niveles"
     });
   }
 
@@ -979,8 +985,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Email is required" });
       }
 
-      // Create a guest booking using email as the userId
-      const booking = await storage.createRoomBooking({ userId: email, roomId });
+      // Create a guest booking using prefixed email as the userId to differentiate from auth users
+      const guestUserId = `guest:${email}`;
+      const booking = await storage.createRoomBooking({ userId: guestUserId, roomId });
 
       // Get room and session details for email
       const room = await storage.getSessionRoomById(roomId);

@@ -519,7 +519,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
       `
     },
     class_booking_confirmation: {
-      subject: '¡Tu clase gratis está confirmada! 📅',
+      subject: '¡Tu clase gratis está confirmada!',
       html: `
         <!DOCTYPE html>
         <html>
@@ -584,7 +584,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
       `
     },
     class_booking_notification: {
-      subject: '📋 Nueva reserva de clase gratis',
+      subject: 'Nueva reserva de clase gratis',
       html: `
         <!DOCTYPE html>
         <html>
