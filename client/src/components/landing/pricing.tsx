@@ -4,6 +4,8 @@ import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight }
 import { useBooking } from "@/contexts/booking-context";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { CheckoutLeadModal } from "@/components/checkout-lead-modal";
 import {
   Carousel,
   CarouselContent,
@@ -187,10 +189,13 @@ function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0];
 export function Pricing() {
   const { openBooking } = useBooking();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(2);
   const [isMobile, setIsMobile] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ priceId: string; name: string; price: string; period: string } | null>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -199,7 +204,7 @@ export function Pricing() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const handleCheckout = async (priceId: string, planName: string) => {
+  const proceedToStripeCheckout = async (priceId: string, planName: string) => {
     setIsCheckingOut(true);
     try {
       const response = await fetch("/api/stripe/create-checkout-session", {
@@ -225,6 +230,51 @@ export function Pricing() {
     } finally {
       setIsCheckingOut(false);
     }
+  };
+
+  const handleCheckout = async (priceId: string, planName: string) => {
+    // If user is logged in, go directly to Stripe
+    if (isAuthenticated) {
+      await proceedToStripeCheckout(priceId, planName);
+      return;
+    }
+
+    // For guests, show the lead capture modal first
+    const plan = plans.find(p => p.stripePriceId === priceId);
+    setSelectedPlan({
+      priceId,
+      name: planName,
+      price: plan?.price || "",
+      period: plan?.period || "/mes",
+    });
+    setShowLeadModal(true);
+  };
+
+  const handleLeadSubmit = async (email: string, name?: string) => {
+    if (!selectedPlan) return;
+
+    // Save lead to the system
+    try {
+      await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          firstName: name?.split(" ")[0] || null,
+          lastName: name?.split(" ").slice(1).join(" ") || null,
+          source: "checkout",
+          utmSource: new URLSearchParams(window.location.search).get("utm_source") || null,
+          utmMedium: new URLSearchParams(window.location.search).get("utm_medium") || null,
+          utmCampaign: new URLSearchParams(window.location.search).get("utm_campaign") || null,
+        }),
+      });
+    } catch (err) {
+      console.log("Lead save failed, continuing to checkout:", err);
+    }
+
+    // Close modal and proceed to checkout
+    setShowLeadModal(false);
+    await proceedToStripeCheckout(selectedPlan.priceId, selectedPlan.name);
   };
 
   useEffect(() => {
@@ -346,6 +396,16 @@ export function Pricing() {
           </div>
         </div>
       </div>
+
+      {/* Lead capture modal for guest checkout */}
+      <CheckoutLeadModal
+        isOpen={showLeadModal}
+        onClose={() => setShowLeadModal(false)}
+        planName={selectedPlan?.name || ""}
+        planPrice={selectedPlan?.price || ""}
+        planPeriod={selectedPlan?.period || ""}
+        onSubmit={handleLeadSubmit}
+      />
     </section>
   );
 }
