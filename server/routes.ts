@@ -837,6 +837,42 @@ export async function registerRoutes(
     }
   });
 
+  // ============== ADMIN TEAM ROUTES ==============
+
+  // Admin: Get all admin users
+  app.get("/api/admin/team/admins", requireAdmin, async (req, res) => {
+    try {
+      const admins = await storage.getAdminUsers();
+      res.json(admins);
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ error: "Failed to fetch admin users" });
+    }
+  });
+
+  // Admin: Toggle user admin status
+  app.patch("/api/admin/team/users/:id/admin", requireAdmin, async (req, res) => {
+    try {
+      const { isAdmin } = req.body;
+      const userId = req.params.id;
+      const currentUserId = (req.user as any)?.claims?.sub;
+      
+      // Prevent self-demotion
+      if (userId === currentUserId && !isAdmin) {
+        return res.status(400).json({ error: "No puedes quitarte permisos de admin a ti mismo" });
+      }
+      
+      const user = await storage.updateUserAdminStatus(userId, isAdmin);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user admin status:", error);
+      res.status(500).json({ error: "Failed to update user admin status" });
+    }
+  });
+
   // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
 
   // Get all live sessions with their rooms (public - for student calendar)

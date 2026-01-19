@@ -8,7 +8,8 @@ import {
   UserCheck,
   ChevronLeft,
   Mail,
-  Target
+  Target,
+  UsersRound
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,11 @@ const menuItems = [
     title: "Leads",
     url: "/admin/leads",
     icon: Target,
+  },
+  {
+    title: "Equipo",
+    url: "/admin/team",
+    icon: UsersRound,
   },
 ];
 

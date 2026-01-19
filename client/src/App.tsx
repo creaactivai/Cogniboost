@@ -20,6 +20,7 @@ import AdminLabs from "@/pages/admin/labs";
 import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
 import AdminLeads from "@/pages/admin/leads";
+import AdminTeam from "@/pages/admin/team";
 import SobreNosotros from "@/pages/sobre-nosotros";
 import Legal from "@/pages/legal";
 import PurchaseComplete from "@/pages/purchase-complete";
@@ -73,6 +74,7 @@ function Router() {
       <Route path="/admin/instructors" component={AdminInstructors} />
       <Route path="/admin/onboarding" component={AdminOnboarding} />
       <Route path="/admin/leads" component={AdminLeads} />
+      <Route path="/admin/team" component={AdminTeam} />
       <Route path="/admin" component={AdminOverview} />
       <Route component={NotFound} />
     </Switch>

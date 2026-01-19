@@ -148,6 +148,8 @@ export interface IStorage {
   getUser(userId: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   getUsersByStatus(status: 'active' | 'hold' | 'inactive'): Promise<User[]>;
+  getAdminUsers(): Promise<User[]>;
+  updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<User | undefined>;
   updateUser(userId: string, updates: Partial<{
     status: 'active' | 'hold' | 'inactive';
     isLocked: boolean;
@@ -699,6 +701,18 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(users)
       .where(and(eq(users.isAdmin, false), eq(users.status, status)))
       .orderBy(desc(users.createdAt));
+  }
+
+  async getAdminUsers(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.isAdmin, true)).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<User | undefined> {
+    const [updatedUser] = await db.update(users)
+      .set({ isAdmin, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
   }
 
   async updateUser(userId: string, updates: Partial<{
