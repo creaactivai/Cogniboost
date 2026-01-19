@@ -42,7 +42,7 @@ export function FinalCTA() {
             <Button 
               size="lg"
               variant="outline"
-              className="border-background/30 text-background"
+              className="border-background/30 text-background bg-[#4ed0c3]"
               onClick={openBooking}
               data-testid="button-cta-book-demo"
             >
