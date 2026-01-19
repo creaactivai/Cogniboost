@@ -22,6 +22,7 @@ import AdminOnboarding from "@/pages/admin/onboarding";
 import AdminLeads from "@/pages/admin/leads";
 import SobreNosotros from "@/pages/sobre-nosotros";
 import Legal from "@/pages/legal";
+import PurchaseComplete from "@/pages/purchase-complete";
 import { CookieConsent } from "@/components/cookie-consent";
 
 function HomePage() {
@@ -58,6 +59,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/placement-quiz" component={PlacementQuiz} />
+      <Route path="/purchase-complete" component={PurchaseComplete} />
       <Route path="/sobre-nosotros" component={SobreNosotros} />
       <Route path="/legal" component={Legal} />
       <Route path="/onboarding" component={Onboarding} />

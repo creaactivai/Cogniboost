@@ -228,14 +228,10 @@ export async function registerRoutes(
     }
   });
 
-  // Create checkout session for subscription
+  // Create checkout session for subscription (supports both logged-in and guest checkout)
   app.post("/api/stripe/create-checkout-session", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
       const { priceId, planName } = req.body;
       
       if (!priceId) {
@@ -243,30 +239,11 @@ export async function registerRoutes(
       }
 
       const stripe = await getUncachableStripeClient();
-      const user = await storage.getUser(userId);
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : "http://localhost:5000";
       
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Get or create Stripe customer
-      let customerId = user.stripeCustomerId;
-      
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || undefined,
-          metadata: {
-            userId: userId,
-          },
-        });
-        customerId = customer.id;
-        await storage.updateUser(userId, { stripeCustomerId: customerId });
-      }
-
-      // Create checkout session
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
+      let sessionConfig: any = {
         payment_method_types: ["card"],
         line_items: [
           {
@@ -278,23 +255,100 @@ export async function registerRoutes(
         subscription_data: {
           trial_period_days: 7,
           metadata: {
-            userId: userId,
             planName: planName || "subscription",
           },
         },
-        success_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard?payment=success`,
-        cancel_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard?payment=cancelled`,
         locale: "es",
         metadata: {
-          userId: userId,
           planName: planName || "subscription",
         },
-      });
+      };
 
+      // If user is logged in, attach to their account
+      if (userId) {
+        const user = await storage.getUser(userId);
+        
+        if (user) {
+          let customerId = user.stripeCustomerId;
+          
+          if (!customerId) {
+            const customer = await stripe.customers.create({
+              email: user.email || undefined,
+              name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || undefined,
+              metadata: { userId },
+            });
+            customerId = customer.id;
+            await storage.updateUser(userId, { stripeCustomerId: customerId });
+          }
+          
+          sessionConfig.customer = customerId;
+          sessionConfig.subscription_data.metadata.userId = userId;
+          sessionConfig.metadata.userId = userId;
+          sessionConfig.success_url = `${baseUrl}/dashboard?payment=success`;
+          sessionConfig.cancel_url = `${baseUrl}/#pricing`;
+        }
+      } else {
+        // Guest checkout - Stripe will collect email
+        sessionConfig.customer_creation = "always";
+        sessionConfig.success_url = `${baseUrl}/purchase-complete?session_id={CHECKOUT_SESSION_ID}`;
+        sessionConfig.cancel_url = `${baseUrl}/#pricing`;
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
       res.json({ sessionId: session.id, url: session.url });
     } catch (error) {
       console.error("Error creating checkout session:", error);
       res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Retrieve checkout session details (for linking guest purchases to accounts)
+  app.get("/api/stripe/checkout-session/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const stripe = await getUncachableStripeClient();
+      
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['customer', 'subscription'],
+      });
+      
+      res.json({
+        customerEmail: session.customer_details?.email,
+        customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+        subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+        planName: session.metadata?.planName,
+      });
+    } catch (error) {
+      console.error("Error retrieving checkout session:", error);
+      res.status(500).json({ error: "Failed to retrieve session" });
+    }
+  });
+
+  // Link a Stripe customer to a user account (after guest checkout + login)
+  app.post("/api/stripe/link-customer", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { customerId, subscriptionId } = req.body;
+      
+      if (!customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
+
+      // Update user with Stripe customer ID
+      await storage.updateUser(userId, { 
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId || undefined,
+        status: 'active',
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error linking customer:", error);
+      res.status(500).json({ error: "Failed to link customer" });
     }
   });
 

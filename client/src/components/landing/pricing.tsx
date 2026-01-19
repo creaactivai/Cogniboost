@@ -202,32 +202,26 @@ export function Pricing() {
   const handleCheckout = async (priceId: string, planName: string) => {
     setIsCheckingOut(true);
     try {
-      const response = await apiRequest("POST", "/api/stripe/create-checkout-session", {
-        priceId,
-        planName,
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId, planName }),
+        credentials: "include",
       });
       const data = await response.json();
       
       if (data.url) {
         window.location.href = data.url;
       } else {
-        throw new Error("No checkout URL received");
+        throw new Error(data.error || "No checkout URL received");
       }
     } catch (error: any) {
       console.error("Checkout error:", error);
-      if (error.message?.includes("Unauthorized") || error.message?.includes("401")) {
-        toast({
-          title: "Inicia sesión primero",
-          description: "Debes iniciar sesión para suscribirte a un plan.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error al procesar",
-          description: "Hubo un problema al iniciar el pago. Por favor intenta de nuevo.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error al procesar",
+        description: "Hubo un problema al iniciar el pago. Por favor intenta de nuevo.",
+        variant: "destructive",
+      });
     } finally {
       setIsCheckingOut(false);
     }
