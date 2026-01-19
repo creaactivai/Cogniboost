@@ -9,15 +9,14 @@ const footerLinks = {
     { label: "Historias de Éxito", href: "#testimonials" },
   ],
   company: [
-    { label: "Sobre Nosotros", href: "#" },
-    { label: "Trabaja con Nosotros", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Contacto", href: "#" },
+    { label: "Sobre Nosotros", href: "/sobre-nosotros" },
+    { label: "Trabaja con Nosotros", href: "mailto:jobs@cognimight.com" },
+    { label: "Contacto", href: "mailto:info@cognimight.com" },
   ],
   legal: [
-    { label: "Política de Privacidad", href: "#" },
-    { label: "Términos de Servicio", href: "#" },
-    { label: "Política de Cookies", href: "#" },
+    { label: "Política de Privacidad", href: "/legal#privacidad" },
+    { label: "Términos de Servicio", href: "/legal#terminos" },
+    { label: "Política de Cookies", href: "/legal#cookies" },
   ],
 };
 

@@ -106,6 +106,11 @@ API Endpoints:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-19: **Legal and company pages** - /sobre-nosotros with founder bio, methodology, mission; /legal with privacy policy, terms of service, cookies policy
+- 2026-01-19: Cookie consent banner with preference management (essential/functional/analytics/marketing cookies)
+- 2026-01-19: Updated footer links - Sobre Nosotros, Trabaja con Nosotros (mailto:jobs@cognimight.com), Contacto (mailto:info@cognimight.com)
+- 2026-01-19: Legal section links with anchor navigation (/legal#privacidad, /legal#terminos, /legal#cookies)
+- 2026-01-19: WhatsApp social icon in footer linking to community group
 - 2026-01-18: **Lead automation system** - automated email sequences (Day 1, Day 3, Day 7) with scoring and status tracking
 - 2026-01-18: Admin leads dashboard (/admin/leads) with funnel analytics, status management, and manual email triggers
 - 2026-01-18: Lead scoring algorithm: quiz completion +20pts, email opens +5pts each, clicks +10pts each, recency bonus +15pts

@@ -20,6 +20,9 @@ import AdminLabs from "@/pages/admin/labs";
 import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
 import AdminLeads from "@/pages/admin/leads";
+import SobreNosotros from "@/pages/sobre-nosotros";
+import Legal from "@/pages/legal";
+import { CookieConsent } from "@/components/cookie-consent";
 
 function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -55,6 +58,8 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/placement-quiz" component={PlacementQuiz} />
+      <Route path="/sobre-nosotros" component={SobreNosotros} />
+      <Route path="/legal" component={Legal} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
@@ -79,6 +84,7 @@ function App() {
         <BookingProvider>
           <Toaster />
           <Router />
+          <CookieConsent />
         </BookingProvider>
       </TooltipProvider>
     </QueryClientProvider>
