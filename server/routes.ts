@@ -288,8 +288,7 @@ export async function registerRoutes(
           sessionConfig.cancel_url = `${baseUrl}/#pricing`;
         }
       } else {
-        // Guest checkout - Stripe will collect email
-        sessionConfig.customer_creation = "always";
+        // Guest checkout - Stripe will collect email and create customer automatically for subscriptions
         sessionConfig.success_url = `${baseUrl}/purchase-complete?session_id={CHECKOUT_SESSION_ID}`;
         sessionConfig.cancel_url = `${baseUrl}/#pricing`;
       }
