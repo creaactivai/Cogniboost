@@ -873,6 +873,55 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Get all admin invitations
+  app.get("/api/admin/team/invitations", requireAdmin, async (req, res) => {
+    try {
+      const invitations = await storage.getAdminInvitations();
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching admin invitations:", error);
+      res.status(500).json({ error: "Failed to fetch admin invitations" });
+    }
+  });
+
+  // Admin: Create admin invitation
+  app.post("/api/admin/team/invitations", requireAdmin, async (req, res) => {
+    try {
+      const { email, firstName, lastName, department } = req.body;
+      const invitedBy = (req.user as any)?.claims?.sub;
+      
+      if (!email) {
+        return res.status(400).json({ error: "El email es requerido" });
+      }
+      
+      const invitation = await storage.createAdminInvitation({
+        email: email.toLowerCase(),
+        firstName,
+        lastName,
+        department,
+        invitedBy,
+      });
+      res.status(201).json(invitation);
+    } catch (error: any) {
+      console.error("Error creating admin invitation:", error);
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(400).json({ error: "Este email ya tiene una invitación de admin" });
+      }
+      res.status(500).json({ error: "Failed to create admin invitation" });
+    }
+  });
+
+  // Admin: Delete admin invitation
+  app.delete("/api/admin/team/invitations/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteAdminInvitation(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting admin invitation:", error);
+      res.status(500).json({ error: "Failed to delete admin invitation" });
+    }
+  });
+
   // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
 
   // Get all live sessions with their rooms (public - for student calendar)

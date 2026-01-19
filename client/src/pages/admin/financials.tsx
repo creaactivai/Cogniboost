@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight, TrendingDown, UserCheck, UserX } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight, TrendingDown, UserCheck } from "lucide-react";
 import type { Payment, Subscription } from "@shared/schema";
 
 const tierLabels: Record<string, string> = {
@@ -13,7 +13,6 @@ const tierLabels: Record<string, string> = {
   premium: "Prémium",
 };
 
-// Precios oficiales de planes (deben coincidir con landing page)
 const PLAN_PRICES = {
   free: 0,
   flex: 14.99,
@@ -52,7 +51,7 @@ export default function AdminFinancials() {
     queryKey: ["/api/admin/payments"],
   });
 
-  const { data: subscriptions, isLoading: subsLoading } = useQuery<Subscription[]>({
+  const { data: subscriptions } = useQuery<Subscription[]>({
     queryKey: ["/api/admin/subscriptions"],
   });
 
@@ -77,85 +76,69 @@ export default function AdminFinancials() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-[#10B981] flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-black" />
+              <div className="w-10 h-10 bg-success flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-success-foreground" />
               </div>
               <Badge variant="secondary" className="text-xs">
                 <ArrowUpRight className="w-3 h-3 mr-1" />
                 +18%
               </Badge>
             </div>
-            <p 
-              className="text-2xl font-black" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              data-testid="text-total-revenue"
-            >
+            <p className="text-2xl font-display uppercase tracking-tight" data-testid="text-total-revenue">
               ${statsLoading ? "..." : Number(stats?.totalRevenue || 0).toLocaleString()}
             </p>
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-sm font-mono text-muted-foreground">
               Ingresos Totales
             </p>
           </Card>
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-[#33CBFB] flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-black" />
+              <div className="w-10 h-10 bg-primary flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary-foreground" />
               </div>
               <Badge variant="secondary" className="text-xs">
                 MRR
               </Badge>
             </div>
-            <p 
-              className="text-2xl font-black" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              data-testid="text-mrr"
-            >
+            <p className="text-2xl font-display uppercase tracking-tight" data-testid="text-mrr">
               ${mrr.toLocaleString()}
             </p>
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-sm font-mono text-muted-foreground">
               Ingresos Mensuales
             </p>
           </Card>
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-[#FD335A] flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-black" />
+              <div className="w-10 h-10 bg-accent flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-accent-foreground" />
               </div>
               <Badge variant="secondary" className="text-xs">
                 {stats?.activeSubscriptions || 0}
               </Badge>
             </div>
-            <p 
-              className="text-2xl font-black" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              data-testid="text-active-subscriptions"
-            >
+            <p className="text-2xl font-display uppercase tracking-tight" data-testid="text-active-subscriptions">
               {stats?.activeSubscriptions || 0}
             </p>
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-sm font-mono text-muted-foreground">
               Suscripciones Activas
             </p>
           </Card>
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-[#8B5CF6] flex items-center justify-center">
-                <Users className="w-5 h-5 text-black" />
+              <div className="w-10 h-10 bg-primary flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary-foreground" />
               </div>
               <Badge variant="secondary" className="text-xs">
                 ARR
               </Badge>
             </div>
-            <p 
-              className="text-2xl font-black" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-              data-testid="text-arr"
-            >
+            <p className="text-2xl font-display uppercase tracking-tight" data-testid="text-arr">
               ${arr.toLocaleString()}
             </p>
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-sm font-mono text-muted-foreground">
               Ingresos Anuales Est.
             </p>
           </Card>
@@ -164,53 +147,53 @@ export default function AdminFinancials() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#10B981] flex items-center justify-center">
-                <UserCheck className="w-4 h-4 text-black" />
+              <div className="w-8 h-8 bg-success flex items-center justify-center">
+                <UserCheck className="w-4 h-4 text-success-foreground" />
               </div>
               <div>
-                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                <p className="text-lg font-display uppercase tracking-tight">
                   {metricsLoading ? "..." : metrics?.activeStudents || 0}
                 </p>
-                <p className="text-xs text-muted-foreground">Estudiantes Activos</p>
+                <p className="text-xs font-mono text-muted-foreground">Estudiantes Activos</p>
               </div>
             </div>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#F59E0B] flex items-center justify-center">
-                <Users className="w-4 h-4 text-black" />
+              <div className="w-8 h-8 bg-accent flex items-center justify-center">
+                <Users className="w-4 h-4 text-accent-foreground" />
               </div>
               <div>
-                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                <p className="text-lg font-display uppercase tracking-tight">
                   {metricsLoading ? "..." : metrics?.holdStudents || 0}
                 </p>
-                <p className="text-xs text-muted-foreground">En Espera (Pago)</p>
+                <p className="text-xs font-mono text-muted-foreground">En Espera (Pago)</p>
               </div>
             </div>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#EF4444] flex items-center justify-center">
-                <TrendingDown className="w-4 h-4 text-black" />
+              <div className="w-8 h-8 bg-destructive flex items-center justify-center">
+                <TrendingDown className="w-4 h-4 text-destructive-foreground" />
               </div>
               <div>
-                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                <p className="text-lg font-display uppercase tracking-tight">
                   {metricsLoading ? "..." : `${metrics?.churnRate || 0}%`}
                 </p>
-                <p className="text-xs text-muted-foreground">Tasa de Abandono</p>
+                <p className="text-xs font-mono text-muted-foreground">Tasa de Abandono</p>
               </div>
             </div>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#22C55E] flex items-center justify-center">
-                <ArrowUpRight className="w-4 h-4 text-black" />
+              <div className="w-8 h-8 bg-success flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-success-foreground" />
               </div>
               <div>
-                <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                <p className="text-lg font-display uppercase tracking-tight">
                   +{metricsLoading ? "..." : metrics?.newStudentsThisMonth || 0}
                 </p>
-                <p className="text-xs text-muted-foreground">Nuevos este Mes</p>
+                <p className="text-xs font-mono text-muted-foreground">Nuevos este Mes</p>
               </div>
             </div>
           </Card>
@@ -218,20 +201,17 @@ export default function AdminFinancials() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="p-4 lg:col-span-2">
-            <h2 
-              className="text-lg font-black mb-4" 
-              style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
-            >
+            <h2 className="text-lg font-display uppercase tracking-tight mb-4">
               Historial de Pagos
             </h2>
             {paymentsLoading ? (
-              <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <p className="font-mono text-muted-foreground">
                 Cargando pagos...
               </p>
             ) : payments?.length === 0 ? (
               <div className="text-center py-8">
                 <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <p className="font-mono text-muted-foreground">
                   No hay pagos registrados todavía
                 </p>
               </div>
@@ -240,22 +220,19 @@ export default function AdminFinancials() {
                 {payments?.slice(0, 10).map((payment) => (
                   <div
                     key={payment.id}
-                    className="flex items-center justify-between p-3 bg-muted/50"
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded"
                     data-testid={`payment-row-${payment.id}`}
                   >
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-8 h-8 flex items-center justify-center"
-                        style={{ backgroundColor: payment.status === "completed" ? "#10B981" : "#FD335A" }}
-                      >
+                      <div className={`w-8 h-8 flex items-center justify-center ${payment.status === "completed" ? "bg-success" : "bg-destructive"}`}>
                         {payment.status === "completed" ? (
-                          <ArrowUpRight className="w-4 h-4 text-black" />
+                          <ArrowUpRight className="w-4 h-4 text-success-foreground" />
                         ) : (
-                          <ArrowDownRight className="w-4 h-4 text-black" />
+                          <ArrowDownRight className="w-4 h-4 text-destructive-foreground" />
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        <p className="font-mono font-medium text-sm">
                           {payment.userId.substring(0, 8)}...
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -265,7 +242,7 @@ export default function AdminFinancials() {
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant="secondary">{tierLabels[payment.tier] || payment.tier}</Badge>
-                      <p className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      <p className="font-mono font-bold">
                         ${Number(payment.amount).toLocaleString()}
                       </p>
                     </div>

@@ -18,6 +18,7 @@ import {
   quizAttempts,
   placementQuizAttempts,
   leads,
+  adminInvitations,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -54,6 +55,8 @@ import {
   type InsertPlacementQuizAttempt,
   type Lead,
   type InsertLead,
+  type AdminInvitation,
+  type InsertAdminInvitation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count, and } from "drizzle-orm";
@@ -150,6 +153,11 @@ export interface IStorage {
   getUsersByStatus(status: 'active' | 'hold' | 'inactive'): Promise<User[]>;
   getAdminUsers(): Promise<User[]>;
   updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<User | undefined>;
+  
+  // Admin Invitations
+  getAdminInvitations(): Promise<AdminInvitation[]>;
+  createAdminInvitation(invitation: InsertAdminInvitation): Promise<AdminInvitation>;
+  deleteAdminInvitation(id: string): Promise<boolean>;
   updateUser(userId: string, updates: Partial<{
     status: 'active' | 'hold' | 'inactive';
     isLocked: boolean;
@@ -713,6 +721,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updatedUser;
+  }
+
+  // Admin Invitations
+  async getAdminInvitations(): Promise<AdminInvitation[]> {
+    return db.select().from(adminInvitations).orderBy(desc(adminInvitations.createdAt));
+  }
+
+  async createAdminInvitation(invitation: InsertAdminInvitation): Promise<AdminInvitation> {
+    const [created] = await db.insert(adminInvitations).values(invitation).returning();
+    return created;
+  }
+
+  async deleteAdminInvitation(id: string): Promise<boolean> {
+    const result = await db.delete(adminInvitations).where(eq(adminInvitations.id, id));
+    return true;
   }
 
   async updateUser(userId: string, updates: Partial<{

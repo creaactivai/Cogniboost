@@ -1,4 +1,4 @@
-import { users, type User, type UpsertUser } from "@shared/models/auth";
+import { users, adminInvitations, type User, type UpsertUser } from "@shared/models/auth";
 import { db } from "../../db";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "../../resendClient";
@@ -8,6 +8,15 @@ const SUPER_ADMIN_EMAILS = [
   'cognimight@gmail.com',
   'acreaactiva@gmail.com',
 ];
+
+// Check if email is in the admin invitations table
+async function isInvitedAdmin(email: string): Promise<boolean> {
+  const [invitation] = await db
+    .select()
+    .from(adminInvitations)
+    .where(eq(adminInvitations.email, email.toLowerCase()));
+  return invitation?.isActive === true;
+}
 
 // Interface for auth storage operations
 // (IMPORTANT) These user operations are mandatory for Replit Auth.
@@ -27,9 +36,11 @@ class AuthStorage implements IAuthStorage {
     const existingUser = await this.getUser(userData.id!);
     const isNewUser = !existingUser;
 
-    // Auto-grant admin to super admin emails during beta
+    // Auto-grant admin to super admin emails during beta or if invited as admin
     const isSuperAdmin = userData.email && SUPER_ADMIN_EMAILS.includes(userData.email.toLowerCase());
-    const userDataWithAdmin = isSuperAdmin ? { ...userData, isAdmin: true } : userData;
+    const isInvited = userData.email ? await isInvitedAdmin(userData.email) : false;
+    const shouldBeAdmin = isSuperAdmin || isInvited;
+    const userDataWithAdmin = shouldBeAdmin ? { ...userData, isAdmin: true } : userData;
 
     const [user] = await db
       .insert(users)
