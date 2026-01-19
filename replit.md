@@ -106,6 +106,9 @@ API Endpoints:
 - Premium: $79/month
 
 ## Recent Changes
+- 2026-01-19: **Guest checkout with lead capture** - Modal captures email/name before Stripe redirect for abandoned cart follow-up
+- 2026-01-19: Stripe checkout works for both logged-in users (direct) and guests (modal first, then checkout)
+- 2026-01-19: Guest purchase flow: Stripe checkout → /purchase-complete page → Create account → Link subscription
 - 2026-01-19: **Legal and company pages** - /sobre-nosotros with founder bio, methodology, mission; /legal with privacy policy, terms of service, cookies policy
 - 2026-01-19: Cookie consent banner with preference management (essential/functional/analytics/marketing cookies)
 - 2026-01-19: Updated footer links - Sobre Nosotros, Trabaja con Nosotros (mailto:jobs@cognimight.com), Contacto (mailto:info@cognimight.com)
