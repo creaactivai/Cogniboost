@@ -40,6 +40,13 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_object_storage:2.0.0", "javascript_log_in_with_replit:2.0.0", "javascript_database:1.0.0", "javascript_openai_ai_integrations:2.0.0", "stripe:2.0.0", "resend:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VITE_STRIPE_PRICE_FLEX = "price_1Sr85DDk76WSkPokDMlz6Xmg"
+VITE_STRIPE_PRICE_STANDARD = "price_1Sr85EDk76WSkPokx98rmUD2"
+VITE_STRIPE_PRICE_PREMIUM = "price_1Sr85EDk76WSkPok3UxxTEKY"
 [[deployment.rewrites]]
 from = "/*"
 to = "/index.html"
