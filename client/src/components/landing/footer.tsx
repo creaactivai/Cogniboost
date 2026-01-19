@@ -61,7 +61,7 @@ export function Footer() {
               ))}
             </div>
             <div className="text-xs text-muted-foreground" data-testid="text-address">
-              <p className="font-semibold uppercase tracking-widest mb-2">Mailbox</p>
+              <p className="font-semibold uppercase tracking-widest mb-2">Address</p>
               <p>PMB 1420</p>
               <p>10900 Research Blvd</p>
               <p>Ste 160C</p>
