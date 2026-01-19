@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Users, BookOpen, Calendar, DollarSign, TrendingUp } from "lucide-react";
+import { Users, BookOpen, Calendar, DollarSign } from "lucide-react";
 import type { Course } from "@shared/schema";
 
 interface AdminStats {
@@ -29,28 +29,24 @@ export default function AdminOverview() {
       value: stats?.totalStudents || 0,
       icon: Users,
       color: "#33CBFB",
-      change: "+12%",
     },
     {
       title: "Cursos Activos",
       value: stats?.totalCourses || 0,
       icon: BookOpen,
       color: "#FD335A",
-      change: "+3",
     },
     {
       title: "Laboratorios",
       value: stats?.totalLabs || 0,
       icon: Calendar,
       color: "#33CBFB",
-      change: "+5",
     },
     {
       title: "Ingresos Totales",
       value: `$${Number(stats?.totalRevenue || 0).toLocaleString()}`,
       icon: DollarSign,
       color: "#10B981",
-      change: "+18%",
     },
   ];
 
@@ -67,10 +63,6 @@ export default function AdminOverview() {
                 >
                   <stat.icon className="w-5 h-5 text-black" />
                 </div>
-                <Badge variant="secondary" className="text-xs" data-testid={`badge-change-${index}`}>
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {stat.change}
-                </Badge>
               </div>
               <p 
                 className="text-2xl font-black mb-1" 
@@ -161,28 +153,13 @@ export default function AdminOverview() {
                       {stats?.activeSubscriptions || 0}
                     </span>
                   </div>
-                  <Progress value={75} className="h-2" />
+                  <Progress value={stats?.activeSubscriptions ? 100 : 0} className="h-2" />
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 bg-muted/50">
-                    <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                      65%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Gratis</p>
-                  </div>
-                  <div className="p-2 bg-muted/50">
-                    <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                      25%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Estándar</p>
-                  </div>
-                  <div className="p-2 bg-muted/50">
-                    <p className="text-lg font-black" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
-                      10%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Prémium</p>
-                  </div>
-                </div>
+                {stats?.activeSubscriptions === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                    Sin suscriptores aún
+                  </p>
+                )}
               </div>
             </Card>
 
@@ -191,21 +168,18 @@ export default function AdminOverview() {
                 className="text-lg font-black mb-4" 
                 style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}
               >
-                Próximos Labs
+                Laboratorios en Vivo
               </h2>
               <div className="space-y-2">
                 <div className="p-2 bg-muted/50 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-[#33CBFB]" />
                   <span className="text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    Hoy - 3 sesiones
+                    {stats?.totalLabs || 0} sesiones configuradas
                   </span>
                 </div>
-                <div className="p-2 bg-muted/50 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#FD335A]" />
-                  <span className="text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    Mañana - 5 sesiones
-                  </span>
-                </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Ver calendario completo en Labs
+                </p>
               </div>
             </Card>
           </div>
