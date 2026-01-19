@@ -47,7 +47,7 @@ export function Footer() {
               Educación orientada a resultados para profesionales hispanohablantes. 
               Habilidades prácticas, expertos de la industria, resultados profesionales reales.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-6">
               {socialLinks.map((social) => (
                 <a
                   key={social.label}
@@ -59,6 +59,14 @@ export function Footer() {
                   <social.icon className="w-4 h-4" />
                 </a>
               ))}
+            </div>
+            <div className="text-xs text-muted-foreground" data-testid="text-address">
+              <p className="font-semibold uppercase tracking-widest mb-2">Mailbox</p>
+              <p>PMB 1420</p>
+              <p>10900 Research Blvd</p>
+              <p>Ste 160C</p>
+              <p>Austin, TX 78759</p>
+              <p>United States</p>
             </div>
           </div>
 
