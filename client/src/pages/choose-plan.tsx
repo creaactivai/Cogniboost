@@ -118,6 +118,7 @@ export default function ChoosePlan() {
     checkoutMutation.mutate(planId);
   };
 
+  // Show loading while checking auth state
   if (authLoading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -129,10 +130,53 @@ export default function ChoosePlan() {
     );
   }
 
+  // Don't render content if user is not authenticated (redirect is in useEffect)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render content for admins (redirect is in useEffect)
+  if (user.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render content if onboarding not complete (redirect is in useEffect)
+  if (!user.onboardingCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+        </div>
+      </div>
+    );
+  }
+
   // If user already has a paid subscription, redirect to dashboard
   if (subscription && subscription.tier !== "free") {
     setLocation("/dashboard");
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="font-mono text-muted-foreground">Redirigiendo al dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

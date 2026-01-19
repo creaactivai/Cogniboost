@@ -27,6 +27,41 @@ import PurchaseComplete from "@/pages/purchase-complete";
 import ChoosePlan from "@/pages/choose-plan";
 import { CookieConsent } from "@/components/cookie-consent";
 
+// Protected route wrapper - requires auth + completed onboarding
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect unauthenticated users to login
+  if (!user) {
+    window.location.href = "/api/login";
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect users who haven't completed onboarding
+  if (!user.onboardingCompleted) {
+    window.location.href = "/onboarding";
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const currentPath = window.location.pathname;
@@ -72,7 +107,11 @@ function Router() {
       <Route path="/sobre-nosotros" component={SobreNosotros} />
       <Route path="/legal" component={Legal} />
       <Route path="/onboarding" component={Onboarding} />
-      <Route path="/choose-plan" component={ChoosePlan} />
+      <Route path="/choose-plan">
+        <ProtectedRoute>
+          <ChoosePlan />
+        </ProtectedRoute>
+      </Route>
       <Route path="/dashboard/*?" component={Dashboard} />
       <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
       <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
