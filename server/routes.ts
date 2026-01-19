@@ -882,7 +882,52 @@ export async function registerRoutes(
     }
   });
 
-  // Book a room (student action)
+  // Helper function to send booking confirmation emails
+  async function sendBookingConfirmationEmails(
+    studentEmail: string,
+    studentName: string,
+    studentPhone: string | undefined,
+    room: any,
+    session: any
+  ) {
+    const sessionDate = new Date(session.scheduledAt);
+    const dateStr = sessionDate.toLocaleDateString("es-ES", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+    const timeStr = sessionDate.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    // Send confirmation to student
+    await sendEmail(studentEmail, "class_booking_confirmation", {
+      firstName: studentName.split(" ")[0],
+      sessionTitle: session.title,
+      sessionDate: dateStr,
+      sessionTime: timeStr,
+      roomTopic: room.topic,
+      roomLevel: room.level,
+      sessionDuration: String(session.duration || 45)
+    });
+
+    // Send notification to academy
+    const academyEmail = "info@cognimight.com";
+    await sendEmail(academyEmail, "class_booking_notification", {
+      studentName,
+      studentEmail,
+      studentPhone: studentPhone || "No proporcionado",
+      sessionTitle: session.title,
+      sessionDate: dateStr,
+      sessionTime: timeStr,
+      roomTopic: room.topic,
+      roomLevel: room.level
+    });
+  }
+
+  // Book a room (authenticated user)
   app.post("/api/room-bookings", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
@@ -894,9 +939,72 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Room ID is required" });
       }
       const booking = await storage.createRoomBooking({ userId, roomId });
+
+      // Get room and session details for email
+      const room = await storage.getSessionRoomById(roomId);
+      if (room) {
+        const session = await storage.getLiveSessionById(room.sessionId);
+        const user = await storage.getUser(userId);
+        if (session && user) {
+          try {
+            await sendBookingConfirmationEmails(
+              user.email || "",
+              `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Estudiante",
+              undefined,
+              room,
+              session
+            );
+          } catch (emailError) {
+            console.error("Error sending booking confirmation emails:", emailError);
+            // Don't fail the booking if email fails
+          }
+        }
+      }
+
       res.status(201).json(booking);
     } catch (error) {
       console.error("Error creating room booking:", error);
+      res.status(500).json({ error: "Failed to book room" });
+    }
+  });
+
+  // Book a room (guest - uses lead info)
+  app.post("/api/room-bookings/guest", async (req, res) => {
+    try {
+      const { roomId, email, name, phone } = req.body;
+      if (!roomId) {
+        return res.status(400).json({ error: "Room ID is required" });
+      }
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Create a guest booking using email as the userId
+      const booking = await storage.createRoomBooking({ userId: email, roomId });
+
+      // Get room and session details for email
+      const room = await storage.getSessionRoomById(roomId);
+      if (room) {
+        const session = await storage.getLiveSessionById(room.sessionId);
+        if (session) {
+          try {
+            await sendBookingConfirmationEmails(
+              email,
+              name || "Estudiante",
+              phone,
+              room,
+              session
+            );
+          } catch (emailError) {
+            console.error("Error sending booking confirmation emails:", emailError);
+            // Don't fail the booking if email fails
+          }
+        }
+      }
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating guest room booking:", error);
       res.status(500).json({ error: "Failed to book room" });
     }
   });
