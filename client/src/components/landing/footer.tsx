@@ -43,10 +43,7 @@ export function Footer() {
                 className="h-8 w-auto"
               />
             </div>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-              Educación orientada a resultados para profesionales hispanohablantes. 
-              Habilidades prácticas, expertos de la industria, resultados profesionales reales.
-            </p>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm">Educación orientada a resultados para profesionales y estudiantes hispanohablantes. Habilidades prácticas, metodología exclusiva, resultados reales.</p>
             <div className="flex gap-4 mb-6">
               {socialLinks.map((social) => (
                 <a
