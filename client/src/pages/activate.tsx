@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, AlertCircle, GraduationCap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, CheckCircle, AlertCircle, GraduationCap, Calendar, ShieldCheck } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +13,8 @@ export default function ActivatePage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
+  const [requiresBirthDate, setRequiresBirthDate] = useState(false);
+  const [birthDate, setBirthDate] = useState("");
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -23,8 +27,11 @@ export default function ActivatePage() {
   });
 
   const activateMutation = useMutation({
-    mutationFn: async (invitationToken: string) => {
-      const response = await apiRequest("POST", "/api/auth/activate", { token: invitationToken });
+    mutationFn: async ({ invitationToken, birthDateStr }: { invitationToken: string; birthDateStr?: string }) => {
+      const response = await apiRequest("POST", "/api/auth/activate", { 
+        token: invitationToken,
+        birthDate: birthDateStr,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -35,18 +42,40 @@ export default function ActivatePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setLocation("/dashboard");
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Error de activación",
-        description: error.message || "No se pudo activar tu cuenta. Por favor contacta soporte.",
-        variant: "destructive",
-      });
+    onError: async (error: any) => {
+      try {
+        const errorData = error.response ? await error.response.json() : { error: error.message };
+        
+        if (errorData.requiresBirthDateVerification) {
+          setRequiresBirthDate(true);
+          toast({
+            title: "Verificación requerida",
+            description: "Por favor ingresa tu fecha de nacimiento para verificar tu identidad.",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Error de activación",
+          description: errorData.error || "No se pudo activar tu cuenta. Por favor contacta soporte.",
+          variant: "destructive",
+        });
+      } catch {
+        toast({
+          title: "Error de activación",
+          description: error.message || "No se pudo activar tu cuenta.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
   const handleActivation = () => {
     if (token) {
-      activateMutation.mutate(token);
+      activateMutation.mutate({ 
+        invitationToken: token, 
+        birthDateStr: birthDate || undefined 
+      });
     }
   };
 
@@ -95,16 +124,16 @@ export default function ActivatePage() {
           <CardContent className="space-y-4">
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm text-muted-foreground mb-2">
-                <strong>Paso 1:</strong> Haz clic en el botón para iniciar sesión
+                <strong>Paso 1:</strong> Inicia sesión con Google, Apple, o email
               </p>
               <p className="text-sm text-muted-foreground">
-                <strong>Paso 2:</strong> Después de iniciar sesión, tu cuenta será activada automáticamente
+                <strong>Paso 2:</strong> Verifica tu identidad para activar tu cuenta
               </p>
             </div>
             <Button 
               className="w-full" 
               size="lg"
-              onClick={() => window.location.href = `/api/auth/login?returnTo=/activate?token=${token}`}
+              onClick={() => window.location.href = `/api/login?returnTo=/activate?token=${token}`}
               data-testid="button-login-activate"
             >
               Iniciar sesión para activar
@@ -119,30 +148,60 @@ export default function ActivatePage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <CardTitle className="text-2xl">¡Ya casi está listo!</CardTitle>
+          {requiresBirthDate ? (
+            <ShieldCheck className="h-16 w-16 text-primary mx-auto mb-4" />
+          ) : (
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          )}
+          <CardTitle className="text-2xl">
+            {requiresBirthDate ? "Verificación de identidad" : "¡Ya casi está listo!"}
+          </CardTitle>
           <CardDescription className="text-base">
-            Hola {user.firstName || user.email}, haz clic en el botón para completar la activación de tu cuenta.
+            {requiresBirthDate 
+              ? "Por seguridad, confirma tu fecha de nacimiento para completar la activación."
+              : `Hola ${user.firstName || user.email}, haz clic en el botón para completar la activación de tu cuenta.`
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {requiresBirthDate && (
+            <div className="space-y-2">
+              <Label htmlFor="birthDate" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Fecha de nacimiento
+              </Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                data-testid="input-birthdate"
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Ingresa la fecha de nacimiento que proporcionaste al registrarte.
+              </p>
+            </div>
+          )}
+          
           <Button 
             className="w-full" 
             size="lg"
             onClick={handleActivation}
-            disabled={activateMutation.isPending}
+            disabled={activateMutation.isPending || (requiresBirthDate && !birthDate)}
             data-testid="button-complete-activation"
           >
             {activateMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Activando...
+                Verificando...
               </>
             ) : (
-              "Completar activación"
+              requiresBirthDate ? "Verificar y activar" : "Completar activación"
             )}
           </Button>
-          {activateMutation.isError && (
+          
+          {activateMutation.isError && !requiresBirthDate && (
             <p className="text-sm text-destructive text-center">
               Hubo un error al activar tu cuenta. Por favor intenta de nuevo.
             </p>

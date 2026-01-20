@@ -66,11 +66,11 @@ export function Header() {
                     Iniciar Sesión
                   </Button>
                 </a>
-                <a href="#pricing">
+                <a href="/api/login?returnTo=/dashboard">
                   <Button 
                     data-testid="button-signup"
                   >
-                    Registrarse
+                    Crear cuenta gratis
                   </Button>
                 </a>
               </div>
@@ -111,9 +111,9 @@ export function Header() {
                       Iniciar Sesión
                     </Button>
                   </a>
-                  <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
+                  <a href="/api/login?returnTo=/dashboard" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full">
-                      Registrarse
+                      Crear cuenta gratis
                     </Button>
                   </a>
                 </>

@@ -34,6 +34,12 @@ export const users = pgTable("users", {
   assignedPlan: text("assigned_plan"),
   invitationToken: varchar("invitation_token"),
   invitationSentAt: timestamp("invitation_sent_at"),
+  invitationExpiresAt: timestamp("invitation_expires_at"),
+  invitationUsedAt: timestamp("invitation_used_at"),
+  emailVerificationToken: varchar("email_verification_token"),
+  emailVerificationExpiresAt: timestamp("email_verification_expires_at"),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  subscriptionTier: text("subscription_tier").notNull().default("free"), // free, flex, standard, premium
   status: userStatusEnum("status").notNull().default("active"),
   isLocked: boolean("is_locked").notNull().default(false),
   lockedAt: timestamp("locked_at"),

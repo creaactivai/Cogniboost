@@ -40,13 +40,19 @@ export async function registerRoutes(
   registerObjectStorageRoutes(app);
 
   // Account activation endpoint for manually added students
+  const activationSchema = z.object({
+    token: z.string().min(1, "Token requerido"),
+    birthDate: z.string().optional(), // YYYY-MM-DD format for verification
+  });
+
   app.post("/api/auth/activate", async (req, res) => {
     try {
-      const { token } = req.body;
-      
-      if (!token) {
-        return res.status(400).json({ error: "Token de activación requerido" });
+      const validation = activationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Datos inválidos", details: validation.error.errors });
       }
+
+      const { token, birthDate } = validation.data;
 
       // Get current authenticated user
       const userId = (req as any).user?.id;
@@ -59,37 +65,76 @@ export async function registerRoutes(
       const invitedUser = allUsers.find(u => u.invitationToken === token);
 
       if (!invitedUser) {
-        return res.status(404).json({ error: "Token de invitación inválido o expirado" });
+        return res.status(404).json({ error: "Token de invitación inválido" });
       }
 
-      // Verify the email matches (case insensitive)
+      // Check if token has already been used (single-use validation)
+      if (invitedUser.invitationUsedAt) {
+        return res.status(400).json({ error: "Este enlace de activación ya fue utilizado" });
+      }
+
+      // Check if token has expired (7 days)
+      if (invitedUser.invitationExpiresAt) {
+        const now = new Date();
+        if (now > new Date(invitedUser.invitationExpiresAt)) {
+          return res.status(400).json({ error: "El enlace de activación ha expirado. Contacta al administrador para obtener uno nuevo." });
+        }
+      }
+
+      // Verify birth date matches (security verification)
+      if (invitedUser.birthDate) {
+        if (!birthDate) {
+          // Return that birth date verification is required
+          return res.status(400).json({ 
+            error: "Se requiere verificación de fecha de nacimiento",
+            requiresBirthDateVerification: true 
+          });
+        }
+
+        const invitedBirthDate = new Date(invitedUser.birthDate);
+        const providedBirthDate = new Date(birthDate);
+        
+        // Compare year, month, day only
+        const invitedDateStr = invitedBirthDate.toISOString().split('T')[0];
+        const providedDateStr = providedBirthDate.toISOString().split('T')[0];
+        
+        if (invitedDateStr !== providedDateStr) {
+          return res.status(400).json({ error: "La fecha de nacimiento no coincide con nuestros registros" });
+        }
+      }
+
       const currentUser = await storage.getUser(userId);
       if (!currentUser) {
         return res.status(404).json({ error: "Usuario no encontrado" });
       }
 
-      // If the logged-in user is different from the invited user, merge the accounts
+      const now = new Date();
+
+      // If the logged-in user is different from the invited user, transfer data
       if (invitedUser.id !== userId) {
-        // Transfer the invitation data to the current user
+        // Transfer the subscription tier and plan to the current user
         await storage.updateUser(userId, {
           onboardingCompleted: invitedUser.skipOnboarding || currentUser.onboardingCompleted,
           status: 'active',
-          updatedAt: new Date(),
-        });
+          updatedAt: now,
+        } as any);
         
-        // Mark the invitation as used by clearing the token
+        // Mark the invitation as used
         await storage.updateUser(invitedUser.id, {
           invitationToken: null,
+          invitationUsedAt: now,
           status: 'inactive',
-          updatedAt: new Date(),
+          updatedAt: now,
         } as any);
       } else {
         // Same user, just activate
         await storage.updateUser(userId, {
           invitationToken: null,
+          invitationUsedAt: now,
           onboardingCompleted: invitedUser.skipOnboarding || true,
           status: 'active',
-          updatedAt: new Date(),
+          emailVerified: true,
+          updatedAt: now,
         } as any);
       }
 
@@ -127,11 +172,44 @@ export async function registerRoutes(
     }
   });
 
-  // Get lessons for a course
+  // Get lessons for a course (with content gating for free/unauthenticated users)
   app.get("/api/courses/:courseId/lessons", async (req, res) => {
     try {
+      const userId = (req.user as any)?.claims?.sub;
       const lessons = await storage.getLessonsByCourseId(req.params.courseId);
-      res.json(lessons);
+      const FREE_LESSON_LIMIT = 3;
+      
+      // Check user's subscription tier - default to free for unauthenticated users
+      let subscriptionTier = 'free';
+      if (userId) {
+        const user = await storage.getUser(userId);
+        subscriptionTier = user?.subscriptionTier || 'free';
+      }
+      
+      // Sort by order index and gate content for premium lessons
+      const sortedLessons = lessons.sort((a, b) => a.orderIndex - b.orderIndex);
+      
+      // If user has paid subscription, return full content
+      if (subscriptionTier !== 'free') {
+        return res.json(sortedLessons);
+      }
+      
+      // For free/unauthenticated users, redact premium lesson content
+      const gatedLessons = sortedLessons.map((lesson, index) => {
+        if (index >= FREE_LESSON_LIMIT) {
+          // Redact premium content
+          return {
+            ...lesson,
+            vimeoId: null, // Hide video content
+            pdfMaterials: [], // Hide materials
+            content: null, // Hide lesson content
+            isLockedBySubscription: true, // Flag for frontend
+          };
+        }
+        return { ...lesson, isLockedBySubscription: false };
+      });
+      
+      res.json(gatedLessons);
     } catch (error) {
       console.error("Error fetching lessons:", error);
       res.status(500).json({ error: "Failed to fetch lessons" });
@@ -271,14 +349,34 @@ export async function registerRoutes(
     }
   });
 
-  // Get user stats
+  // Get user stats (basic stats for all users, detailed stats for premium)
   app.get("/api/user-stats", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
+      
+      // Check subscription tier - detailed stats are premium
+      const user = await storage.getUser(userId);
+      const subscriptionTier = user?.subscriptionTier || 'free';
       const stats = await storage.getUserStats(userId);
+      
+      if (subscriptionTier === 'free') {
+        // Return limited basic stats for free users
+        return res.json({
+          totalHoursStudied: "0",
+          coursesCompleted: 0,
+          labsAttended: 0,
+          currentLevel: stats?.currentLevel || "A1",
+          xpPoints: 0,
+          speakingMinutes: 0,
+          vocabularyWords: 0,
+          premiumFeature: true,
+          message: "Actualiza tu plan para ver estadísticas detalladas"
+        });
+      }
+      
       res.json(stats || {
         totalHoursStudied: "0",
         coursesCompleted: 0,
@@ -510,6 +608,36 @@ export async function registerRoutes(
     }
   });
 
+  // Helper function to check if a lesson is accessible by subscription tier
+  async function isLessonAccessible(userId: string, lessonId: string): Promise<{ accessible: boolean; reason?: string }> {
+    const lesson = await storage.getLessonById(lessonId);
+    if (!lesson) {
+      return { accessible: false, reason: "Lesson not found" };
+    }
+    
+    const user = await storage.getUser(userId);
+    const subscriptionTier = user?.subscriptionTier || 'free';
+    const FREE_LESSON_LIMIT = 3;
+    
+    // If user has a paid subscription, allow access
+    if (subscriptionTier !== 'free') {
+      return { accessible: true };
+    }
+    
+    // For free users, check lesson order index
+    // Get all lessons in the course to determine this lesson's position
+    const courseLessons = await storage.getLessonsByCourseId(lesson.courseId);
+    const sortedLessons = courseLessons.sort((a, b) => a.orderIndex - b.orderIndex);
+    const lessonIndex = sortedLessons.findIndex(l => l.id === lessonId);
+    
+    // First 3 lessons are free
+    if (lessonIndex < FREE_LESSON_LIMIT) {
+      return { accessible: true };
+    }
+    
+    return { accessible: false, reason: "Upgrade to a paid plan to access this lesson" };
+  }
+
   // Mark a lesson as completed
   app.post("/api/lessons/:lessonId/complete", async (req, res) => {
     try {
@@ -519,6 +647,13 @@ export async function registerRoutes(
       }
       
       const { lessonId } = req.params;
+      
+      // Enforce subscription tier access
+      const access = await isLessonAccessible(userId, lessonId);
+      if (!access.accessible) {
+        return res.status(403).json({ error: access.reason || "Access denied" });
+      }
+      
       const result = await storage.markLessonComplete(userId, lessonId);
       res.json(result);
     } catch (error) {
@@ -536,6 +671,13 @@ export async function registerRoutes(
       }
       
       const { lessonId } = req.params;
+      
+      // Enforce subscription tier access
+      const access = await isLessonAccessible(userId, lessonId);
+      if (!access.accessible) {
+        return res.status(403).json({ error: access.reason || "Access denied" });
+      }
+      
       const { watchedSeconds } = req.body;
       const result = await storage.updateLessonProgress(userId, lessonId, watchedSeconds);
       res.json(result);
@@ -548,11 +690,29 @@ export async function registerRoutes(
   // ============== STUDENT SCORES ROUTES ==============
 
   // Get comprehensive student scores for a course (modules, lessons, quizzes)
+  // Premium feature - free users get limited data
   app.get("/api/courses/:courseId/scores", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Check subscription tier - detailed scores is premium
+      const user = await storage.getUser(userId);
+      const subscriptionTier = user?.subscriptionTier || 'free';
+      
+      if (subscriptionTier === 'free') {
+        // Return limited data for free users
+        return res.json({
+          courseId: req.params.courseId,
+          modules: [],
+          overallScore: 0,
+          gpa: 0,
+          isPassed: false,
+          premiumFeature: true,
+          message: "Actualiza tu plan para ver puntuaciones detalladas"
+        });
       }
       
       const { courseId } = req.params;
@@ -643,11 +803,28 @@ export async function registerRoutes(
   });
 
   // Get all student scores across all enrolled courses (for dashboard)
+  // Premium feature - free users get basic data only
   app.get("/api/student/scores", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Check subscription tier - detailed analytics is premium
+      const user = await storage.getUser(userId);
+      const subscriptionTier = user?.subscriptionTier || 'free';
+      
+      if (subscriptionTier === 'free') {
+        // Return limited data for free users
+        return res.json({
+          courses: [],
+          overallGpa: 0,
+          totalCoursesEnrolled: 0,
+          coursesPassed: 0,
+          premiumFeature: true,
+          message: "Actualiza tu plan para ver estadísticas detalladas de cursos"
+        });
       }
       
       const enrollments = await storage.getEnrollmentsByUserId(userId);
@@ -1780,7 +1957,20 @@ Important:
   // Student: Get quiz for a lesson
   app.get("/api/lessons/:lessonId/quiz", async (req, res) => {
     try {
-      const quizzes = await storage.getQuizzesByLessonId(req.params.lessonId);
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { lessonId } = req.params;
+      
+      // Enforce subscription tier access
+      const access = await isLessonAccessible(userId, lessonId);
+      if (!access.accessible) {
+        return res.status(403).json({ error: access.reason || "Access denied" });
+      }
+      
+      const quizzes = await storage.getQuizzesByLessonId(lessonId);
       const publishedQuiz = quizzes.find(q => q.isPublished);
       if (!publishedQuiz) {
         return res.status(404).json({ error: "No quiz available" });
@@ -1814,6 +2004,14 @@ Important:
       const quiz = await storage.getQuizById(quizId);
       if (!quiz) {
         return res.status(404).json({ error: "Quiz not found" });
+      }
+      
+      // Enforce subscription tier access for lesson-associated quizzes
+      if (quiz.lessonId) {
+        const access = await isLessonAccessible(userId, quiz.lessonId);
+        if (!access.accessible) {
+          return res.status(403).json({ error: access.reason || "Access denied" });
+        }
       }
 
       const questions = await storage.getQuizQuestions(quizId);
@@ -2017,7 +2215,9 @@ Important:
         assignedPlan: plan,
         invitationToken,
         invitationSentAt: new Date(),
+        invitationExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
         onboardingCompleted: skipOnboarding,
+        subscriptionTier: plan, // Set subscription tier based on assigned plan
         status: 'active',
       });
 

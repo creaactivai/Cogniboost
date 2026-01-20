@@ -150,8 +150,10 @@ export interface IStorage {
       quizPassed: boolean;
       hasQuiz: boolean;
       isUnlocked: boolean;
+      isLockedBySubscription: boolean;
     }>;
     overallProgress: number;
+    userSubscriptionTier: string;
   }>;
   markLessonComplete(userId: string, lessonId: string): Promise<LessonProgress>;
   updateLessonProgress(userId: string, lessonId: string, watchedSeconds: number): Promise<LessonProgress>;
@@ -196,6 +198,9 @@ export interface IStorage {
     placementConfidence: string;
     placementAttemptId: string;
     invitationToken: string | null;
+    invitationUsedAt: Date | null;
+    emailVerified: boolean;
+    subscriptionTier: string;
     updatedAt: Date;
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
@@ -211,7 +216,9 @@ export interface IStorage {
     assignedPlan: string;
     invitationToken: string;
     invitationSentAt: Date;
+    invitationExpiresAt: Date;
     onboardingCompleted: boolean;
+    subscriptionTier: string;
     status: 'active' | 'hold' | 'inactive';
   }): Promise<User>;
   getStudentMetrics(): Promise<{
@@ -631,9 +638,17 @@ export class DatabaseStorage implements IStorage {
       quizPassed: boolean;
       hasQuiz: boolean;
       isUnlocked: boolean;
+      isLockedBySubscription: boolean;
     }>;
     overallProgress: number;
+    userSubscriptionTier: string;
   }> {
+    // Get user to check subscription tier
+    const user = await this.getUser(userId);
+    const subscriptionTier = user?.subscriptionTier || 'free';
+    const isFreeUser = subscriptionTier === 'free';
+    const FREE_LESSON_LIMIT = 3; // First 3 lessons are free
+    
     // Get all lessons for the course ordered by orderIndex
     const courseLessons = await db.select()
       .from(lessons)
@@ -663,15 +678,18 @@ export class DatabaseStorage implements IStorage {
       const isCompleted = progress?.isCompleted ?? false;
       const quizPassed = progress?.quizPassed ?? false;
       
-      // Determine if lesson is unlocked:
+      // Check if locked by subscription (free users only get first 3 lessons)
+      const isLockedBySubscription = isFreeUser && index >= FREE_LESSON_LIMIT;
+      
+      // Determine if lesson is unlocked (sequential progression):
       // 1. First lesson is always unlocked
       // 2. Open lessons are always unlocked
       // 3. Preview lessons are always unlocked
       // 4. Sequential lessons require previous lesson to be completed AND quiz passed (if it has one)
-      let isUnlocked = false;
+      let isUnlockedByProgress = false;
       
       if (index === 0 || lesson.isOpen || lesson.isPreview) {
-        isUnlocked = true;
+        isUnlockedByProgress = true;
       } else {
         // Check previous sequential lesson (skip open lessons)
         let prevIndex = index - 1;
@@ -681,7 +699,7 @@ export class DatabaseStorage implements IStorage {
         
         if (prevIndex < 0) {
           // No previous sequential lesson, this one is unlocked
-          isUnlocked = true;
+          isUnlockedByProgress = true;
         } else {
           const prevLesson = courseLessons[prevIndex];
           const prevProgress = progressMap.get(prevLesson.id);
@@ -690,9 +708,12 @@ export class DatabaseStorage implements IStorage {
           const prevQuizPassed = prevProgress?.quizPassed ?? false;
           
           // Unlock if previous is completed AND (no quiz OR quiz passed)
-          isUnlocked = prevCompleted && (!prevHasQuiz || prevQuizPassed);
+          isUnlockedByProgress = prevCompleted && (!prevHasQuiz || prevQuizPassed);
         }
       }
+      
+      // Final unlock status: must be unlocked by progress AND not locked by subscription
+      const isUnlocked = isUnlockedByProgress && !isLockedBySubscription;
       
       return {
         id: lesson.id,
@@ -704,6 +725,7 @@ export class DatabaseStorage implements IStorage {
         quizPassed,
         hasQuiz,
         isUnlocked,
+        isLockedBySubscription,
       };
     });
     
@@ -716,6 +738,7 @@ export class DatabaseStorage implements IStorage {
     return {
       lessons: lessonsWithStatus,
       overallProgress,
+      userSubscriptionTier: subscriptionTier,
     };
   }
 
@@ -879,6 +902,9 @@ export class DatabaseStorage implements IStorage {
     placementConfidence: string;
     placementAttemptId: string;
     invitationToken: string | null;
+    invitationUsedAt: Date | null;
+    emailVerified: boolean;
+    subscriptionTier: string;
     updatedAt: Date;
   }>): Promise<User | undefined> {
     const [updated] = await db.update(users)
@@ -927,7 +953,9 @@ export class DatabaseStorage implements IStorage {
     assignedPlan: string;
     invitationToken: string;
     invitationSentAt: Date;
+    invitationExpiresAt: Date;
     onboardingCompleted: boolean;
+    subscriptionTier: string;
     status: 'active' | 'hold' | 'inactive';
   }): Promise<User> {
     const [newUser] = await db.insert(users)
@@ -942,9 +970,12 @@ export class DatabaseStorage implements IStorage {
         assignedPlan: data.assignedPlan,
         invitationToken: data.invitationToken,
         invitationSentAt: data.invitationSentAt,
+        invitationExpiresAt: data.invitationExpiresAt,
         onboardingCompleted: data.onboardingCompleted,
+        subscriptionTier: data.subscriptionTier,
         status: data.status,
         isAdmin: false,
+        emailVerified: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

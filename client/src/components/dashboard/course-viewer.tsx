@@ -61,11 +61,13 @@ interface LessonProgressItem {
   quizPassed: boolean;
   hasQuiz: boolean;
   isUnlocked: boolean;
+  isLockedBySubscription: boolean;
 }
 
 interface CourseProgress {
   lessons: LessonProgressItem[];
   overallProgress: number;
+  userSubscriptionTier: string;
 }
 
 export function CourseViewer() {
@@ -227,6 +229,10 @@ export function CourseViewer() {
     );
   }
 
+  const userTier = courseProgress?.userSubscriptionTier || 'free';
+  const isFreeUser = userTier === 'free';
+  const lockedLessonsCount = courseProgress?.lessons.filter(l => l.isLockedBySubscription).length || 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -243,6 +249,30 @@ export function CourseViewer() {
         </div>
       </div>
 
+      {isFreeUser && lockedLessonsCount > 0 && (
+        <Card className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20" data-testid="card-upgrade-banner">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/20 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-mono font-semibold text-sm">Plan Gratuito</p>
+                <p className="text-xs text-muted-foreground">
+                  {lockedLessonsCount} lecciones bloqueadas. Actualiza para acceder a todo el contenido.
+                </p>
+              </div>
+            </div>
+            <Link href="/#pricing">
+              <Button size="sm" data-testid="button-upgrade-plan">
+                <Unlock className="w-4 h-4 mr-2" />
+                Actualizar Plan
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-2">
           <h2 className="font-mono font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">
@@ -256,20 +286,30 @@ export function CourseViewer() {
           )}
           {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
             const progress = lessonProgressMap.get(lesson.id);
-            // Use strict server-side unlock status only; don't fallback to client-side logic
-            // that could bypass prerequisites before data loads
+            // Use strict server-side unlock status only - never fallback to client-side logic
+            // Default to locked if progress data is missing to prevent bypass
             const isUnlocked = isLoadingProgress 
               ? false // While loading, treat all lessons as locked to prevent bypass
-              : (progress?.isUnlocked ?? (index === 0 || lesson.isPreview || lesson.isOpen));
+              : (progress?.isUnlocked ?? false); // Default to locked when no progress data
             const isCompleted = progress?.isCompleted ?? false;
+            // Default to locked by subscription when no progress data (secure by default)
+            const isLockedBySubscription = progress?.isLockedBySubscription ?? (index >= 3);
             
             return (
               <Card
                 key={lesson.id}
                 className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
                   selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : ''
-                }`}
+                } ${isLockedBySubscription ? 'bg-gradient-to-r from-muted/50 to-muted/30' : ''}`}
                 onClick={() => {
+                  if (isLockedBySubscription) {
+                    toast({
+                      title: "Contenido Premium",
+                      description: "Actualiza tu plan para acceder a todas las lecciones.",
+                      variant: "default",
+                    });
+                    return;
+                  }
                   if (!isUnlocked) {
                     toast({
                       title: "Lección bloqueada",
@@ -289,14 +329,14 @@ export function CourseViewer() {
                   <div
                     className="w-8 h-8 flex items-center justify-center text-xs font-mono"
                     style={{ 
-                      backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id ? '#33CBFB' : '#e5e5e5'),
-                      color: isCompleted || selectedLessonId === lesson.id ? 'white' : 'inherit'
+                      backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id ? '#33CBFB' : (isLockedBySubscription ? '#667EEA' : '#e5e5e5')),
+                      color: isCompleted || selectedLessonId === lesson.id || isLockedBySubscription ? 'white' : 'inherit'
                     }}
                   >
-                    {isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1}
+                    {isLockedBySubscription ? <Lock className="w-4 h-4" /> : (isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-sm truncate">{lesson.title}</p>
+                    <p className={`font-mono text-sm truncate ${isLockedBySubscription ? 'blur-[2px]' : ''}`}>{lesson.title}</p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       {lesson.duration > 0 && (
                         <span className="flex items-center gap-1">
@@ -307,9 +347,14 @@ export function CourseViewer() {
                       {lesson.isOpen && (
                         <Badge variant="outline" className="text-[10px] px-1 py-0">Abierta</Badge>
                       )}
+                      {isLockedBySubscription && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
+                      )}
                     </div>
                   </div>
-                  {!isUnlocked ? (
+                  {isLockedBySubscription ? (
+                    <Lock className="w-4 h-4 text-primary" />
+                  ) : !isUnlocked ? (
                     <Lock className="w-4 h-4 text-muted-foreground" />
                   ) : selectedLessonId === lesson.id ? (
                     <ChevronDown className="w-4 h-4 text-primary" />

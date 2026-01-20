@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { 
   TrendingUp, 
   Clock, 
@@ -17,7 +18,9 @@ import {
   Trophy,
   GraduationCap,
   CheckCircle,
-  XCircle
+  XCircle,
+  Lock,
+  Unlock
 } from "lucide-react";
 import {
   RadarChart,
@@ -99,11 +102,23 @@ interface StudentScores {
   coursesPassed: number;
 }
 
+interface UserSubscription {
+  tier?: string;
+}
+
 export function ProgressTracking() {
   // Fetch student scores from API
   const { data: studentScores, isLoading: scoresLoading } = useQuery<StudentScores>({
     queryKey: ["/api/student/scores"],
   });
+  
+  // Fetch user subscription tier
+  const { data: subscription } = useQuery<UserSubscription>({
+    queryKey: ["/api/subscription"],
+  });
+  
+  const isFreeUser = !subscription?.tier || subscription.tier === 'free';
+  
   const currentLevel = "B1";
   const nextLevel = "B2";
   const xpProgress = 65; // % towards next level
@@ -119,6 +134,31 @@ export function ProgressTracking() {
           Sigue tu camino de aprendizaje y logros
         </p>
       </div>
+      
+      {/* Free User Upgrade Banner */}
+      {isFreeUser && (
+        <Card className="p-5 bg-gradient-to-r from-primary/10 via-primary/5 to-accent/10 border-primary/20" data-testid="card-analytics-upgrade">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 flex items-center justify-center">
+                <Lock className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-display text-lg uppercase">Analíticas Avanzadas</p>
+                <p className="text-sm text-muted-foreground">
+                  Actualiza tu plan para acceder a gráficos de habilidades, certificados y logros detallados.
+                </p>
+              </div>
+            </div>
+            <Link href="/#pricing">
+              <Button data-testid="button-upgrade-analytics">
+                <Unlock className="w-4 h-4 mr-2" />
+                Actualizar Plan
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       {/* Level progress */}
       <Card className="p-6 border-border bg-gradient-to-r from-primary/5 to-accent/5">
@@ -294,10 +334,27 @@ export function ProgressTracking() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Charts - Locked for free users */}
+      <div className={`grid lg:grid-cols-2 gap-6 ${isFreeUser ? 'relative' : ''}`}>
+        {isFreeUser && (
+          <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-charts-locked">
+            <div className="text-center p-6">
+              <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-primary" />
+              </div>
+              <p className="font-display text-lg uppercase mb-2">Gráficos Premium</p>
+              <p className="text-sm text-muted-foreground mb-4">Actualiza tu plan para ver estadísticas detalladas</p>
+              <Link href="/#pricing">
+                <Button size="sm" data-testid="button-unlock-charts">
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Desbloquear
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
         {/* Skills radar */}
-        <Card className="p-6 border-border">
+        <Card className={`p-6 border-border ${isFreeUser ? 'pointer-events-none' : ''}`}>
           <h3 className="text-lg font-display uppercase mb-6">Desglose de Habilidades</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -377,24 +434,43 @@ export function ProgressTracking() {
         </Card>
       </div>
 
-      {/* Achievements */}
-      <Card className="p-6 border-border">
-        <h3 className="text-lg font-display uppercase mb-6">Logros</h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {achievements.map((achievement, index) => (
-            <div 
-              key={index}
-              className={`p-4 border ${achievement.unlocked ? "border-primary bg-primary/5" : "border-border opacity-50"}`}
-            >
-              <div className={`w-12 h-12 flex items-center justify-center mb-3 ${achievement.unlocked ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                <achievement.icon className="w-6 h-6" />
+      {/* Achievements - Locked for free users */}
+      <div className={`${isFreeUser ? 'relative' : ''}`}>
+        {isFreeUser && (
+          <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-achievements-locked">
+            <div className="text-center p-6">
+              <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                <Trophy className="w-8 h-8 text-primary" />
               </div>
-              <p className="font-mono font-semibold mb-1">{achievement.title}</p>
-              <p className="text-xs font-mono text-muted-foreground">{achievement.description}</p>
+              <p className="font-display text-lg uppercase mb-2">Logros Premium</p>
+              <p className="text-sm text-muted-foreground mb-4">Actualiza para desbloquear el sistema de logros</p>
+              <Link href="/#pricing">
+                <Button size="sm" data-testid="button-unlock-achievements">
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Desbloquear
+                </Button>
+              </Link>
             </div>
-          ))}
-        </div>
-      </Card>
+          </div>
+        )}
+        <Card className={`p-6 border-border ${isFreeUser ? 'pointer-events-none' : ''}`}>
+          <h3 className="text-lg font-display uppercase mb-6">Logros</h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {achievements.map((achievement, index) => (
+              <div 
+                key={index}
+                className={`p-4 border ${achievement.unlocked ? "border-primary bg-primary/5" : "border-border opacity-50"}`}
+              >
+                <div className={`w-12 h-12 flex items-center justify-center mb-3 ${achievement.unlocked ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                  <achievement.icon className="w-6 h-6" />
+                </div>
+                <p className="font-mono font-semibold mb-1">{achievement.title}</p>
+                <p className="text-xs font-mono text-muted-foreground">{achievement.description}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       {/* Certificates */}
       <Card className="p-6 border-border">
