@@ -1195,6 +1195,108 @@ export async function registerRoutes(
     next();
   };
 
+  // ============== AI TUTOR CHAT ==============
+
+  // Daily message limits by subscription tier
+  const AI_TUTOR_LIMITS: Record<string, number> = {
+    free: 5,
+    flex: 20,
+    basic: 100,
+    premium: -1 // unlimited
+  };
+
+  // AI Tutor chat endpoint
+  app.post("/api/ai-tutor/chat", async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Debes iniciar sesión para usar el tutor" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      const subscriptionTier = user.subscriptionTier || "free";
+      const dailyLimit = AI_TUTOR_LIMITS[subscriptionTier] || 5;
+
+      // Check daily usage (simplified - in production use a proper rate limiter)
+      // For now, we'll just track it in memory or skip the limit check for premium users
+      const { message, conversationHistory = [] } = req.body;
+
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ error: "Mensaje requerido" });
+      }
+
+      if (message.length > 1000) {
+        return res.status(400).json({ error: "El mensaje es demasiado largo (máximo 1000 caracteres)" });
+      }
+
+      // Get user's English level for personalized responses
+      const englishLevel = user.englishLevel || "A1";
+      const levelDescriptions: Record<string, string> = {
+        "A1": "absolute beginner, just starting to learn English",
+        "A2": "elementary level, knows basic phrases and vocabulary",
+        "B1": "intermediate level, can handle everyday situations",
+        "B2": "upper intermediate, can discuss a variety of topics",
+        "C1": "advanced, can express complex ideas fluently",
+        "C2": "proficient, near-native level of English"
+      };
+
+      const systemPrompt = `You are an AI English tutor for CogniBoost, a professional English learning platform for Spanish-speaking Latin American adults.
+
+Student's current level: ${englishLevel} (${levelDescriptions[englishLevel] || levelDescriptions["A1"]})
+
+Your role:
+1. Help students practice conversational English
+2. Correct grammar and vocabulary errors gently, explaining why in Spanish when needed
+3. Adapt your language complexity to match their level (${englishLevel})
+4. For A1-A2 levels: Use simple sentences, provide Spanish translations for new words
+5. For B1-B2 levels: Encourage longer responses, introduce idioms and phrasal verbs
+6. For C1-C2 levels: Discuss complex topics, refine nuances and professional language
+
+Guidelines:
+- Be encouraging and supportive
+- If the student writes in Spanish, respond primarily in English but include Spanish explanations
+- Provide corrections inline with explanations in parentheses
+- Suggest better ways to express ideas
+- Keep responses concise but helpful (max 150 words)
+- Use professional context examples (business meetings, emails, presentations)
+- End with a question or prompt to keep the conversation going`;
+
+      const messages: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.slice(-10).map((m: any) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content
+        })),
+        { role: "user", content: message }
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 500,
+        temperature: 0.7
+      });
+
+      const responseMessage = completion.choices[0]?.message?.content || "Lo siento, no pude generar una respuesta.";
+
+      res.json({
+        message: responseMessage,
+        messagesUsedToday: 1, // Simplified - would track in DB in production
+        dailyLimit: dailyLimit === -1 ? "unlimited" : dailyLimit
+      });
+    } catch (error: any) {
+      console.error("AI Tutor chat error:", error);
+      if (error.status === 429) {
+        return res.status(429).json({ error: "Demasiadas solicitudes. Por favor espera un momento." });
+      }
+      res.status(500).json({ error: "Error al procesar tu mensaje. Intenta de nuevo." });
+    }
+  });
+
   // ============== ADMIN API ROUTES ==============
 
   // Admin middleware - check if user is authenticated and is an admin

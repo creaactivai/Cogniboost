@@ -9,6 +9,7 @@ import { ConversationLabs } from "@/components/dashboard/conversation-labs";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
+import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
@@ -162,6 +163,9 @@ export default function Dashboard() {
               <Route path="/dashboard" component={DashboardOverview} />
             </Switch>
           </main>
+
+          {/* AI Tutor Chat - floating component */}
+          <AiTutorChat />
         </div>
       </div>
     </SidebarProvider>
