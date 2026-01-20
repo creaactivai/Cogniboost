@@ -459,6 +459,10 @@ export class DatabaseStorage implements IStorage {
 
   async createLesson(lesson: InsertLesson): Promise<Lesson> {
     const [newLesson] = await db.insert(lessons).values(lesson).returning();
+    // Update lessonsCount on the course
+    await db.update(courses)
+      .set({ lessonsCount: sql`(SELECT COUNT(*) FROM ${lessons} WHERE ${lessons.courseId} = ${lesson.courseId})` })
+      .where(eq(courses.id, lesson.courseId));
     return newLesson;
   }
 
@@ -468,10 +472,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLesson(id: string): Promise<boolean> {
+    // Get the lesson first to know its courseId
+    const lesson = await this.getLessonById(id);
+    const courseId = lesson?.courseId;
+    
     // Delete lesson progress first
     await db.delete(lessonProgress).where(eq(lessonProgress.lessonId, id));
     // Delete the lesson
     await db.delete(lessons).where(eq(lessons.id, id));
+    
+    // Update lessonsCount on the course
+    if (courseId) {
+      await db.update(courses)
+        .set({ lessonsCount: sql`(SELECT COUNT(*) FROM ${lessons} WHERE ${lessons.courseId} = ${courseId})` })
+        .where(eq(courses.id, courseId));
+    }
     return true;
   }
 
