@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, X, Loader2, Sparkles, MessageCircle } from "lucide-react";
+import { Send, X, Loader2, MessageCircle } from "lucide-react";
+import faviconIcon from "@assets/Favicon_1768951570250.jpg";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Message {
@@ -116,14 +117,17 @@ export function AiTutorChat() {
 
   if (!isOpen) {
     return (
-      <Button
+      <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full shadow-lg z-50"
-        size="lg"
+        className="fixed bottom-6 right-6 rounded-full shadow-lg z-50 p-0 border-0 bg-transparent cursor-pointer transition-transform hover:scale-105"
         data-testid="button-open-ai-tutor"
       >
-        <Bot className="h-5 w-5" />
-      </Button>
+        <img 
+          src={faviconIcon} 
+          alt="AI Tutor" 
+          className="h-10 w-10 rounded-full object-cover"
+        />
+      </button>
     );
   }
 
@@ -131,9 +135,11 @@ export function AiTutorChat() {
     <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-xl z-50 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3 border-b">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
+          <img 
+            src={faviconIcon} 
+            alt="AI Tutor" 
+            className="h-8 w-8 rounded-lg object-cover"
+          />
           <div>
             <CardTitle className="text-base">AI English Tutor</CardTitle>
             <p className="text-xs text-muted-foreground">
