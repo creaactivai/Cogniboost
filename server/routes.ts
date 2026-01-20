@@ -1184,6 +1184,17 @@ export async function registerRoutes(
     }
   });
 
+  // ============== AUTH MIDDLEWARE ==============
+
+  // Auth middleware - check if user is authenticated
+  const requireAuth = async (req: any, res: any, next: any) => {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - Login required" });
+    }
+    next();
+  };
+
   // ============== ADMIN API ROUTES ==============
 
   // Admin middleware - check if user is authenticated and is an admin
@@ -1843,6 +1854,80 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error resending staff invitation:", error);
       res.status(500).json({ error: "Failed to resend staff invitation" });
+    }
+  });
+
+  // Accept staff invitation (requires authentication)
+  app.post("/api/accept-invitation", requireAuth, async (req, res) => {
+    try {
+      const { token } = req.body;
+      const userId = (req.user as any)?.claims?.sub;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token es requerido" });
+      }
+      
+      // Hash the token to find the invitation
+      const crypto = await import("crypto");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      
+      // Find the invitation
+      const invitation = await storage.getStaffInvitationByTokenHash(tokenHash);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitación no encontrada o inválida" });
+      }
+      
+      // Check if already used
+      if (invitation.usedAt) {
+        return res.status(400).json({ error: "Esta invitación ya fue utilizada" });
+      }
+      
+      // Check if revoked
+      if (invitation.isRevoked) {
+        return res.status(400).json({ error: "Esta invitación fue revocada" });
+      }
+      
+      // Check expiration
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Esta invitación ha expirado" });
+      }
+      
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      
+      // Check if user's email matches the invitation email
+      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+        return res.status(403).json({ 
+          error: "Esta invitación fue enviada a un email diferente. Por favor inicia sesión con la cuenta correcta." 
+        });
+      }
+      
+      // Update user role to the invited role
+      // For admin role, also set isAdmin flag which is used for authorization
+      const updateData: any = { role: invitation.role };
+      if (invitation.role === 'admin') {
+        updateData.isAdmin = true;
+      }
+      await storage.updateUser(userId, updateData);
+      
+      // Mark invitation as used
+      await storage.updateStaffInvitation(invitation.id, {
+        usedAt: new Date(),
+        usedBy: userId,
+      });
+      
+      res.json({ 
+        success: true, 
+        message: `¡Felicidades! Ahora eres ${invitation.role === 'admin' ? 'Administrador' : 'Instructor'} en CogniBoost.`,
+        role: invitation.role
+      });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ error: "Error al aceptar la invitación" });
     }
   });
 
