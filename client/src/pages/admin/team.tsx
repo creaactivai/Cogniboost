@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -24,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, UserCheck, Users, Mail, MoreVertical, ShieldOff, Loader2, Plus, UserPlus, Clock, Trash2 } from "lucide-react";
+import { Shield, UserCheck, Users, Mail, MoreVertical, ShieldOff, Loader2, Plus, UserPlus, Clock, Trash2, Send, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,8 +44,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { User, AdminInvitation } from "@shared/schema";
+import type { User, AdminInvitation, StaffInvitation } from "@shared/schema";
 import type { Instructor } from "@shared/schema";
+
+type StaffRole = "admin" | "instructor";
+
+const staffInvitationFormSchema = z.object({
+  email: z.string().email("El email no es válido"),
+  role: z.enum(["admin", "instructor"], { errorMap: () => ({ message: "Selecciona un rol" }) }),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  department: z.string().optional(),
+});
+
+type StaffInvitationFormData = z.infer<typeof staffInvitationFormSchema>;
 
 const DEPARTMENTS = [
   { value: "management", label: "Dirección" },
@@ -48,11 +71,22 @@ const DEPARTMENTS = [
 export default function AdminTeam() {
   const { toast } = useToast();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [staffInviteDialogOpen, setStaffInviteDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
     lastName: "",
     department: "",
+  });
+  const staffForm = useForm<StaffInvitationFormData>({
+    resolver: zodResolver(staffInvitationFormSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      department: "",
+      role: "instructor",
+    },
   });
 
   const { data: admins, isLoading: adminsLoading } = useQuery<User[]>({
@@ -65,6 +99,77 @@ export default function AdminTeam() {
 
   const { data: instructors, isLoading: instructorsLoading } = useQuery<Instructor[]>({
     queryKey: ["/api/admin/instructors"],
+  });
+
+  const { data: staffInvitations, isLoading: staffInvitationsLoading } = useQuery<StaffInvitation[]>({
+    queryKey: ["/api/admin/staff-invitations"],
+  });
+
+  const createStaffInvitationMutation = useMutation({
+    mutationFn: async (data: StaffInvitationFormData) => {
+      return apiRequest("POST", "/api/admin/staff-invitations", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff-invitations"] });
+      toast({
+        title: "Invitación enviada",
+        description: "El usuario recibirá un email con el enlace de invitación.",
+      });
+      setStaffInviteDialogOpen(false);
+      staffForm.reset();
+    },
+    onError: async (error: any) => {
+      let message = "No se pudo enviar la invitación.";
+      try {
+        const data = await error.json?.();
+        message = data?.error || message;
+      } catch {}
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeStaffInvitationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/staff-invitations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff-invitations"] });
+      toast({
+        title: "Invitación revocada",
+        description: "La invitación ha sido cancelada.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo revocar la invitación.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resendStaffInvitationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/admin/staff-invitations/${id}/resend`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff-invitations"] });
+      toast({
+        title: "Invitación reenviada",
+        description: "Se ha enviado un nuevo email de invitación.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo reenviar la invitación.",
+        variant: "destructive",
+      });
+    },
   });
 
   const toggleAdminMutation = useMutation({
@@ -160,6 +265,21 @@ export default function AdminTeam() {
     createInvitationMutation.mutate(formData);
   };
 
+  const handleSubmitStaffInvitation = (data: StaffInvitationFormData) => {
+    createStaffInvitationMutation.mutate(data);
+  };
+
+  const getRoleLabel = (role: string) => {
+    return role === "admin" ? "Administrador" : "Instructor";
+  };
+
+  const getInvitationStatus = (invitation: StaffInvitation) => {
+    if (invitation.usedAt) return "used";
+    if (invitation.isRevoked) return "revoked";
+    if (new Date(invitation.expiresAt) < new Date()) return "expired";
+    return "pending";
+  };
+
   return (
     <AdminLayout title="Equipo">
       <div className="space-y-6">
@@ -199,21 +319,288 @@ export default function AdminTeam() {
           </Card>
         </div>
 
-        <Tabs defaultValue="admins" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+        <Tabs defaultValue="staff-invitations" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+            <TabsTrigger value="staff-invitations" data-testid="tab-staff-invitations">
+              <Send className="w-4 h-4 mr-2" />
+              Invitar Staff
+            </TabsTrigger>
             <TabsTrigger value="admins" data-testid="tab-admins">
               <Shield className="w-4 h-4 mr-2" />
               Admins
             </TabsTrigger>
             <TabsTrigger value="invitations" data-testid="tab-invitations">
               <UserPlus className="w-4 h-4 mr-2" />
-              Invitaciones
+              Auto-Admin
             </TabsTrigger>
             <TabsTrigger value="instructors" data-testid="tab-instructors">
               <UserCheck className="w-4 h-4 mr-2" />
               Instructores
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="staff-invitations" className="mt-6">
+            <Card className="p-4">
+              <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+                <div>
+                  <h2 className="text-lg font-display uppercase tracking-tight">Invitaciones por Email</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Envía invitaciones con enlace mágico para admin o instructor
+                  </p>
+                </div>
+                <Dialog open={staffInviteDialogOpen} onOpenChange={setStaffInviteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-invite-staff">
+                      <Send className="w-4 h-4 mr-2" />
+                      Invitar Staff
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <Form {...staffForm}>
+                      <form onSubmit={staffForm.handleSubmit(handleSubmitStaffInvitation)}>
+                        <DialogHeader>
+                          <DialogTitle>Invitar Nuevo Miembro</DialogTitle>
+                          <DialogDescription>
+                            Enviaremos un email con un enlace mágico. El usuario podrá aceptar la invitación y recibir el rol asignado.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <FormField
+                            control={staffForm.control}
+                            name="role"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Rol *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-staff-role">
+                                      <SelectValue placeholder="Seleccionar rol" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="instructor">Instructor</SelectItem>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={staffForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="email"
+                                    placeholder="usuario@ejemplo.com"
+                                    data-testid="input-staff-email"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={staffForm.control}
+                              name="firstName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Nombre</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="Juan"
+                                      data-testid="input-staff-firstname"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={staffForm.control}
+                              name="lastName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Apellido</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="Pérez"
+                                      data-testid="input-staff-lastname"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <FormField
+                            control={staffForm.control}
+                            name="department"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Departamento</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-staff-department">
+                                      <SelectValue placeholder="Seleccionar departamento" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {DEPARTMENTS.map((dept) => (
+                                      <SelectItem key={dept.value} value={dept.value}>
+                                        {dept.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setStaffInviteDialogOpen(false)} data-testid="button-cancel-staff-invite">
+                            Cancelar
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            disabled={createStaffInvitationMutation.isPending}
+                            data-testid="button-submit-staff-invite"
+                          >
+                            {createStaffInvitationMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Enviando...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4 mr-2" />
+                                Enviar Invitación
+                              </>
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              
+              {staffInvitationsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : staffInvitations?.length === 0 ? (
+                <div className="text-center py-8">
+                  <Send className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground font-mono">
+                    No hay invitaciones enviadas
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Haz clic en "Invitar Staff" para agregar administradores o instructores
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {staffInvitations?.map((invitation) => {
+                    const status = getInvitationStatus(invitation);
+                    return (
+                      <div 
+                        key={invitation.id} 
+                        className="flex items-center justify-between flex-wrap gap-3 p-3 bg-muted/50 rounded hover-elevate"
+                        data-testid={`staff-invitation-item-${invitation.id}`}
+                      >
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback>
+                              {getInitials(invitation.firstName, invitation.lastName, invitation.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium font-mono" data-testid={`text-staff-name-${invitation.id}`}>
+                                {invitation.firstName || invitation.lastName 
+                                  ? `${invitation.firstName || ""} ${invitation.lastName || ""}`.trim()
+                                  : invitation.email}
+                              </p>
+                              <Badge variant={invitation.role === 'admin' ? "default" : "secondary"} data-testid={`badge-role-${invitation.id}`}>
+                                {invitation.role === 'admin' ? <Shield className="w-3 h-3 mr-1" /> : <UserCheck className="w-3 h-3 mr-1" />}
+                                {getRoleLabel(invitation.role)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Mail className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground" data-testid={`text-email-${invitation.id}`}>{invitation.email}</span>
+                            </div>
+                            {invitation.department && (
+                              <Badge variant="outline" className="mt-1 text-xs" data-testid={`badge-department-${invitation.id}`}>
+                                {getDepartmentLabel(invitation.department)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {status === "pending" && (
+                            <>
+                              <Badge variant="outline" data-testid={`badge-status-pending-${invitation.id}`}>
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pendiente
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => resendStaffInvitationMutation.mutate(invitation.id)}
+                                disabled={resendStaffInvitationMutation.isPending}
+                                title="Reenviar invitación"
+                                data-testid={`button-resend-staff-${invitation.id}`}
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => revokeStaffInvitationMutation.mutate(invitation.id)}
+                                disabled={revokeStaffInvitationMutation.isPending}
+                                title="Revocar invitación"
+                                data-testid={`button-revoke-staff-${invitation.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          {status === "used" && (
+                            <Badge variant="secondary" data-testid={`badge-status-used-${invitation.id}`}>
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Aceptada
+                            </Badge>
+                          )}
+                          {status === "revoked" && (
+                            <Badge variant="destructive" data-testid={`badge-status-revoked-${invitation.id}`}>
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Revocada
+                            </Badge>
+                          )}
+                          {status === "expired" && (
+                            <Badge variant="secondary" data-testid={`badge-status-expired-${invitation.id}`}>
+                              <Clock className="w-3 h-3 mr-1" />
+                              Expirada
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
 
           <TabsContent value="admins" className="mt-6">
             <Card className="p-4">
