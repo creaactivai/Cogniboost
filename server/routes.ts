@@ -1951,6 +1951,9 @@ export async function registerRoutes(
     meetingUrl: z.string().optional(),
     isPremium: z.boolean().default(false),
     groups: z.array(labGroupSchema).min(1, "Al menos un grupo es requerido"),
+    // Recurring session fields
+    isRecurring: z.boolean().default(false),
+    recurrenceWeeks: z.number().min(1).max(12).optional(), // How many weeks to repeat (1-12)
   });
 
   // Admin: Get all live sessions with rooms
@@ -1970,7 +1973,7 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Create live session with groups
+  // Admin: Create live session with groups (supports recurring sessions)
   app.post("/api/admin/live-sessions", requireAdmin, async (req, res) => {
     try {
       const validation = createLiveSessionSchema.safeParse(req.body);
@@ -1978,27 +1981,57 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Datos inválidos", details: validation.error.errors });
       }
       
-      const { groups, ...sessionData } = validation.data;
+      const { groups, isRecurring, recurrenceWeeks, ...sessionData } = validation.data;
       
-      // Create the live session
-      const session = await storage.createLiveSession({
-        ...sessionData,
-        scheduledAt: new Date(sessionData.scheduledAt),
-      });
-      
-      // Create session rooms for each group
-      for (const group of groups) {
-        await storage.createSessionRoom({
-          sessionId: session.id,
-          topic: group.topic,
-          level: group.level,
-          maxParticipants: 6, // Default max per room
+      if (isRecurring && recurrenceWeeks && recurrenceWeeks > 1) {
+        // Create recurring sessions
+        const sessions = await storage.createRecurringSessions({
+          ...sessionData,
+          scheduledAt: new Date(sessionData.scheduledAt),
+        }, recurrenceWeeks);
+        
+        // Create rooms for each session in the series
+        const sessionsWithRooms = await Promise.all(
+          sessions.map(async (session) => {
+            for (const group of groups) {
+              await storage.createSessionRoom({
+                sessionId: session.id,
+                topic: group.topic,
+                level: group.level,
+                maxParticipants: 6,
+              });
+            }
+            const rooms = await storage.getSessionRooms(session.id);
+            return { ...session, rooms };
+          })
+        );
+        
+        res.status(201).json({ 
+          message: `Se crearon ${sessions.length} sesiones semanales`,
+          sessions: sessionsWithRooms,
+          seriesId: sessions[0]?.seriesId 
         });
+      } else {
+        // Create single session
+        const session = await storage.createLiveSession({
+          ...sessionData,
+          scheduledAt: new Date(sessionData.scheduledAt),
+        });
+        
+        // Create session rooms for each group
+        for (const group of groups) {
+          await storage.createSessionRoom({
+            sessionId: session.id,
+            topic: group.topic,
+            level: group.level,
+            maxParticipants: 6, // Default max per room
+          });
+        }
+        
+        // Return session with rooms
+        const rooms = await storage.getSessionRooms(session.id);
+        res.status(201).json({ ...session, rooms });
       }
-      
-      // Return session with rooms
-      const rooms = await storage.getSessionRooms(session.id);
-      res.status(201).json({ ...session, rooms });
     } catch (error) {
       console.error("Error creating live session:", error);
       res.status(500).json({ error: "Failed to create live session" });
@@ -2072,6 +2105,69 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting live session:", error);
       res.status(500).json({ error: "Failed to delete live session" });
+    }
+  });
+
+  // Admin: Get all sessions in a series
+  app.get("/api/admin/live-sessions/series/:seriesId", requireAdmin, async (req, res) => {
+    try {
+      const sessions = await storage.getLiveSessionsBySeriesId(req.params.seriesId);
+      const sessionsWithRooms = await Promise.all(
+        sessions.map(async (session) => {
+          const rooms = await storage.getSessionRooms(session.id);
+          return { ...session, rooms };
+        })
+      );
+      res.json(sessionsWithRooms);
+    } catch (error) {
+      console.error("Error fetching series sessions:", error);
+      res.status(500).json({ error: "Failed to fetch series sessions" });
+    }
+  });
+
+  // Admin: Delete all future sessions in a series (without bookings)
+  app.delete("/api/admin/live-sessions/series/:seriesId", requireAdmin, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSeriesSessions(req.params.seriesId);
+      res.json({ message: `Se eliminaron ${deleted} sesiones futuras de la serie`, deleted });
+    } catch (error) {
+      console.error("Error deleting series sessions:", error);
+      res.status(500).json({ error: "Failed to delete series sessions" });
+    }
+  });
+
+  // Admin: Update all future sessions in a series
+  const updateSeriesSchema = z.object({
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    instructorId: z.string().optional(),
+    duration: z.number().min(1).optional(),
+    meetingUrl: z.string().optional(),
+    isPremium: z.boolean().optional(),
+  });
+
+  app.patch("/api/admin/live-sessions/series/:seriesId", requireAdmin, async (req, res) => {
+    try {
+      const validation = updateSeriesSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Datos inválidos", details: validation.error.errors });
+      }
+      
+      const { title, description, instructorId, duration, meetingUrl, isPremium } = validation.data;
+      const updates: Record<string, any> = {};
+      
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (instructorId !== undefined) updates.instructorId = instructorId;
+      if (duration !== undefined) updates.duration = duration;
+      if (meetingUrl !== undefined) updates.meetingUrl = meetingUrl;
+      if (isPremium !== undefined) updates.isPremium = isPremium;
+      
+      const updated = await storage.updateSeriesSessions(req.params.seriesId, updates);
+      res.json({ message: `Se actualizaron ${updated} sesiones de la serie`, updated });
+    } catch (error) {
+      console.error("Error updating series sessions:", error);
+      res.status(500).json({ error: "Failed to update series sessions" });
     }
   });
 

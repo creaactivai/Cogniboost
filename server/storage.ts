@@ -253,9 +253,13 @@ export interface IStorage {
   // Live Sessions (new breakout rooms model)
   getLiveSessions(): Promise<LiveSession[]>;
   getLiveSessionById(id: string): Promise<LiveSession | undefined>;
+  getLiveSessionsBySeriesId(seriesId: string): Promise<LiveSession[]>;
   createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
+  createRecurringSessions(session: InsertLiveSession, weeksCount: number): Promise<LiveSession[]>;
   updateLiveSession(id: string, session: Partial<InsertLiveSession>): Promise<LiveSession | undefined>;
+  updateSeriesSessions(seriesId: string, updates: Partial<InsertLiveSession>): Promise<number>;
   deleteLiveSession(id: string): Promise<boolean>;
+  deleteSeriesSessions(seriesId: string): Promise<number>;
   
   // Session Rooms
   getSessionRooms(sessionId: string): Promise<SessionRoom[]>;
@@ -1191,9 +1195,43 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  async getLiveSessionsBySeriesId(seriesId: string): Promise<LiveSession[]> {
+    return db.select().from(liveSessions)
+      .where(eq(liveSessions.seriesId, seriesId))
+      .orderBy(liveSessions.scheduledAt);
+  }
+
   async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
     const [newSession] = await db.insert(liveSessions).values(session).returning();
     return newSession;
+  }
+
+  async createRecurringSessions(session: InsertLiveSession, weeksCount: number): Promise<LiveSession[]> {
+    // Generate a unique series ID for this recurring set
+    const seriesId = crypto.randomUUID();
+    const scheduledAt = new Date(session.scheduledAt);
+    const recurrenceEndDate = new Date(scheduledAt);
+    recurrenceEndDate.setDate(recurrenceEndDate.getDate() + (weeksCount * 7));
+    
+    const sessions: LiveSession[] = [];
+    
+    for (let i = 0; i < weeksCount; i++) {
+      const sessionDate = new Date(scheduledAt);
+      sessionDate.setDate(sessionDate.getDate() + (i * 7));
+      
+      const [newSession] = await db.insert(liveSessions).values({
+        ...session,
+        scheduledAt: sessionDate,
+        isRecurring: true,
+        recurrencePattern: 'weekly',
+        seriesId,
+        recurrenceEndDate,
+      }).returning();
+      
+      sessions.push(newSession);
+    }
+    
+    return sessions;
   }
 
   async updateLiveSession(id: string, session: Partial<InsertLiveSession>): Promise<LiveSession | undefined> {
@@ -1201,9 +1239,69 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateSeriesSessions(seriesId: string, updates: Partial<InsertLiveSession>): Promise<number> {
+    // Update all sessions in the series that are in the future
+    const now = new Date();
+    const result = await db.update(liveSessions)
+      .set(updates)
+      .where(
+        and(
+          eq(liveSessions.seriesId, seriesId),
+          gte(liveSessions.scheduledAt, now)
+        )
+      )
+      .returning();
+    return result.length;
+  }
+
   async deleteLiveSession(id: string): Promise<boolean> {
     await db.delete(liveSessions).where(eq(liveSessions.id, id));
     return true;
+  }
+
+  async deleteSeriesSessions(seriesId: string): Promise<number> {
+    // Delete all sessions in the series that are in the future and have no bookings
+    const now = new Date();
+    const futureSessions = await db.select().from(liveSessions)
+      .where(
+        and(
+          eq(liveSessions.seriesId, seriesId),
+          gte(liveSessions.scheduledAt, now)
+        )
+      );
+    
+    let deleted = 0;
+    for (const session of futureSessions) {
+      // Check if session has any rooms
+      const rooms = await this.getSessionRooms(session.id);
+      let hasBookings = false;
+      
+      for (const room of rooms) {
+        const bookings = await db.select().from(roomBookings)
+          .where(
+            and(
+              eq(roomBookings.roomId, room.id),
+              isNull(roomBookings.cancelledAt)
+            )
+          );
+        if (bookings.length > 0) {
+          hasBookings = true;
+          break;
+        }
+      }
+      
+      if (!hasBookings) {
+        // Delete rooms first
+        for (const room of rooms) {
+          await db.delete(sessionRooms).where(eq(sessionRooms.id, room.id));
+        }
+        // Delete session
+        await db.delete(liveSessions).where(eq(liveSessions.id, session.id));
+        deleted++;
+      }
+    }
+    
+    return deleted;
   }
 
   // Session Rooms

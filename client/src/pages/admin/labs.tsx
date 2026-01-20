@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video, X, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video, X, MessageCircle, Repeat, Radio, CalendarCheck, History, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Instructor, LiveSession, SessionRoom } from "@shared/schema";
 
 const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -34,10 +36,13 @@ interface LabWithRooms extends LiveSession {
   rooms?: SessionRoom[];
 }
 
+type LabFilter = "all" | "live" | "upcoming" | "past";
+
 export default function AdminLabs() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLab, setEditingLab] = useState<LabWithRooms | null>(null);
+  const [activeFilter, setActiveFilter] = useState<LabFilter>("all");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -47,6 +52,8 @@ export default function AdminLabs() {
     meetingUrl: "",
     isPremium: false,
     groups: [{ topic: "general", level: "A1" }] as LabGroup[],
+    isRecurring: false,
+    recurrenceWeeks: 4,
   });
 
   const { data: labs, isLoading } = useQuery<LabWithRooms[]>({
@@ -105,6 +112,17 @@ export default function AdminLabs() {
     },
   });
 
+  const deleteSeriesMutation = useMutation({
+    mutationFn: (seriesId: string) => apiRequest("DELETE", `/api/admin/live-sessions/series/${seriesId}`),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/live-sessions"] });
+      toast({ title: `Se eliminaron ${data.deleted || 0} sesiones de la serie` });
+    },
+    onError: () => {
+      toast({ title: "Error al eliminar serie", variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       title: "",
@@ -115,6 +133,8 @@ export default function AdminLabs() {
       meetingUrl: "",
       isPremium: false,
       groups: [{ topic: "general", level: "A1" }],
+      isRecurring: false,
+      recurrenceWeeks: 4,
     });
     setEditingLab(null);
   };
@@ -134,6 +154,8 @@ export default function AdminLabs() {
       meetingUrl: lab.meetingUrl || "",
       isPremium: lab.isPremium,
       groups,
+      isRecurring: false, // Don't allow editing recurring settings for existing labs
+      recurrenceWeeks: 4,
     });
     setIsDialogOpen(true);
   };
@@ -209,13 +231,60 @@ export default function AdminLabs() {
     );
   };
 
+  const getLabStatusType = (lab: LabWithRooms): "live" | "upcoming" | "past" => {
+    const now = new Date();
+    const scheduled = new Date(lab.scheduledAt);
+    const endTime = new Date(scheduled.getTime() + lab.duration * 60000);
+    
+    if (now >= scheduled && now <= endTime) return "live";
+    if (now < scheduled) return "upcoming";
+    return "past";
+  };
+
+  const filteredLabs = useMemo(() => {
+    if (!labs) return [];
+    if (activeFilter === "all") return labs;
+    return labs.filter(lab => getLabStatusType(lab) === activeFilter);
+  }, [labs, activeFilter]);
+
+  const labCounts = useMemo(() => {
+    if (!labs) return { all: 0, live: 0, upcoming: 0, past: 0 };
+    return {
+      all: labs.length,
+      live: labs.filter(lab => getLabStatusType(lab) === "live").length,
+      upcoming: labs.filter(lab => getLabStatusType(lab) === "upcoming").length,
+      past: labs.filter(lab => getLabStatusType(lab) === "past").length,
+    };
+  }, [labs]);
+
   return (
     <AdminLayout title="Programación de Laboratorios">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            {labs?.length || 0} laboratorios programados
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+          <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as LabFilter)} className="w-full sm:w-auto">
+            <TabsList className="grid grid-cols-4 w-full sm:w-auto">
+              <TabsTrigger value="all" className="flex items-center gap-1.5" data-testid="tab-all">
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Todos</span>
+                <Badge variant="secondary" className="ml-1 text-xs">{labCounts.all}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="live" className="flex items-center gap-1.5" data-testid="tab-live">
+                <Radio className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">En Vivo</span>
+                {labCounts.live > 0 && <Badge className="ml-1 text-xs bg-green-500">{labCounts.live}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="upcoming" className="flex items-center gap-1.5" data-testid="tab-upcoming">
+                <CalendarCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Próximos</span>
+                <Badge variant="secondary" className="ml-1 text-xs">{labCounts.upcoming}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="past" className="flex items-center gap-1.5" data-testid="tab-past">
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Pasados</span>
+                <Badge variant="secondary" className="ml-1 text-xs">{labCounts.past}</Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-lab">
@@ -384,6 +453,54 @@ export default function AdminLabs() {
                   </label>
                 </div>
 
+                {!editingLab && (
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isRecurring}
+                        onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                        className="w-4 h-4"
+                        data-testid="checkbox-recurring"
+                      />
+                      <Repeat className="w-4 h-4 text-primary" />
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        Sesión Recurrente (se repite cada semana)
+                      </span>
+                    </label>
+                    
+                    {formData.isRecurring && (
+                      <div className="flex items-center gap-3 pl-6">
+                        <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                          Repetir durante
+                        </Label>
+                        <Select 
+                          value={formData.recurrenceWeeks.toString()} 
+                          onValueChange={(v) => setFormData({ ...formData, recurrenceWeeks: parseInt(v) })}
+                        >
+                          <SelectTrigger className="w-24" data-testid="select-recurrence-weeks">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((weeks) => (
+                              <SelectItem key={weeks} value={weeks.toString()}>
+                                {weeks}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-sm text-muted-foreground">semanas</span>
+                      </div>
+                    )}
+                    
+                    {formData.isRecurring && (
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Se crearán {formData.recurrenceWeeks} sesiones, cada una el mismo día y hora de la semana.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
@@ -406,15 +523,21 @@ export default function AdminLabs() {
             <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
               Cargando laboratorios...
             </p>
-          ) : labs?.length === 0 ? (
+          ) : filteredLabs.length === 0 ? (
             <Card className="p-8 text-center">
               <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                No hay laboratorios programados. Crea tu primer laboratorio.
+                {activeFilter === "all" 
+                  ? "No hay laboratorios programados. Crea tu primer laboratorio."
+                  : activeFilter === "live"
+                  ? "No hay laboratorios en vivo en este momento."
+                  : activeFilter === "upcoming"
+                  ? "No hay laboratorios próximos programados."
+                  : "No hay laboratorios pasados."}
               </p>
             </Card>
           ) : (
-            labs?.map((lab) => {
+            filteredLabs.map((lab) => {
               const status = getLabStatus(lab);
               const instructor = instructors?.find((i) => i.id === lab.instructorId);
               const participants = getTotalParticipants(lab);
@@ -477,25 +600,58 @@ export default function AdminLabs() {
                         {lab.rooms?.length || 0} grupos
                       </div>
                       <Badge style={{ backgroundColor: status.color }}>{status.label}</Badge>
+                      {lab.isRecurring && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Repeat className="w-3 h-3" />
+                          Semanal
+                        </Badge>
+                      )}
                       {lab.isPremium && (
                         <Badge style={{ backgroundColor: '#FD335A' }}>Premium</Badge>
                       )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleEdit(lab)}
-                        data-testid={`button-edit-lab-${lab.id}`}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => deleteMutation.mutate(lab.id)}
-                        data-testid={`button-delete-lab-${lab.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-lab-menu-${lab.id}`}>
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(lab)} data-testid={`menu-edit-lab-${lab.id}`}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          {lab.isRecurring && lab.seriesId && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  if (confirm("¿Eliminar todas las sesiones futuras de esta serie?")) {
+                                    deleteSeriesMutation.mutate(lab.seriesId!);
+                                  }
+                                }}
+                                className="text-destructive"
+                                data-testid={`menu-delete-series-${lab.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Eliminar Serie
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              if (confirm("¿Estás seguro de eliminar este laboratorio?")) {
+                                deleteMutation.mutate(lab.id);
+                              }
+                            }}
+                            className="text-destructive"
+                            data-testid={`menu-delete-lab-${lab.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Eliminar Este
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </Card>

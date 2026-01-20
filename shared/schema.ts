@@ -121,6 +121,9 @@ export const conversationLabs = pgTable("conversation_labs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Recurrence pattern enum
+export const recurrencePatternEnum = pgEnum("recurrence_pattern", ["none", "weekly"]);
+
 // Live Sessions table - main container for live classes
 export const liveSessions = pgTable("live_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -132,6 +135,11 @@ export const liveSessions = pgTable("live_sessions", {
   status: labStatusEnum("status").notNull().default("scheduled"),
   meetingUrl: text("meeting_url"),
   isPremium: boolean("is_premium").notNull().default(false),
+  // Recurring session fields
+  isRecurring: boolean("is_recurring").notNull().default(false),
+  recurrencePattern: recurrencePatternEnum("recurrence_pattern").notNull().default("none"),
+  seriesId: varchar("series_id"), // Groups recurring sessions together
+  recurrenceEndDate: timestamp("recurrence_end_date"), // When to stop generating sessions
   createdAt: timestamp("created_at").defaultNow(),
 });
 
