@@ -20,9 +20,13 @@ import {
   BookOpen,
   Filter,
   GraduationCap,
-  Loader2
+  Loader2,
+  Unlock,
+  Award
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { courseLevels, type Course } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 // Spanish translations for course topics
 const courseTopicsEs: Record<string, string> = {
@@ -217,7 +221,22 @@ const mockCourses: CourseCardProps[] = [
   },
 ];
 
+const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+const getLevelLabel = (level: string) => {
+  const labels: Record<string, string> = {
+    A1: "Principiante",
+    A2: "Elemental", 
+    B1: "Intermedio",
+    B2: "Intermedio Alto",
+    C1: "Avanzado",
+    C2: "Maestría",
+  };
+  return labels[level] || level;
+};
+
 export function CourseCatalog() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [topicFilter, setTopicFilter] = useState<string>("all");
@@ -226,6 +245,11 @@ export function CourseCatalog() {
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ['/api/courses'],
   });
+
+  // Get user's level and unlocked levels
+  const userLevel = user?.placementLevel || user?.englishLevel || 'A1';
+  const userLevelIndex = levelOrder.indexOf(userLevel);
+  const unlockedLevels = levelOrder.slice(0, userLevelIndex + 1);
 
   // Map API courses to the card format
   const coursesWithCardData: CourseCardProps[] = courses.map((course) => ({
@@ -270,6 +294,27 @@ export function CourseCatalog() {
           Explora y continúa tu viaje de aprendizaje
         </p>
       </div>
+
+      {/* Level unlocking info */}
+      {user && (
+        <div className="p-4 bg-primary/10 border border-primary/20 flex flex-col sm:flex-row sm:items-center gap-3" data-testid="level-unlock-banner">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-primary" />
+            <span className="font-mono text-sm" data-testid="text-user-level">
+              <strong className="text-primary">{userLevel}</strong> - {getLevelLabel(userLevel)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Unlock className="w-4 h-4 text-muted-foreground" />
+            <span className="font-mono text-xs text-muted-foreground" data-testid="text-unlocked-levels-label">Niveles desbloqueados:</span>
+            {unlockedLevels.map((level) => (
+              <Badge key={level} variant={level === userLevel ? "default" : "secondary"} className="text-xs" data-testid={`badge-level-${level}`}>
+                {level}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">

@@ -240,10 +240,46 @@ export async function registerRoutes(
 
   // API Routes
 
-  // Get all courses
+  // Level order for course access control
+  const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  
+  // Helper to get user's level index safely
+  const getUserLevelIndex = (user: any): number => {
+    const userLevel = user?.placementLevel || user?.englishLevel || 'A1';
+    const index = levelOrder.indexOf(userLevel);
+    return index >= 0 ? index : 0; // Default to A1 (index 0) if invalid
+  };
+  
+  // Helper to check if user can access a course level
+  const canAccessCourseLevel = (user: any, courseLevel: string): boolean => {
+    const userLevelIndex = getUserLevelIndex(user);
+    const courseLevelIndex = levelOrder.indexOf(courseLevel);
+    // If course has invalid level, deny access for safety
+    if (courseLevelIndex < 0) return false;
+    return courseLevelIndex <= userLevelIndex;
+  };
+  
+  // Get all courses (filtered by user level if authenticated)
   app.get("/api/courses", async (req, res) => {
     try {
       const courses = await storage.getCourses();
+      
+      // If user is authenticated, filter courses by their level and below
+      const userId = (req.user as any)?.claims?.sub;
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          // Filter courses to show only those at user's level or below
+          // This allows users to study previous levels for review
+          const filteredCourses = courses.filter(course => 
+            canAccessCourseLevel(user, course.level)
+          );
+          
+          return res.json(filteredCourses);
+        }
+      }
+      
+      // For unauthenticated users, show all published courses
       res.json(courses);
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -251,13 +287,27 @@ export async function registerRoutes(
     }
   });
 
-  // Get course by ID
+  // Get course by ID (enforces level-based access for authenticated users)
   app.get("/api/courses/:id", async (req, res) => {
     try {
       const course = await storage.getCourseById(req.params.id);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
+      
+      // Check level-based access for authenticated users
+      const userId = (req.user as any)?.claims?.sub;
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user && !user.isAdmin && !canAccessCourseLevel(user, course.level)) {
+          return res.status(403).json({ 
+            error: "No tienes acceso a este nivel de curso",
+            requiredLevel: course.level,
+            userLevel: user.placementLevel || user.englishLevel || 'A1'
+          });
+        }
+      }
+      
       res.json(course);
     } catch (error) {
       console.error("Error fetching course:", error);
@@ -270,6 +320,25 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any)?.claims?.sub;
       const { courseId } = req.params;
+      
+      // Check course exists and verify level access
+      const course = await storage.getCourseById(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Check level-based access for authenticated users
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user && !user.isAdmin && !canAccessCourseLevel(user, course.level)) {
+          return res.status(403).json({ 
+            error: "No tienes acceso a este nivel de curso",
+            requiredLevel: course.level,
+            userLevel: user.placementLevel || user.englishLevel || 'A1'
+          });
+        }
+      }
+      
       const lessons = await storage.getLessonsByCourseId(courseId);
       const FREE_LESSON_LIMIT = 3; // First 3 lessons of Module 1 are free
       
