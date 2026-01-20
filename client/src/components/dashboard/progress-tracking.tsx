@@ -10,15 +10,12 @@ import {
   BookOpen, 
   Users, 
   Award,
-  Download,
-  Share2,
   Flame,
   Target,
   Zap,
   Trophy,
   GraduationCap,
   CheckCircle,
-  XCircle,
   Lock,
   Unlock
 } from "lucide-react";
@@ -36,8 +33,8 @@ import {
   Tooltip,
 } from "recharts";
 
-// Mock data
-const skillsData = [
+// Sample data for charts (shown as preview/demo for new users)
+const sampleSkillsData = [
   { skill: "Hablar", value: 70, fullMark: 100 },
   { skill: "Escuchar", value: 85, fullMark: 100 },
   { skill: "Leer", value: 90, fullMark: 100 },
@@ -46,7 +43,7 @@ const skillsData = [
   { skill: "Gramática", value: 80, fullMark: 100 },
 ];
 
-const weeklyProgress = [
+const sampleWeeklyProgress = [
   { day: "Lun", minutes: 45 },
   { day: "Mar", minutes: 60 },
   { day: "Mié", minutes: 30 },
@@ -56,32 +53,12 @@ const weeklyProgress = [
   { day: "Dom", minutes: 60 },
 ];
 
-const certificates = [
-  {
-    id: "1",
-    title: "Nivel A2 Completado",
-    issueDate: "15 de Octubre, 2024",
-    credential: "CB-A2-2024-001234",
-  },
-  {
-    id: "2",
-    title: "Fundamentos de Inglés de Negocios",
-    issueDate: "20 de Noviembre, 2024",
-    credential: "CB-BEF-2024-001567",
-  },
-  {
-    id: "3",
-    title: "Nivel B1 Completado",
-    issueDate: "10 de Enero, 2025",
-    credential: "CB-B1-2025-000234",
-  },
-];
-
-const achievements = [
-  { icon: Flame, title: "Racha de 7 Días", description: "Estudia 7 días seguidos", unlocked: true },
-  { icon: Users, title: "Asistente Regular", description: "Asiste a 10 labs de conversación", unlocked: true },
-  { icon: BookOpen, title: "Maestro de Cursos", description: "Completa 5 cursos", unlocked: false },
-  { icon: Zap, title: "Aprendiz Veloz", description: "Termina un curso en una semana", unlocked: true },
+// Achievement definitions (system tracks unlock status from user activity)
+const achievementDefinitions = [
+  { icon: Flame, id: "streak_7", title: "Racha de 7 Días", description: "Estudia 7 días seguidos" },
+  { icon: Users, id: "labs_10", title: "Asistente Regular", description: "Asiste a 10 labs de conversación" },
+  { icon: BookOpen, id: "courses_5", title: "Maestro de Cursos", description: "Completa 5 cursos" },
+  { icon: Zap, id: "fast_learner", title: "Aprendiz Veloz", description: "Termina un curso en una semana" },
 ];
 
 interface CourseScore {
@@ -334,31 +311,24 @@ export function ProgressTracking() {
         </Card>
       </div>
 
-      {/* Charts - Locked for free users */}
-      <div className={`grid lg:grid-cols-2 gap-6 ${isFreeUser ? 'relative' : ''}`}>
-        {isFreeUser && (
-          <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-charts-locked">
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                <Lock className="w-8 h-8 text-primary" />
-              </div>
-              <p className="font-display text-lg uppercase mb-2">Gráficos Premium</p>
-              <p className="text-sm text-muted-foreground mb-4">Actualiza tu plan para ver estadísticas detalladas</p>
-              <Link href="/#pricing">
-                <Button size="sm" data-testid="button-unlock-charts">
-                  <Unlock className="w-4 h-4 mr-2" />
-                  Desbloquear
-                </Button>
-              </Link>
+      {/* Charts - Preview section */}
+      <div className="grid lg:grid-cols-2 gap-6 relative">
+        <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-charts-preview">
+          <div className="text-center p-6">
+            <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-8 h-8 text-primary" />
             </div>
+            <p className="font-display text-lg uppercase mb-2">Próximamente</p>
+            <p className="text-sm text-muted-foreground mb-4">Gráficos de habilidades y actividad semanal estarán disponibles pronto</p>
+            <Badge variant="outline" className="font-mono">Vista Previa</Badge>
           </div>
-        )}
+        </div>
         {/* Skills radar */}
-        <Card className={`p-6 border-border ${isFreeUser ? 'pointer-events-none' : ''}`}>
+        <Card className="p-6 border-border pointer-events-none opacity-50">
           <h3 className="text-lg font-display uppercase mb-6">Desglose de Habilidades</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={skillsData}>
+              <RadarChart data={sampleSkillsData}>
                 <PolarGrid stroke="hsl(var(--border))" />
                 <PolarAngleAxis 
                   dataKey="skill" 
@@ -388,11 +358,11 @@ export function ProgressTracking() {
         </Card>
 
         {/* Weekly activity */}
-        <Card className="p-6 border-border">
+        <Card className="p-6 border-border pointer-events-none opacity-50">
           <h3 className="text-lg font-display uppercase mb-6">Actividad de Esta Semana</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weeklyProgress}>
+              <AreaChart data={sampleWeeklyProgress}>
                 <defs>
                   <linearGradient id="colorMinutes" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -434,34 +404,27 @@ export function ProgressTracking() {
         </Card>
       </div>
 
-      {/* Achievements - Locked for free users */}
-      <div className={`${isFreeUser ? 'relative' : ''}`}>
-        {isFreeUser && (
-          <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-achievements-locked">
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                <Trophy className="w-8 h-8 text-primary" />
-              </div>
-              <p className="font-display text-lg uppercase mb-2">Logros Premium</p>
-              <p className="text-sm text-muted-foreground mb-4">Actualiza para desbloquear el sistema de logros</p>
-              <Link href="/#pricing">
-                <Button size="sm" data-testid="button-unlock-achievements">
-                  <Unlock className="w-4 h-4 mr-2" />
-                  Desbloquear
-                </Button>
-              </Link>
+      {/* Achievements - Coming Soon */}
+      <div className="relative">
+        <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center" data-testid="overlay-achievements-coming-soon">
+          <div className="text-center p-6">
+            <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-primary" />
             </div>
+            <p className="font-display text-lg uppercase mb-2">Próximamente</p>
+            <p className="text-sm text-muted-foreground mb-4">Sistema de logros en desarrollo</p>
+            <Badge variant="outline" className="font-mono">Vista Previa</Badge>
           </div>
-        )}
-        <Card className={`p-6 border-border ${isFreeUser ? 'pointer-events-none' : ''}`}>
+        </div>
+        <Card className="p-6 border-border pointer-events-none opacity-50">
           <h3 className="text-lg font-display uppercase mb-6">Logros</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {achievements.map((achievement, index) => (
+            {achievementDefinitions.map((achievement, index) => (
               <div 
                 key={index}
-                className={`p-4 border ${achievement.unlocked ? "border-primary bg-primary/5" : "border-border opacity-50"}`}
+                className="p-4 border border-border opacity-50"
               >
-                <div className={`w-12 h-12 flex items-center justify-center mb-3 ${achievement.unlocked ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                <div className="w-12 h-12 flex items-center justify-center mb-3 bg-muted text-muted-foreground">
                   <achievement.icon className="w-6 h-6" />
                 </div>
                 <p className="font-mono font-semibold mb-1">{achievement.title}</p>
@@ -472,37 +435,21 @@ export function ProgressTracking() {
         </Card>
       </div>
 
-      {/* Certificates */}
+      {/* Certificates - Coming Soon */}
       <Card className="p-6 border-border">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Award className="w-6 h-6 text-primary" />
           <h3 className="text-lg font-display uppercase">Certificados</h3>
-          <span className="text-sm font-mono text-muted-foreground">{certificates.length} obtenidos</span>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {certificates.map((cert) => (
-            <div key={cert.id} className="p-5 border border-border bg-gradient-to-br from-primary/5 to-accent/5 hover-elevate">
-              <div className="w-12 h-12 bg-primary flex items-center justify-center mb-4">
-                <Award className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <h4 className="font-mono font-semibold mb-1">{cert.title}</h4>
-              <p className="text-xs font-mono text-muted-foreground mb-3">
-                Emitido: {cert.issueDate}
-              </p>
-              <p className="text-xs font-mono text-muted-foreground mb-4">
-                Credencial: {cert.credential}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 font-mono text-xs" data-testid={`button-download-${cert.id}`}>
-                  <Download className="w-3 h-3 mr-1" />
-                  Descargar
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 font-mono text-xs" data-testid={`button-share-${cert.id}`}>
-                  <Share2 className="w-3 h-3 mr-1" />
-                  Compartir
-                </Button>
-              </div>
-            </div>
-          ))}
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <Award className="w-8 h-8 text-primary" />
+          </div>
+          <p className="font-display text-lg uppercase mb-2">Próximamente</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Podrás descargar y compartir certificados cuando completes cursos y niveles. 
+            ¡Sigue aprendiendo para desbloquear tus primeros certificados!
+          </p>
         </div>
       </Card>
     </div>

@@ -132,11 +132,12 @@ export default function Onboarding() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "¡Perfil completado!",
         description: "Tu experiencia de aprendizaje ha sido personalizada.",
       });
-      setLocation("/choose-plan");
+      setLocation("/dashboard");
     },
     onError: () => {
       toast({
@@ -248,12 +249,31 @@ export default function Onboarding() {
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <Label className="font-mono text-lg">¿Cuál es tu nivel actual de inglés?</Label>
-                  {hasPlacementResult && (
+                  {hasPlacementResult ? (
                     <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/30" data-testid="placement-recommendation">
                       <Award className="w-5 h-5 text-primary" />
                       <span className="font-mono text-sm">
                         Según tu examen de nivel, te recomendamos: <strong className="text-primary">{user?.placementLevel}</strong>
                       </span>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-accent/10 border border-accent/30 space-y-3" data-testid="placement-quiz-prompt">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-5 h-5 text-accent" />
+                        <span className="font-mono text-sm font-medium">¿No estás seguro de tu nivel?</span>
+                      </div>
+                      <p className="font-mono text-sm text-muted-foreground">
+                        Toma nuestro examen de nivel gratuito de 5 minutos para determinar tu nivel exacto.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setLocation("/placement-quiz?returnTo=/onboarding")}
+                        className="font-mono"
+                        data-testid="button-take-placement-quiz"
+                      >
+                        <Award className="w-4 h-4 mr-2" />
+                        Tomar Examen de Nivel
+                      </Button>
                     </div>
                   )}
                   <RadioGroup

@@ -1917,7 +1917,7 @@ export async function registerRoutes(
       // Mark invitation as used
       await storage.updateStaffInvitation(invitation.id, {
         usedAt: new Date(),
-        usedBy: userId,
+        usedByUserId: userId,
       });
       
       res.json({ 

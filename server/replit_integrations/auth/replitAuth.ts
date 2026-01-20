@@ -57,6 +57,8 @@ async function upsertUser(claims: any) {
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    // Pass email_verified from OIDC provider (Google, etc.) to auto-verify OAuth users
+    emailVerified: claims["email_verified"] === true ? true : undefined,
   });
   // Return the actual user ID (might be different if email already existed)
   return user.id;

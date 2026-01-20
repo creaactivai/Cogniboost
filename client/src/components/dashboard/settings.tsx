@@ -234,38 +234,88 @@ export function Settings() {
         <div className="p-4 border border-primary/30 bg-primary/5 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <p className="font-mono font-semibold">Plan Estándar</p>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <p className="font-mono font-semibold" data-testid="text-plan-name">
+                  {user?.subscriptionTier === 'premium' ? 'Plan Premium' :
+                   user?.subscriptionTier === 'basic' ? 'Plan Básico' :
+                   user?.subscriptionTier === 'flex' ? 'Plan Flex' : 'Plan Gratis'}
+                </p>
                 <Badge className="bg-primary text-primary-foreground font-mono text-xs">ACTIVO</Badge>
               </div>
-              <p className="text-sm font-mono text-muted-foreground">
-                $29/mes • Se renueva el 15 de Feb, 2025
+              <p className="text-sm font-mono text-muted-foreground" data-testid="text-plan-price">
+                {user?.subscriptionTier === 'premium' ? '$99.99/mes' :
+                 user?.subscriptionTier === 'basic' ? '$49.99/mes' :
+                 user?.subscriptionTier === 'flex' ? '$14.99/mes' : 'Gratis'}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="font-mono" data-testid="button-manage-subscription">
-                Administrar
-              </Button>
-              <Button className="bg-accent text-accent-foreground font-mono" data-testid="button-upgrade">
-                Subir a Premium
-              </Button>
+            <div className="flex gap-2 flex-wrap">
+              {user?.subscriptionTier !== 'free' && (
+                <Button variant="outline" className="font-mono" data-testid="button-manage-subscription">
+                  Administrar
+                </Button>
+              )}
+              {user?.subscriptionTier !== 'premium' && (
+                <Button className="bg-accent text-accent-foreground font-mono" data-testid="button-upgrade">
+                  {user?.subscriptionTier === 'free' ? 'Actualizar Plan' : 'Subir a Premium'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
-            <Check className="w-4 h-4 text-primary" />
-            <span>Acceso a toda la biblioteca de cursos</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
-            <Check className="w-4 h-4 text-primary" />
-            <span>4 laboratorios de conversación por mes</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
-            <Check className="w-4 h-4 text-primary" />
-            <span>Certificados descargables</span>
-          </div>
+          {user?.subscriptionTier === 'free' && (
+            <>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Primeras 3 lecciones del Módulo 1</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Examen de nivel gratuito</span>
+              </div>
+            </>
+          )}
+          {user?.subscriptionTier === 'flex' && (
+            <>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Acceso a todos los cursos pregrabados</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Sin límite de lecciones</span>
+              </div>
+            </>
+          )}
+          {user?.subscriptionTier === 'basic' && (
+            <>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Acceso a todos los cursos pregrabados</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>2 Labs de Conversación por semana</span>
+              </div>
+            </>
+          )}
+          {user?.subscriptionTier === 'premium' && (
+            <>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Acceso ilimitado a todos los cursos</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Labs de Conversación ilimitados</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>Soporte prioritario</span>
+              </div>
+            </>
+          )}
         </div>
       </Card>
 

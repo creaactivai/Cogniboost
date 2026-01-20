@@ -63,8 +63,11 @@ class AuthStorage implements IAuthStorage {
     const userDataWithAdmin = shouldBeAdmin ? { ...userData, isAdmin: true } : userData;
 
     // For new self-registered users (not manually added), generate email verification token
+    // Skip verification for OAuth users whose email is already verified by the provider
     let finalUserData = userDataWithAdmin;
-    if (isNewUser && !existingUserByEmail?.addedManually) {
+    const isOAuthVerified = userDataWithAdmin.emailVerified === true;
+    
+    if (isNewUser && !existingUserByEmail?.addedManually && !isOAuthVerified) {
       const verificationToken = generateVerificationToken();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       finalUserData = {
@@ -72,6 +75,14 @@ class AuthStorage implements IAuthStorage {
         emailVerificationToken: verificationToken,
         emailVerificationExpiresAt: expiresAt,
         emailVerified: false,
+      };
+    } else if (isOAuthVerified) {
+      // OAuth user with verified email - mark as verified, no token needed
+      finalUserData = {
+        ...userDataWithAdmin,
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
       };
     }
 
@@ -89,8 +100,8 @@ class AuthStorage implements IAuthStorage {
 
     // Send emails to new users (async, don't wait)
     if (isNewUser && user.email) {
-      // Send verification email for self-registered users
-      if (!user.addedManually && user.emailVerificationToken) {
+      // Send verification email only for self-registered users who aren't OAuth verified
+      if (!user.addedManually && user.emailVerificationToken && !isOAuthVerified) {
         this.sendVerificationEmail(user).catch(err => 
           console.error("Failed to send verification email:", err)
         );
