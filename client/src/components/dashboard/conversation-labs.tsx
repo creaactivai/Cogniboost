@@ -19,13 +19,25 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
-  MessageSquare
+  MessageSquare,
+  Lock,
+  Crown
 } from "lucide-react";
 import { courseLevels } from "@shared/schema";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { LiveSession, SessionRoom, RoomBooking } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
+import type { LiveSession, SessionRoom, RoomBooking, Subscription } from "@shared/schema";
+import { 
+  canAccessLabs, 
+  canBookMoreLabs, 
+  getWeeklyLabLimit, 
+  getTierDisplayName,
+  getStartOfCurrentWeek,
+  type SubscriptionTier 
+} from "@/lib/tier-access";
 
 const courseTopicsEs: Record<string, string> = {
   "Business English": "Inglés de Negocios",
@@ -71,11 +83,13 @@ interface RoomCardProps {
   isBooked: boolean;
   onBook: () => void;
   isBooking: boolean;
+  isAtWeeklyLimit?: boolean;
 }
 
-function RoomCard({ room, isBooked, onBook, isBooking }: RoomCardProps) {
+function RoomCard({ room, isBooked, onBook, isBooking, isAtWeeklyLimit = false }: RoomCardProps) {
   const spotsLeft = room.maxParticipants - room.currentParticipants;
   const isFull = spotsLeft <= 0;
+  const isDisabled = isFull || isBooking || isAtWeeklyLimit;
   
   return (
     <div className={`p-4 border border-border hover-elevate ${isBooked ? "bg-primary/5 border-primary/30" : ""}`}>
@@ -114,12 +128,12 @@ function RoomCard({ room, isBooked, onBook, isBooking }: RoomCardProps) {
             <Button 
               size="sm"
               variant="outline"
-              disabled={isFull || isBooking}
+              disabled={isDisabled}
               onClick={onBook}
               className="font-mono text-xs"
               data-testid={`button-book-room-${room.id}`}
             >
-              {isBooking ? "..." : "Reservar"}
+              {isBooking ? "..." : isAtWeeklyLimit ? "Límite" : "Reservar"}
             </Button>
           )}
         </div>
@@ -134,9 +148,10 @@ interface LiveSessionCardProps {
   onBookRoom: (roomId: string) => void;
   isBooking: boolean;
   bookingRoomId: string | null;
+  isAtWeeklyLimit?: boolean;
 }
 
-function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookingRoomId }: LiveSessionCardProps) {
+function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookingRoomId, isAtWeeklyLimit = false }: LiveSessionCardProps) {
   const dateInfo = formatDate(session.scheduledAt as unknown as string);
   const hasBookedRoom = session.rooms.some(r => bookedRoomIds.has(r.id));
   
@@ -192,6 +207,7 @@ function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookin
                   isBooked={bookedRoomIds.has(room.id)}
                   onBook={() => onBookRoom(room.id)}
                   isBooking={isBooking && bookingRoomId === room.id}
+                  isAtWeeklyLimit={isAtWeeklyLimit}
                 />
               ))}
             </div>
@@ -208,16 +224,38 @@ export function ConversationLabs() {
   const [topicFilter, setTopicFilter] = useState<string>("all");
   const [bookingRoomId, setBookingRoomId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const { data: subscription } = useQuery<Subscription>({
+    queryKey: ["/api/subscription"],
+    enabled: !!user,
+  });
+
+  const userTier = (subscription?.tier || "free") as SubscriptionTier;
+  const userLevel = user?.englishLevel || user?.placementLevel || "A1";
+  const hasLabsAccess = canAccessLabs(userTier);
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<LiveSession[]>({
     queryKey: ["/api/live-sessions"],
+    enabled: hasLabsAccess,
   });
 
   const { data: bookings = [] } = useQuery<RoomBooking[]>({
     queryKey: ["/api/room-bookings"],
+    enabled: hasLabsAccess,
   });
 
   const bookedRoomIds = new Set(bookings.map(b => b.roomId));
+  
+  const weekStart = getStartOfCurrentWeek();
+  const currentWeekBookings = bookings.filter(b => {
+    const bookingDate = new Date(b.bookedAt as unknown as string);
+    return bookingDate >= weekStart && !b.cancelledAt;
+  }).length;
+  
+  const weeklyLimit = getWeeklyLabLimit(userTier);
+  const canBookMore = canBookMoreLabs(userTier, currentWeekBookings);
+  const isAtWeeklyLimit = weeklyLimit !== null && currentWeekBookings >= weeklyLimit;
 
   const bookRoomMutation = useMutation({
     mutationFn: async (roomId: string) => {
@@ -253,14 +291,17 @@ export function ConversationLabs() {
   const pastSessions = sessionsWithRooms.filter(s => new Date(s.scheduledAt) <= now);
 
   const filteredUpcoming = upcomingSessions.filter((session) => {
-    if (levelFilter === "all" && topicFilter === "all") return true;
-    
-    return session.rooms.some(room => {
-      const matchesLevel = levelFilter === "all" || room.level === levelFilter;
+    const matchingRooms = session.rooms.filter(room => {
+      const matchesUserLevel = room.level === userLevel;
+      const matchesLevelFilter = levelFilter === "all" || room.level === levelFilter;
       const matchesTopic = topicFilter === "all" || room.topic === topicFilter;
-      return matchesLevel && matchesTopic;
+      return matchesUserLevel && matchesLevelFilter && matchesTopic;
     });
-  });
+    return matchingRooms.length > 0;
+  }).map(session => ({
+    ...session,
+    rooms: session.rooms.filter(room => room.level === userLevel),
+  }));
 
   const bookedSessions = upcomingSessions.filter(session => 
     session.rooms.some(room => bookedRoomIds.has(room.id))
@@ -268,6 +309,96 @@ export function ConversationLabs() {
 
   const bookedRoomsCount = bookings.filter(b => !b.cancelledAt).length;
   const attendedCount = bookings.filter(b => b.attendedAt).length;
+
+  if (!hasLabsAccess) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-display uppercase mb-2">Labs de Conversación</h1>
+          <p className="font-mono text-muted-foreground">
+            Práctica en vivo con otros estudiantes de tu nivel
+          </p>
+        </div>
+        
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background z-10" />
+          <div className="filter blur-sm pointer-events-none">
+            <div className="p-6 space-y-4">
+              <div className="grid sm:grid-cols-3 gap-4 opacity-50">
+                <Card className="p-4 border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 flex items-center justify-center">
+                      <CalendarIcon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-display">0</p>
+                      <p className="text-xs font-mono text-muted-foreground">Salas Reservadas</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-5 h-5 text-accent" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-display">0</p>
+                      <p className="text-xs font-mono text-muted-foreground">Labs Asistidos</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-muted flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-display">5+</p>
+                      <p className="text-xs font-mono text-muted-foreground">Sesiones Disponibles</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+              <div className="h-48 bg-muted/30 flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">Sesiones de práctica en vivo</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="absolute inset-0 flex items-center justify-center z-20">
+            <div className="text-center p-8 max-w-md">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-display uppercase mb-2">
+                Acceso a Labs Bloqueado
+              </h3>
+              <p className="font-mono text-sm text-muted-foreground mb-6">
+                {userTier === "free" 
+                  ? "Los labs de conversación en vivo están disponibles desde el plan Básico. Practica con otros estudiantes y mejora tu fluidez."
+                  : "Tu plan Flex incluye acceso a cursos pregrabados. Actualiza al plan Básico para unirte a sesiones de práctica en vivo."
+                }
+              </p>
+              <div className="flex flex-col gap-3">
+                <Link href="/choose-plan">
+                  <Button className="w-full font-mono" data-testid="button-upgrade-labs">
+                    <Crown className="w-4 h-4 mr-2" />
+                    Actualizar a Básico - $49.99/mes
+                  </Button>
+                </Link>
+                <p className="text-xs font-mono text-muted-foreground">
+                  Plan Básico: 2 labs por semana • Plan Premium: labs ilimitados
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -277,6 +408,30 @@ export function ConversationLabs() {
           Únete a sesiones en vivo y elige la sala por tema que más te interese
         </p>
       </div>
+      
+      {isAtWeeklyLimit && (
+        <Card className="p-4 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-mono font-medium text-orange-800 dark:text-orange-200">
+                Límite semanal alcanzado ({currentWeekBookings}/{weeklyLimit})
+              </h4>
+              <p className="text-sm font-mono text-orange-600 dark:text-orange-400 mb-3">
+                Has reservado el máximo de labs para esta semana. Actualiza a Premium para acceso ilimitado.
+              </p>
+              <Link href="/choose-plan">
+                <Button size="sm" className="font-mono" data-testid="button-upgrade-unlimited">
+                  <Crown className="w-4 h-4 mr-2" />
+                  Actualizar a Premium
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-4">
         <Card className="p-4 border-border">
@@ -369,6 +524,7 @@ export function ConversationLabs() {
                 onBookRoom={(roomId) => bookRoomMutation.mutate(roomId)}
                 isBooking={bookRoomMutation.isPending}
                 bookingRoomId={bookingRoomId}
+                isAtWeeklyLimit={isAtWeeklyLimit}
               />
             ))
           ) : (

@@ -11,7 +11,7 @@ export * from "./models/chat";
 
 // Enums
 export const courseLevelEnum = pgEnum("course_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
-export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "standard", "premium"]);
+export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "flex", "basic", "premium"]);
 export const labStatusEnum = pgEnum("lab_status", ["scheduled", "in_progress", "completed", "cancelled"]);
 
 // Course categories table (custom categories created by admins)
