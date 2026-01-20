@@ -108,16 +108,9 @@ export default function Dashboard() {
       return;
     }
     
-    // Check subscription - only allow paid users to access dashboard
-    if (!isLoading && !subscriptionLoading && isAuthenticated && user?.onboardingCompleted) {
-      const tier = subscription?.tier || "free";
-      if (tier === "free") {
-        // Redirect free users to choose a plan
-        setLocation("/choose-plan");
-        return;
-      }
-    }
-  }, [isLoading, isAuthenticated, user, subscription, subscriptionLoading, setLocation]);
+    // Note: Free users can access dashboard with limited content (first 3 lessons of Module 1)
+    // Content gating is handled at the lesson/course level, not dashboard access
+  }, [isLoading, isAuthenticated, user, setLocation]);
 
   if (isLoading || subscriptionLoading) {
     return (
@@ -134,11 +127,8 @@ export default function Dashboard() {
     return null;
   }
 
-  // Don't render dashboard for free tier users
-  const tier = subscription?.tier || "free";
-  if (tier === "free" && user?.onboardingCompleted) {
-    return null;
-  }
+  // Free tier users can access dashboard with limited content
+  // Content gating is handled at the lesson/course level
 
   const style = {
     "--sidebar-width": "16rem",

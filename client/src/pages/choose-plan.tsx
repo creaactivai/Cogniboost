@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, Star, Crown, Zap, ArrowLeft, LogOut } from "lucide-react";
@@ -70,6 +70,7 @@ export default function ChoosePlan() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   const { data: subscription, isLoading: subLoading } = useQuery<Subscription>({
@@ -117,9 +118,33 @@ export default function ChoosePlan() {
     },
   });
 
+  const selectFreeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/subscription/select-free", {});
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate subscription cache and navigate to dashboard
+      queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setLocation("/dashboard");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo seleccionar el plan gratis",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSelectPlan = (planId: string) => {
     setSelectedPlan(planId);
     checkoutMutation.mutate(planId);
+  };
+
+  const handleSelectFree = () => {
+    selectFreeMutation.mutate();
   };
 
   // Show loading while checking auth state
@@ -275,14 +300,30 @@ export default function ChoosePlan() {
           ))}
         </div>
 
-        <div className="text-center">
-          <p className="font-mono text-sm text-muted-foreground mb-4">
+        <div className="text-center space-y-4">
+          <p className="font-mono text-sm text-muted-foreground">
             Todos los planes incluyen garantía de satisfacción de 7 días
           </p>
-          <Button variant="ghost" onClick={() => setLocation("/")} data-testid="link-back-home">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver al inicio
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleSelectFree}
+              disabled={selectFreeMutation.isPending}
+              data-testid="button-continue-free"
+            >
+              {selectFreeMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Continuar con Plan Gratis
+            </Button>
+            <Button variant="ghost" onClick={() => setLocation("/")} data-testid="link-back-home">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver al inicio
+            </Button>
+          </div>
+          <p className="font-mono text-xs text-muted-foreground">
+            El plan gratis incluye las primeras 3 lecciones del Módulo 1
+          </p>
         </div>
       </main>
     </div>

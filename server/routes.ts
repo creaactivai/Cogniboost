@@ -589,6 +589,28 @@ export async function registerRoutes(
     }
   });
 
+  // Select free plan - marks user as having explicitly chosen free tier
+  app.post("/api/subscription/select-free", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Update user to mark they've selected the free plan
+      await storage.updateUser(userId, {
+        subscriptionTier: "free",
+        assignedPlan: "free",
+        updatedAt: new Date(),
+      } as any);
+      
+      res.json({ success: true, tier: "free" });
+    } catch (error) {
+      console.error("Error selecting free plan:", error);
+      res.status(500).json({ error: "Failed to select free plan" });
+    }
+  });
+
   // ============== STRIPE PAYMENT ROUTES ==============
 
   // Stripe price IDs for each plan (to be updated after creating products in Stripe dashboard)
