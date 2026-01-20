@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification';
 
 // Send email using template
 export async function sendEmail(
@@ -883,6 +883,44 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <li>Seguimiento de tu progreso</li>
               <li>Certificados de completación</li>
             </ul>
+            <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    email_verification: {
+      subject: 'Verifica tu correo electrónico - CogniBoost',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+            .warning { color: #F6AD55; font-size: 14px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Verifica tu correo, ${data.firstName || 'estudiante'}!</h1>
+            <p>Gracias por registrarte en <strong>CogniBoost</strong>.</p>
+            <p>Para completar tu registro y acceder a todas las funciones, por favor verifica tu correo electrónico haciendo clic en el siguiente botón:</p>
+            <a href="${data.verificationUrl || 'https://cogniboost.co'}" class="cta">VERIFICAR MI CORREO</a>
+            <p class="warning">Este enlace expira en 24 horas. Si no solicitaste esta verificación, puedes ignorar este correo.</p>
             <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
