@@ -21,6 +21,7 @@ import {
   placementQuizAttempts,
   leads,
   adminInvitations,
+  staffInvitations,
   type CourseCategory,
   type InsertCourseCategory,
   type Course, 
@@ -63,6 +64,8 @@ import {
   type InsertLead,
   type AdminInvitation,
   type InsertAdminInvitation,
+  type StaffInvitation,
+  type InsertStaffInvitation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, count, and, isNull, isNotNull, gte } from "drizzle-orm";
@@ -175,10 +178,19 @@ export interface IStorage {
   getAdminUsers(): Promise<User[]>;
   updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<User | undefined>;
   
-  // Admin Invitations
+  // Admin Invitations (legacy)
   getAdminInvitations(): Promise<AdminInvitation[]>;
   createAdminInvitation(invitation: InsertAdminInvitation): Promise<AdminInvitation>;
   deleteAdminInvitation(id: string): Promise<boolean>;
+  
+  // Staff Invitations (magic-link based)
+  getStaffInvitations(): Promise<StaffInvitation[]>;
+  getStaffInvitationByTokenHash(tokenHash: string): Promise<StaffInvitation | undefined>;
+  getStaffInvitationByEmail(email: string): Promise<StaffInvitation | undefined>;
+  createStaffInvitation(invitation: InsertStaffInvitation): Promise<StaffInvitation>;
+  updateStaffInvitation(id: string, updates: Partial<StaffInvitation>): Promise<StaffInvitation | undefined>;
+  revokeStaffInvitation(id: string, revokedBy: string): Promise<boolean>;
+  
   updateUser(userId: string, updates: Partial<{
     status: 'active' | 'hold' | 'inactive';
     isLocked: boolean;
@@ -920,6 +932,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAdminInvitation(id: string): Promise<boolean> {
     const result = await db.delete(adminInvitations).where(eq(adminInvitations.id, id));
+    return true;
+  }
+
+  // Staff Invitations (magic-link based)
+  async getStaffInvitations(): Promise<StaffInvitation[]> {
+    return db.select().from(staffInvitations).orderBy(desc(staffInvitations.createdAt));
+  }
+
+  async getStaffInvitationByTokenHash(tokenHash: string): Promise<StaffInvitation | undefined> {
+    const [invitation] = await db.select().from(staffInvitations).where(eq(staffInvitations.tokenHash, tokenHash));
+    return invitation;
+  }
+
+  async getStaffInvitationByEmail(email: string): Promise<StaffInvitation | undefined> {
+    const [invitation] = await db.select().from(staffInvitations)
+      .where(and(eq(staffInvitations.email, email.toLowerCase()), isNull(staffInvitations.usedAt), eq(staffInvitations.isRevoked, false)));
+    return invitation;
+  }
+
+  async createStaffInvitation(invitation: InsertStaffInvitation): Promise<StaffInvitation> {
+    const [created] = await db.insert(staffInvitations).values({
+      ...invitation,
+      email: invitation.email.toLowerCase(),
+    }).returning();
+    return created;
+  }
+
+  async updateStaffInvitation(id: string, updates: Partial<StaffInvitation>): Promise<StaffInvitation | undefined> {
+    const [updated] = await db.update(staffInvitations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffInvitations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async revokeStaffInvitation(id: string, revokedBy: string): Promise<boolean> {
+    await db.update(staffInvitations)
+      .set({ isRevoked: true, revokedAt: new Date(), revokedBy, updatedAt: new Date() })
+      .where(eq(staffInvitations.id, id));
     return true;
   }
 

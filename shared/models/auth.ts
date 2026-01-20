@@ -144,13 +144,36 @@ export const leads = pgTable("leads", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Admin invitations table - emails that should receive admin access when they log in
+// Staff role enum for invitations
+export const staffRoleEnum = pgEnum("staff_role", ["admin", "instructor"]);
+
+// Staff invitations table - secure magic-link invitations for admins and instructors
+export const staffInvitations = pgTable("staff_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  role: staffRoleEnum("role").notNull().default("admin"),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  department: varchar("department"), // e.g., "content", "support", "marketing"
+  invitedBy: varchar("invited_by").references(() => users.id),
+  tokenHash: varchar("token_hash").notNull(), // Hashed token for security
+  expiresAt: timestamp("expires_at").notNull(), // Token expiration (e.g., 7 days)
+  usedAt: timestamp("used_at"), // When invitation was accepted
+  usedByUserId: varchar("used_by_user_id").references(() => users.id), // Who accepted
+  isRevoked: boolean("is_revoked").notNull().default(false), // Can be revoked by admin
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Legacy admin invitations table - kept for backward compatibility
 export const adminInvitations = pgTable("admin_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").notNull().unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  department: varchar("department"), // e.g., "content", "support", "marketing"
+  department: varchar("department"),
   invitedBy: varchar("invited_by").references(() => users.id),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -165,3 +188,5 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
 export type AdminInvitation = typeof adminInvitations.$inferSelect;
 export type InsertAdminInvitation = typeof adminInvitations.$inferInsert;
+export type StaffInvitation = typeof staffInvitations.$inferSelect;
+export type InsertStaffInvitation = typeof staffInvitations.$inferInsert;
