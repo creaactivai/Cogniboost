@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation';
 
 // Send email using template
 export async function sendEmail(
@@ -922,6 +922,54 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <a href="${data.verificationUrl || 'https://cogniboost.co'}" class="cta">VERIFICAR MI CORREO</a>
             <p class="warning">Este enlace expira en 24 horas. Si no solicitaste esta verificación, puedes ignorar este correo.</p>
             <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    staff_invitation: {
+      subject: `¡Invitación a unirte al equipo de CogniBoost como ${data.role === 'admin' ? 'Administrador' : 'Instructor'}!`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .cta { display: inline-block; background: #667EEA; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; border-radius: 4px; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+            .warning { color: #F6AD55; font-size: 14px; margin-top: 20px; }
+            .role-badge { display: inline-block; background: ${data.role === 'admin' ? '#667EEA' : '#4FD1C5'}; color: #ffffff; padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Hola ${data.firstName || ''}!</h1>
+            <p>Has sido invitado/a a unirte al equipo de <strong>CogniBoost</strong> como:</p>
+            <p style="text-align: center;"><span class="role-badge">${data.role === 'admin' ? 'Administrador' : 'Instructor'}</span></p>
+            <p>Esta invitación fue enviada por <strong>${data.invitedByName || 'un administrador'}</strong>.</p>
+            <p><strong>Para aceptar la invitación:</strong></p>
+            <ol style="color: #cccccc; line-height: 2;">
+              <li>Haz clic en el botón de abajo</li>
+              <li>Inicia sesión con tu cuenta</li>
+              <li>Tu rol será asignado automáticamente</li>
+            </ol>
+            <p style="text-align: center;">
+              <a href="${data.invitationUrl}" class="cta">ACEPTAR INVITACIÓN</a>
+            </p>
+            <p class="warning">Este enlace expira en 7 días. Si no esperabas esta invitación, puedes ignorar este correo.</p>
+            <p>Si tienes alguna pregunta, contacta al administrador que te invitó.</p>
             <p><strong>El equipo de CogniBoost</strong></p>
             <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>

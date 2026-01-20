@@ -1681,6 +1681,171 @@ export async function registerRoutes(
     }
   });
 
+  // ============== STAFF INVITATIONS (Magic Link) ==============
+
+  // Get all staff invitations (sanitized - no token hash exposed)
+  app.get("/api/admin/staff-invitations", requireAdmin, async (req, res) => {
+    try {
+      const invitations = await storage.getStaffInvitations();
+      // Sanitize response - remove tokenHash for security
+      const sanitized = invitations.map(({ tokenHash, ...rest }) => rest);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Error fetching staff invitations:", error);
+      res.status(500).json({ error: "Failed to fetch staff invitations" });
+    }
+  });
+
+  // Staff invitation validation schema
+  const staffInvitationSchema = z.object({
+    email: z.string().email("El email no es válido"),
+    role: z.enum(["admin", "instructor"], { errorMap: () => ({ message: "El rol debe ser 'admin' o 'instructor'" }) }),
+    firstName: z.string().min(1, "El nombre es requerido").optional(),
+    lastName: z.string().optional(),
+    department: z.string().optional(),
+  });
+
+  // Create staff invitation and send email
+  app.post("/api/admin/staff-invitations", requireAdmin, async (req, res) => {
+    try {
+      const validation = staffInvitationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+      
+      const { email, role, firstName, lastName, department } = validation.data;
+      const invitedBy = (req.user as any)?.claims?.sub;
+      
+      // Check if there's already a pending invitation for this email
+      const existingInvitation = await storage.getStaffInvitationByEmail(email);
+      if (existingInvitation) {
+        return res.status(400).json({ error: "Ya existe una invitación pendiente para este email" });
+      }
+      
+      // Generate secure token
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      
+      // Set expiration to 7 days
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      // Create invitation
+      const invitation = await storage.createStaffInvitation({
+        email: email.toLowerCase(),
+        role,
+        firstName,
+        lastName,
+        department,
+        invitedBy,
+        tokenHash,
+        expiresAt,
+      });
+      
+      // Get inviter's name
+      const inviter = await storage.getUser(invitedBy);
+      const inviterName = inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Un administrador' : 'Un administrador';
+      
+      // Build invitation URL
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : "https://cogniboost.co";
+      const invitationUrl = `${baseUrl}/accept-invitation?token=${token}`;
+      
+      // Send email
+      const { sendEmail } = await import("./resendClient");
+      await sendEmail(email, 'staff_invitation', {
+        firstName: firstName || '',
+        role,
+        invitedByName: inviterName,
+        invitationUrl,
+      });
+      
+      res.status(201).json({ 
+        ...invitation,
+        tokenHash: undefined, // Don't expose token hash in response
+      });
+    } catch (error) {
+      console.error("Error creating staff invitation:", error);
+      res.status(500).json({ error: "Failed to create staff invitation" });
+    }
+  });
+
+  // Revoke staff invitation
+  app.delete("/api/admin/staff-invitations/:id", requireAdmin, async (req, res) => {
+    try {
+      const revokedBy = (req.user as any)?.claims?.sub;
+      await storage.revokeStaffInvitation(req.params.id, revokedBy);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error revoking staff invitation:", error);
+      res.status(500).json({ error: "Failed to revoke staff invitation" });
+    }
+  });
+
+  // Resend staff invitation email
+  app.post("/api/admin/staff-invitations/:id/resend", requireAdmin, async (req, res) => {
+    try {
+      const invitedBy = (req.user as any)?.claims?.sub;
+      
+      // Get the invitation
+      const invitations = await storage.getStaffInvitations();
+      const invitation = invitations.find(inv => inv.id === req.params.id);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitación no encontrada" });
+      }
+      
+      if (invitation.usedAt) {
+        return res.status(400).json({ error: "Esta invitación ya fue utilizada" });
+      }
+      
+      if (invitation.isRevoked) {
+        return res.status(400).json({ error: "Esta invitación fue revocada" });
+      }
+      
+      // Generate new token
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      
+      // Set new expiration to 7 days
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      // Update invitation with new token
+      await storage.updateStaffInvitation(invitation.id, {
+        tokenHash,
+        expiresAt,
+      });
+      
+      // Get inviter's name
+      const inviter = await storage.getUser(invitedBy);
+      const inviterName = inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Un administrador' : 'Un administrador';
+      
+      // Build invitation URL
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : "https://cogniboost.co";
+      const invitationUrl = `${baseUrl}/accept-invitation?token=${token}`;
+      
+      // Send email
+      const { sendEmail } = await import("./resendClient");
+      await sendEmail(invitation.email, 'staff_invitation', {
+        firstName: invitation.firstName || '',
+        role: invitation.role,
+        invitedByName: inviterName,
+        invitationUrl,
+      });
+      
+      res.json({ success: true, message: "Invitación reenviada" });
+    } catch (error) {
+      console.error("Error resending staff invitation:", error);
+      res.status(500).json({ error: "Failed to resend staff invitation" });
+    }
+  });
+
   // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
 
   // Get all live sessions with their rooms (filters by user level for authenticated students)
