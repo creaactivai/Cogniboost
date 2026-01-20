@@ -35,6 +35,18 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
 - **Authentication**: Replit Auth integration
 - **Storage**: Object Storage for file uploads
 
+### Database Schema Management
+- Schema defined in `shared/schema.ts`
+- Use `npm run db:push` to sync schema changes to the database
+- Drizzle Kit configured in `drizzle.config.ts`
+- Never change primary key ID column types (serial ↔ varchar)
+
+### Route Protection
+- **ProtectedRoute**: Wraps authenticated routes with loading spinner and auth check
+- **AdminRoute**: Wraps admin routes with admin role verification
+- Uses wouter `<Redirect>` for client-side navigation (avoids full page reloads)
+- OAuth login redirects use `window.location.href` (required for OAuth flow)
+
 ### Key Features
 - **Course Module System**: Courses are organized into modules for structured learning. The `course_modules` table stores modules (id, courseId, title, description, orderIndex). Lessons have a `moduleId` field linking to their module. Modules are auto-created when creating a course based on the specified `modulesCount`. Legacy courses without modules display lessons in a flat list, with an "Unassigned Lessons" section for lessons lacking a moduleId.
 - **Custom Course Categories**: Admins can create custom course categories via input with datalist suggestions. Categories are stored in `course_categories` table (id, name, displayName). New categories are auto-created when typing a name that doesn't exist.

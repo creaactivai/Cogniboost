@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -28,37 +28,53 @@ import ChoosePlan from "@/pages/choose-plan";
 import ActivatePage from "@/pages/activate";
 import VerifyEmailPage from "@/pages/verify-email";
 import { CookieConsent } from "@/components/cookie-consent";
+import { Loader2 } from "lucide-react";
+
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background" data-testid="loading-spinner">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 // Protected route wrapper - requires auth + completed onboarding
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, requireOnboarding = true }: { children: React.ReactNode; requireOnboarding?: boolean }) {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login (uses full page redirect for OAuth)
   if (!user) {
     window.location.href = "/api/login";
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
-  // Redirect users who haven't completed onboarding
-  if (!user.onboardingCompleted) {
-    window.location.href = "/onboarding";
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+  // Redirect users who haven't completed onboarding (using wouter)
+  if (requireOnboarding && !user.onboardingCompleted) {
+    return <Redirect to="/onboarding" />;
+  }
+
+  return <>{children}</>;
+}
+
+// Admin route wrapper - requires auth + admin status
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!user) {
+    window.location.href = "/api/login";
+    return <LoadingSpinner />;
+  }
+
+  if (!user.isAdmin) {
+    return <Redirect to="/dashboard" />;
   }
 
   return <>{children}</>;
@@ -66,32 +82,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const currentPath = window.location.pathname;
+  const [location] = useLocation();
   
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (isAuthenticated && user) {
-    if (currentPath === "/" || currentPath === "") {
+    if (location === "/" || location === "") {
       // Redirect admins to admin panel
       if (user.isAdmin) {
-        window.location.href = "/admin";
-        return null;
+        return <Redirect to="/admin" />;
       }
-      // Redirect new users who haven't completed onboarding to the onboarding wizard
+      // Redirect new users who haven't completed onboarding
       if (!user.onboardingCompleted) {
-        window.location.href = "/onboarding";
-        return null;
+        return <Redirect to="/onboarding" />;
       }
-      // After onboarding, go to dashboard (which checks subscription)
-      // Dashboard will redirect free users to choose-plan
-      window.location.href = "/dashboard";
-      return null;
+      // After onboarding, go to dashboard
+      return <Redirect to="/dashboard" />;
     }
     return null;
   }
@@ -116,18 +124,44 @@ function Router() {
           <ChoosePlan />
         </ProtectedRoute>
       </Route>
-      <Route path="/dashboard/*?" component={Dashboard} />
-      <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz" component={AdminLessonQuiz} />
-      <Route path="/admin/courses/:id/lessons" component={AdminCourseLessons} />
-      <Route path="/admin/courses" component={AdminCourses} />
-      <Route path="/admin/students" component={AdminStudents} />
-      <Route path="/admin/financials" component={AdminFinancials} />
-      <Route path="/admin/labs" component={AdminLabs} />
-      <Route path="/admin/instructors" component={AdminInstructors} />
-      <Route path="/admin/onboarding" component={AdminOnboarding} />
-      <Route path="/admin/leads" component={AdminLeads} />
-      <Route path="/admin/team" component={AdminTeam} />
-      <Route path="/admin" component={AdminOverview} />
+      <Route path="/dashboard/*?">
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/courses/:courseId/lessons/:lessonId/quiz">
+        {(params) => <AdminRoute><AdminLessonQuiz /></AdminRoute>}
+      </Route>
+      <Route path="/admin/courses/:id/lessons">
+        {(params) => <AdminRoute><AdminCourseLessons /></AdminRoute>}
+      </Route>
+      <Route path="/admin/courses">
+        <AdminRoute><AdminCourses /></AdminRoute>
+      </Route>
+      <Route path="/admin/students">
+        <AdminRoute><AdminStudents /></AdminRoute>
+      </Route>
+      <Route path="/admin/financials">
+        <AdminRoute><AdminFinancials /></AdminRoute>
+      </Route>
+      <Route path="/admin/labs">
+        <AdminRoute><AdminLabs /></AdminRoute>
+      </Route>
+      <Route path="/admin/instructors">
+        <AdminRoute><AdminInstructors /></AdminRoute>
+      </Route>
+      <Route path="/admin/onboarding">
+        <AdminRoute><AdminOnboarding /></AdminRoute>
+      </Route>
+      <Route path="/admin/leads">
+        <AdminRoute><AdminLeads /></AdminRoute>
+      </Route>
+      <Route path="/admin/team">
+        <AdminRoute><AdminTeam /></AdminRoute>
+      </Route>
+      <Route path="/admin">
+        <AdminRoute><AdminOverview /></AdminRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
