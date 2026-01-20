@@ -1894,6 +1894,141 @@ Important:
     }
   });
 
+  // Admin: Add student manually (superadmin only)
+  const addManualStudentSchema = z.object({
+    email: z.string().email("Invalid email"),
+    firstName: z.string().min(1, "First name required"),
+    lastName: z.string().min(1, "Last name required"),
+    birthDate: z.string().min(1, "Birth date required"),
+    plan: z.enum(["flex", "standard", "premium"]),
+    skipOnboarding: z.boolean().default(false),
+  });
+
+  app.post("/api/admin/students/manual", requireAdmin, async (req, res) => {
+    try {
+      const validation = addManualStudentSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
+
+      const { email, firstName, lastName, birthDate, plan, skipOnboarding } = validation.data;
+
+      // Check if email already exists
+      const allUsers = await storage.getAllUsers();
+      const existingUser = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: "Ya existe un usuario con este correo electrónico" });
+      }
+
+      // Verify age (16+)
+      const birth = new Date(birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      if (age < 16) {
+        return res.status(400).json({ error: "El estudiante debe tener al menos 16 años" });
+      }
+
+      // Generate invitation token
+      const crypto = await import('crypto');
+      const invitationToken = crypto.randomBytes(32).toString('hex');
+
+      // Plan name mapping
+      const planNames: Record<string, string> = {
+        flex: "Flex - $14.99/mes",
+        standard: "Estándar - $49.99/mes",
+        premium: "Premium - $99.99/mes",
+      };
+
+      // Create user in database
+      const userId = crypto.randomUUID();
+      const newUser = await storage.createManualStudent({
+        id: userId,
+        email,
+        firstName,
+        lastName,
+        birthDate: birth,
+        addedManually: true,
+        skipOnboarding,
+        assignedPlan: plan,
+        invitationToken,
+        invitationSentAt: new Date(),
+        onboardingCompleted: skipOnboarding,
+        status: 'active',
+      });
+
+      // Try to create Stripe customer and invoice
+      try {
+        const stripe = await getUncachableStripeClient();
+        const customer = await stripe.customers.create({
+          email,
+          name: `${firstName} ${lastName}`,
+          metadata: { 
+            userId: newUser.id,
+            addedManually: 'true',
+            plan,
+          },
+        });
+
+        // Update user with Stripe customer ID
+        await storage.updateUser(newUser.id, { stripeCustomerId: customer.id });
+
+        // Create invoice for the plan
+        const priceMap: Record<string, number> = {
+          flex: 1499,
+          standard: 4999,
+          premium: 9999,
+        };
+
+        await stripe.invoiceItems.create({
+          customer: customer.id,
+          amount: priceMap[plan],
+          currency: 'usd',
+          description: `Suscripción CogniBoost - ${planNames[plan]}`,
+        });
+
+        const invoice = await stripe.invoices.create({
+          customer: customer.id,
+          collection_method: 'send_invoice',
+          days_until_due: 7,
+        });
+
+        await stripe.invoices.sendInvoice(invoice.id);
+      } catch (stripeError) {
+        console.error("Stripe error (non-blocking):", stripeError);
+        // Continue even if Stripe fails - user is created
+      }
+
+      // Send invitation email
+      try {
+        const { sendEmail } = await import("./resendClient");
+        const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+        const activationUrl = `${baseUrl}/activate?token=${invitationToken}`;
+
+        await sendEmail(email, 'student_invitation', {
+          firstName,
+          planName: planNames[plan],
+          activationUrl,
+        });
+      } catch (emailError) {
+        console.error("Email error (non-blocking):", emailError);
+        // Continue even if email fails - user is created
+      }
+
+      res.json({ 
+        success: true, 
+        user: newUser,
+        message: "Estudiante agregado exitosamente. Se ha enviado una invitación por correo."
+      });
+    } catch (error) {
+      console.error("Error adding manual student:", error);
+      res.status(500).json({ error: "Failed to add student" });
+    }
+  });
+
   // ============== ADMIN ONBOARDING & EMAIL ROUTES ==============
 
   // Admin: Get onboarding stats

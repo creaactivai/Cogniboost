@@ -45,7 +45,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation';
 
 // Send email using template
 export async function sendEmail(
@@ -839,6 +839,53 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             
             <div class="footer">
               <p>Este es un correo automático del sistema CogniBoost</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+    student_invitation: {
+      subject: '¡Has sido invitado a CogniBoost! 🎓',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'JetBrains Mono', monospace; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; }
+            h1 { color: #33CBFB; font-family: Impact, 'Arial Black', sans-serif; margin: 0; }
+            p { line-height: 1.6; color: #cccccc; }
+            .plan-badge { display: inline-block; background: #667EEA; color: #ffffff; padding: 8px 20px; border-radius: 4px; font-weight: bold; margin: 15px 0; }
+            .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+            .highlight { color: #FD335A; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+            <h1>¡Hola \${data.firstName}!</h1>
+            <p>Has sido invitado a unirte a <strong>CogniBoost</strong>, la plataforma líder para dominar el inglés.</p>
+            <p>Se te ha asignado el siguiente plan:</p>
+            <div class="plan-badge">\${data.planName}</div>
+            <p>Para completar tu registro y comenzar a aprender, haz clic en el siguiente botón:</p>
+            <a href="\${data.activationUrl}" class="cta">ACTIVAR MI CUENTA</a>
+            <p>Una vez que actives tu cuenta, tendrás acceso a:</p>
+            <ul style="color: #cccccc;">
+              <li>Cursos diseñados para hispanohablantes</li>
+              <li>Laboratorios de Conversación en Vivo</li>
+              <li>Seguimiento de tu progreso</li>
+              <li>Certificados de completación</li>
+            </ul>
+            <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+            <p><strong>El equipo de CogniBoost</strong></p>
+            <div class="footer">
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
             </div>
           </div>

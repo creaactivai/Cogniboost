@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle } from "lucide-react";
+import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle, UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { UserStats, Enrollment } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface User {
   id: string;
@@ -27,6 +30,7 @@ interface User {
   lastName: string | null;
   profileImageUrl: string | null;
   isAdmin: boolean;
+  addedManually: boolean;
   status: 'active' | 'hold' | 'inactive';
   isLocked: boolean;
   lockedAt: string | null;
@@ -67,6 +71,15 @@ export default function AdminStudents() {
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const [lockReason, setLockReason] = useState("");
+  const [addStudentDialogOpen, setAddStudentDialogOpen] = useState(false);
+  const [newStudentForm, setNewStudentForm] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    birthDate: "",
+    plan: "flex" as "flex" | "standard" | "premium",
+    skipOnboarding: false,
+  });
   const { toast } = useToast();
 
   const { data: metrics, isLoading: metricsLoading } = useQuery<StudentMetrics>({
@@ -123,6 +136,59 @@ export default function AdminStudents() {
       toast({ title: "Error", description: "No se pudo desbloquear al estudiante.", variant: "destructive" });
     }
   });
+
+  const addStudentMutation = useMutation({
+    mutationFn: async (data: typeof newStudentForm) => {
+      return apiRequest('POST', '/api/admin/students/manual', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students/metrics"] });
+      toast({ title: "Estudiante agregado", description: "Se ha enviado una invitación al correo del estudiante." });
+      setAddStudentDialogOpen(false);
+      setNewStudentForm({
+        email: "",
+        firstName: "",
+        lastName: "",
+        birthDate: "",
+        plan: "flex",
+        skipOnboarding: false,
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "No se pudo agregar al estudiante.", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const calculateAge = (birthDate: string) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const handleAddStudent = () => {
+    if (!newStudentForm.email || !newStudentForm.firstName || !newStudentForm.lastName || !newStudentForm.birthDate) {
+      toast({ title: "Error", description: "Por favor completa todos los campos.", variant: "destructive" });
+      return;
+    }
+
+    const age = calculateAge(newStudentForm.birthDate);
+    if (age < 16) {
+      toast({ title: "Error", description: "El estudiante debe tener al menos 16 años.", variant: "destructive" });
+      return;
+    }
+
+    addStudentMutation.mutate(newStudentForm);
+  };
 
   const levelColors: Record<string, string> = {
     A1: "#10B981",
@@ -293,6 +359,14 @@ export default function AdminStudents() {
               data-testid="input-search-students"
             />
           </div>
+          <Button
+            onClick={() => setAddStudentDialogOpen(true)}
+            className="gap-2"
+            data-testid="button-add-student"
+          >
+            <UserPlus className="w-4 h-4" />
+            Agregar Estudiante
+          </Button>
         </div>
 
         <Card className="p-4">
@@ -349,6 +423,9 @@ export default function AdminStudents() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {student.email || 'Sin correo'} · Desde {student.createdAt ? new Date(student.createdAt).toLocaleDateString('es-ES') : 'N/A'}
+                          {student.addedManually && (
+                            <strong className="ml-2 text-primary">Agregado manualmente</strong>
+                          )}
                         </p>
                         {student.lockedReason && (
                           <p className="text-xs text-destructive mt-1">
@@ -458,6 +535,117 @@ export default function AdminStudents() {
               data-testid="button-confirm-lock"
             >
               {lockMutation.isPending ? "Bloqueando..." : "Bloquear Estudiante"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addStudentDialogOpen} onOpenChange={setAddStudentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+              Agregar Estudiante Manualmente
+            </DialogTitle>
+            <DialogDescription>
+              Ingresa los datos del estudiante. Se enviará una invitación al correo electrónico indicado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newStudentForm.email}
+                onChange={(e) => setNewStudentForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="estudiante@ejemplo.com"
+                data-testid="input-new-student-email"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  value={newStudentForm.firstName}
+                  onChange={(e) => setNewStudentForm(prev => ({ ...prev, firstName: e.target.value }))}
+                  placeholder="Nombre"
+                  data-testid="input-new-student-firstname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  value={newStudentForm.lastName}
+                  onChange={(e) => setNewStudentForm(prev => ({ ...prev, lastName: e.target.value }))}
+                  placeholder="Apellido"
+                  data-testid="input-new-student-lastname"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={newStudentForm.birthDate}
+                onChange={(e) => setNewStudentForm(prev => ({ ...prev, birthDate: e.target.value }))}
+                data-testid="input-new-student-birthdate"
+              />
+              <p className="text-xs text-muted-foreground">El estudiante debe tener al menos 16 años</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan">Plan de Suscripción</Label>
+              <Select
+                value={newStudentForm.plan}
+                onValueChange={(value) => setNewStudentForm(prev => ({ ...prev, plan: value as any }))}
+              >
+                <SelectTrigger data-testid="select-new-student-plan">
+                  <SelectValue placeholder="Seleccionar plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flex">Flex - $14.99/mes</SelectItem>
+                  <SelectItem value="standard">Estándar - $49.99/mes</SelectItem>
+                  <SelectItem value="premium">Premium - $99.99/mes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="skipOnboarding"
+                checked={newStudentForm.skipOnboarding}
+                onCheckedChange={(checked) => setNewStudentForm(prev => ({ ...prev, skipOnboarding: !!checked }))}
+                data-testid="checkbox-skip-onboarding"
+              />
+              <Label htmlFor="skipOnboarding" className="text-sm cursor-pointer">
+                Saltar onboarding (acceso directo al dashboard)
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAddStudentDialogOpen(false);
+                setNewStudentForm({
+                  email: "",
+                  firstName: "",
+                  lastName: "",
+                  birthDate: "",
+                  plan: "flex",
+                  skipOnboarding: false,
+                });
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAddStudent}
+              disabled={addStudentMutation.isPending}
+              data-testid="button-confirm-add-student"
+            >
+              {addStudentMutation.isPending ? "Agregando..." : "Agregar Estudiante"}
             </Button>
           </DialogFooter>
         </DialogContent>

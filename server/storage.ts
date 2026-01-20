@@ -199,6 +199,20 @@ export interface IStorage {
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
   unlockUser(userId: string): Promise<User | undefined>;
+  createManualStudent(data: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    birthDate: Date;
+    addedManually: boolean;
+    skipOnboarding: boolean;
+    assignedPlan: string;
+    invitationToken: string;
+    invitationSentAt: Date;
+    onboardingCompleted: boolean;
+    status: 'active' | 'hold' | 'inactive';
+  }): Promise<User>;
   getStudentMetrics(): Promise<{
     totalStudents: number;
     activeStudents: number;
@@ -895,6 +909,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async createManualStudent(data: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    birthDate: Date;
+    addedManually: boolean;
+    skipOnboarding: boolean;
+    assignedPlan: string;
+    invitationToken: string;
+    invitationSentAt: Date;
+    onboardingCompleted: boolean;
+    status: 'active' | 'hold' | 'inactive';
+  }): Promise<User> {
+    const [newUser] = await db.insert(users)
+      .values({
+        id: data.id,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        birthDate: data.birthDate,
+        addedManually: data.addedManually,
+        skipOnboarding: data.skipOnboarding,
+        assignedPlan: data.assignedPlan,
+        invitationToken: data.invitationToken,
+        invitationSentAt: data.invitationSentAt,
+        onboardingCompleted: data.onboardingCompleted,
+        status: data.status,
+        isAdmin: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return newUser;
   }
 
   async getStudentMetrics(): Promise<{
