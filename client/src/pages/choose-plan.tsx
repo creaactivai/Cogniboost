@@ -16,49 +16,53 @@ const plans = [
     id: "flex",
     name: "Flex",
     price: 14.99,
-    priceId: "price_flex", // Will be replaced with actual Stripe price ID
-    description: "Para quienes empiezan su camino",
+    priceId: "price_flex",
+    description: "Para aprendizaje a tu ritmo",
     icon: Zap,
     features: [
-      "Acceso a cursos básicos",
-      "1 lab de conversación al mes",
-      "Soporte por email",
-      "Progreso guardado",
+      "Biblioteca completa de cursos",
+      "Todos los módulos y lecciones",
+      "Seguimiento avanzado",
+      "Certificado descargable",
+      "Sin acceso a Conversation Labs",
     ],
     popular: false,
+    highlight: null,
   },
   {
-    id: "standard",
-    name: "Estándar",
+    id: "basic",
+    name: "Básico",
     price: 49.99,
-    priceId: "price_standard", // Will be replaced with actual Stripe price ID
+    priceId: "price_basic",
     description: "La opción más popular",
     icon: Star,
     features: [
-      "Acceso a todos los cursos",
-      "4 labs de conversación al mes",
-      "Soporte prioritario",
-      "Materiales descargables",
-      "Certificados de completación",
+      "Biblioteca completa de cursos",
+      "2 Conversation Labs por semana",
+      "Clases en vivo por nivel (A1-C2)",
+      "Seguimiento avanzado",
+      "Certificado descargable",
     ],
     popular: true,
+    highlight: null,
   },
   {
     id: "premium",
     name: "Premium",
     price: 99.99,
-    priceId: "price_premium", // Will be replaced with actual Stripe price ID
+    priceId: "price_premium",
     description: "Para resultados acelerados",
     icon: Crown,
     features: [
-      "Todo lo de Estándar",
-      "Labs ilimitados",
-      "Sesiones 1:1 con instructor",
-      "Plan de estudio personalizado",
-      "Acceso anticipado a nuevo contenido",
-      "Comunidad VIP exclusiva",
+      "Biblioteca completa de cursos",
+      "Conversation Labs ILIMITADOS",
+      "Clases en vivo por nivel (A1-C2)",
+      "Prioridad de agenda en labs",
+      "Soporte prioritario",
+      "Certificados para LinkedIn",
     ],
     popular: false,
+    highlight: "Conversation Labs ILIMITADOS",
   },
 ];
 
@@ -242,8 +246,10 @@ export default function ChoosePlan() {
                 <ul className="space-y-3">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                      <span className="font-mono text-sm">{feature}</span>
+                      <Check className={`w-5 h-5 flex-shrink-0 mt-0.5 ${plan.highlight === feature ? "text-amber-500" : "text-success"}`} />
+                      <span className={`font-mono text-sm ${plan.highlight === feature ? "font-semibold text-amber-500" : ""}`}>
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>

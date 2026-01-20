@@ -16,6 +16,7 @@ import {
 const plans = [
   {
     name: "Gratis",
+    tier: "free",
     price: "$0",
     period: "para siempre",
     description: "Perfecto para explorar",
@@ -23,12 +24,12 @@ const plans = [
     iconColor: "text-[hsl(174_58%_56%)]",
     iconBg: "bg-[hsl(174_58%_56%/0.15)]",
     features: [
-      { text: "3 primeras lecciones", included: true },
+      { text: "3 primeras lecciones del Módulo 1", included: true },
       { text: "1 Examen de nivel", included: true },
       { text: "1 Sesión de clase en vivo de prueba", included: true },
-      { text: "1 Examen gratis y evaluación", included: true },
+      { text: "Seguimiento básico de progreso", included: true },
       { text: "Biblioteca completa de cursos", included: false },
-      { text: "Clases grupales mensuales", included: false },
+      { text: "Conversation Labs", included: false },
       { text: "Certificados", included: false },
     ],
     cta: "Comenzar Gratis",
@@ -37,28 +38,30 @@ const plans = [
   },
   {
     name: "Flex",
+    tier: "flex",
     price: "$14.99",
     period: "/mes",
-    description: "Para los cortos de tiempo",
+    description: "Para aprendizaje a tu ritmo",
     icon: Zap,
     iconColor: "text-orange-500",
     iconBg: "bg-orange-500/15",
     trial: "Prueba 7 días gratis",
     features: [
-      { text: "Biblioteca completa (100+ lecciones)", included: true },
-      { text: "1 clase grupal al mes", included: true },
+      { text: "Biblioteca completa de cursos", included: true },
+      { text: "Todos los módulos y lecciones", included: true },
       { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificado descargable", included: true },
       { text: "Soporte por email", included: true },
-      { text: "Mentoría 1 a 1", included: false },
-      { text: "Acceso anticipado a nuevos cursos", included: false },
+      { text: "Conversation Labs", included: false },
+      { text: "Clases en vivo grupales", included: false },
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
     stripePriceId: import.meta.env.VITE_STRIPE_PRICE_FLEX || null,
   },
   {
-    name: "Estándar",
+    name: "Básico",
+    tier: "basic",
     price: "$49.99",
     period: "/mes",
     description: "La opción más popular",
@@ -68,13 +71,13 @@ const plans = [
     popular: true,
     trial: "Prueba 7 días gratis",
     features: [
-      { text: "Biblioteca completa (100+ lecciones)", included: true },
-      { text: "8 clases en vivo al mes", included: true },
+      { text: "Biblioteca completa de cursos", included: true },
+      { text: "2 Conversation Labs por semana", included: true },
+      { text: "Clases en vivo por nivel (A1-C2)", included: true },
       { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificado descargable", included: true },
       { text: "Soporte por email", included: true },
-      { text: "Mentoría 1 a 1", included: false },
-      { text: "Acceso anticipado", included: false },
+      { text: "Labs ilimitados", included: false },
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
@@ -82,6 +85,7 @@ const plans = [
   },
   {
     name: "Premium",
+    tier: "premium",
     price: "$99.99",
     period: "/mes",
     description: "Para estudiantes comprometidos",
@@ -91,15 +95,14 @@ const plans = [
     accent: true,
     trial: "Prueba 7 días gratis",
     features: [
-      { text: "Todo el plan Estándar", included: true },
-      { text: "4 clases en vivo a la semana", included: true },
-      { text: "1 sesión de mentoría 1 a 1 al mes", included: true },
+      { text: "Biblioteca completa de cursos", included: true },
+      { text: "Conversation Labs ILIMITADOS", included: true, highlight: true },
+      { text: "Clases en vivo por nivel (A1-C2)", included: true },
+      { text: "Prioridad de agenda en labs", included: true },
       { text: "Soporte prioritario", included: true },
-      { text: "Ruta de desarrollo y analíticas", included: true },
-      { text: "Grabaciones de mentoría 1-1", included: true },
+      { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificados para LinkedIn", included: true },
       { text: "Acceso anticipado a nuevos cursos", included: true },
-      { text: "Prioridad de agenda en clases en vivo", included: true },
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
@@ -166,7 +169,7 @@ function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0];
             ) : (
               <X className="w-4 h-4 flex-shrink-0 opacity-30 mt-0.5" />
             )}
-            <span className={`text-sm leading-tight ${!feature.included && "opacity-40"}`}>
+            <span className={`text-sm leading-tight ${!feature.included ? "opacity-40" : ""} ${'highlight' in feature && feature.highlight ? "font-semibold text-amber-400" : ""}`}>
               {feature.text}
             </span>
           </li>

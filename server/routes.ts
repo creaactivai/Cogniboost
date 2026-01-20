@@ -269,8 +269,9 @@ export async function registerRoutes(
   app.get("/api/courses/:courseId/lessons", async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub;
-      const lessons = await storage.getLessonsByCourseId(req.params.courseId);
-      const FREE_LESSON_LIMIT = 3;
+      const { courseId } = req.params;
+      const lessons = await storage.getLessonsByCourseId(courseId);
+      const FREE_LESSON_LIMIT = 3; // First 3 lessons of Module 1 are free
       
       // Check user's subscription tier - default to free for unauthenticated users
       let subscriptionTier = 'free';
@@ -284,12 +285,31 @@ export async function registerRoutes(
       
       // If user has paid subscription, return full content
       if (subscriptionTier !== 'free') {
-        return res.json(sortedLessons);
+        return res.json(sortedLessons.map(l => ({ ...l, isLockedBySubscription: false })));
       }
       
+      // Get modules for this course to identify Module 1
+      const modules = await storage.getModulesByCourseId(courseId);
+      const module1 = modules.find(m => m.orderIndex === 1);
+      const module1Id = module1?.id;
+      
+      // Get lessons in Module 1 for counting position
+      const module1Lessons = sortedLessons.filter(l => l.moduleId === module1Id);
+      
       // For free/unauthenticated users, redact premium lesson content
-      const gatedLessons = sortedLessons.map((lesson, index) => {
-        if (index >= FREE_LESSON_LIMIT) {
+      const gatedLessons = sortedLessons.map((lesson) => {
+        // Check if locked by subscription for free users:
+        // - Only first 3 lessons of Module 1 are accessible
+        // - Lessons not in Module 1 are always locked
+        let isLocked = false;
+        if (lesson.moduleId !== module1Id) {
+          isLocked = true;
+        } else {
+          const positionInModule1 = module1Lessons.findIndex(l => l.id === lesson.id);
+          isLocked = positionInModule1 >= FREE_LESSON_LIMIT;
+        }
+        
+        if (isLocked) {
           // Redact premium content
           return {
             ...lesson,
@@ -717,18 +737,36 @@ export async function registerRoutes(
       return { accessible: true };
     }
     
-    // For free users, check lesson order index
-    // Get all lessons in the course to determine this lesson's position
-    const courseLessons = await storage.getLessonsByCourseId(lesson.courseId);
-    const sortedLessons = courseLessons.sort((a, b) => a.orderIndex - b.orderIndex);
-    const lessonIndex = sortedLessons.findIndex(l => l.id === lessonId);
+    // For free users, only first 3 lessons of Module 1 are accessible
+    // Get modules for this course to identify Module 1
+    const modules = await storage.getModulesByCourseId(lesson.courseId);
+    const module1 = modules.find(m => m.orderIndex === 1);
+    const module1Id = module1?.id;
     
-    // First 3 lessons are free
-    if (lessonIndex < FREE_LESSON_LIMIT) {
+    // If no Module 1 exists (legacy course or data issue), deny access by default for free users
+    // This is a secure default - in case of missing data, require upgrade
+    if (!module1Id) {
+      return { accessible: false, reason: "Actualiza tu plan para acceder a este contenido premium" };
+    }
+    
+    // If lesson is not in Module 1, deny access
+    if (lesson.moduleId !== module1Id) {
+      return { accessible: false, reason: "Actualiza tu plan para acceder a este contenido premium" };
+    }
+    
+    // For lessons in Module 1, check position within the module
+    const courseLessons = await storage.getLessonsByCourseId(lesson.courseId);
+    const module1Lessons = courseLessons
+      .filter(l => l.moduleId === module1Id)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    const positionInModule1 = module1Lessons.findIndex(l => l.id === lessonId);
+    
+    // First 3 lessons of Module 1 are free
+    if (positionInModule1 >= 0 && positionInModule1 < FREE_LESSON_LIMIT) {
       return { accessible: true };
     }
     
-    return { accessible: false, reason: "Upgrade to a paid plan to access this lesson" };
+    return { accessible: false, reason: "Actualiza tu plan para acceder a este contenido premium" };
   }
 
   // Mark a lesson as completed
@@ -1554,31 +1592,75 @@ export async function registerRoutes(
 
   // ============== LIVE SESSIONS API ROUTES (New Breakout Rooms Model) ==============
 
-  // Get all live sessions with their rooms (public - for student calendar)
+  // Get all live sessions with their rooms (filters by user level for authenticated students)
   app.get("/api/live-sessions", async (req, res) => {
     try {
+      const userId = (req.user as any)?.claims?.sub;
+      let userLevel: string | null = null;
+      let isAdmin = false;
+      
+      // For authenticated users, filter rooms by their English level
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          isAdmin = user.isAdmin || false;
+          userLevel = user.placementLevel || user.englishLevel || 'A1';
+        }
+      }
+      
       const sessions = await storage.getLiveSessions();
       const sessionsWithRooms = await Promise.all(
         sessions.map(async (session) => {
-          const rooms = await storage.getSessionRooms(session.id);
+          let rooms = await storage.getSessionRooms(session.id);
+          
+          // For non-admin authenticated users, filter rooms by their level
+          if (userId && !isAdmin && userLevel) {
+            rooms = rooms.filter(room => room.level === userLevel);
+          }
+          
           return { ...session, rooms };
         })
       );
-      res.json(sessionsWithRooms);
+      
+      // Filter out sessions with no matching rooms for authenticated non-admin users
+      const filteredSessions = userId && !isAdmin 
+        ? sessionsWithRooms.filter(session => session.rooms.length > 0)
+        : sessionsWithRooms;
+      
+      res.json(filteredSessions);
     } catch (error) {
       console.error("Error fetching live sessions:", error);
       res.status(500).json({ error: "Failed to fetch live sessions" });
     }
   });
 
-  // Get live session by ID with rooms
+  // Get live session by ID with rooms (filters by user level for authenticated students)
   app.get("/api/live-sessions/:id", async (req, res) => {
     try {
+      const userId = (req.user as any)?.claims?.sub;
+      let userLevel: string | null = null;
+      let isAdmin = false;
+      
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          isAdmin = user.isAdmin || false;
+          userLevel = user.placementLevel || user.englishLevel || 'A1';
+        }
+      }
+      
       const session = await storage.getLiveSessionById(req.params.id);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      const rooms = await storage.getSessionRooms(req.params.id);
+      
+      let rooms = await storage.getSessionRooms(req.params.id);
+      
+      // For non-admin authenticated users, filter rooms by their level
+      if (userId && !isAdmin && userLevel) {
+        rooms = rooms.filter(room => room.level === userLevel);
+      }
+      
       res.json({ ...session, rooms });
     } catch (error) {
       console.error("Error fetching live session:", error);
@@ -1586,10 +1668,28 @@ export async function registerRoutes(
     }
   });
 
-  // Get rooms for a session
+  // Get rooms for a session (filters by user level for authenticated students)
   app.get("/api/live-sessions/:id/rooms", async (req, res) => {
     try {
-      const rooms = await storage.getSessionRooms(req.params.id);
+      const userId = (req.user as any)?.claims?.sub;
+      let userLevel: string | null = null;
+      let isAdmin = false;
+      
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          isAdmin = user.isAdmin || false;
+          userLevel = user.placementLevel || user.englishLevel || 'A1';
+        }
+      }
+      
+      let rooms = await storage.getSessionRooms(req.params.id);
+      
+      // For non-admin authenticated users, filter rooms by their level
+      if (userId && !isAdmin && userLevel) {
+        rooms = rooms.filter(room => room.level === userLevel);
+      }
+      
       res.json(rooms);
     } catch (error) {
       console.error("Error fetching session rooms:", error);
@@ -1669,10 +1769,61 @@ export async function registerRoutes(
       if (!roomId) {
         return res.status(400).json({ error: "Room ID is required" });
       }
+      
+      // Get user to check subscription tier and level
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      const subscriptionTier = user.subscriptionTier || 'free';
+      
+      // Server-side tier access check: Free and Flex users cannot book labs
+      if (subscriptionTier === 'free' || subscriptionTier === 'flex') {
+        return res.status(403).json({ 
+          error: "Upgrade required", 
+          message: "Tu plan actual no incluye acceso a Conversation Labs. Actualiza a Básico o Premium.",
+          code: "TIER_ACCESS_DENIED"
+        });
+      }
+      
+      // Server-side weekly limit check for Basic tier (2 labs per week)
+      if (subscriptionTier === 'basic') {
+        const WEEKLY_LIMIT = 2;
+        const startOfWeek = new Date();
+        const dayOfWeek = startOfWeek.getDay();
+        const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const weeklyBookings = await storage.getRoomBookingsByUserIdSince(userId, startOfWeek);
+        if (weeklyBookings.length >= WEEKLY_LIMIT) {
+          return res.status(403).json({ 
+            error: "Weekly limit reached", 
+            message: `Has alcanzado el límite de ${WEEKLY_LIMIT} labs por semana. Actualiza a Premium para labs ilimitados.`,
+            code: "WEEKLY_LIMIT_EXCEEDED"
+          });
+        }
+      }
+      
+      // Server-side level check: User can only book rooms matching their level
+      const room = await storage.getSessionRoomById(roomId);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+      
+      const userLevel = user.placementLevel || user.englishLevel || 'A1';
+      if (room.level !== userLevel) {
+        return res.status(403).json({ 
+          error: "Level mismatch", 
+          message: `Solo puedes reservar labs de tu nivel (${userLevel}). Esta sala es nivel ${room.level}.`,
+          code: "LEVEL_MISMATCH"
+        });
+      }
+      
       const booking = await storage.createRoomBooking({ userId, roomId });
 
-      // Get room and session details for email
-      const room = await storage.getSessionRoomById(roomId);
+      // Get session details for email (room already fetched above)
       if (room) {
         const session = await storage.getLiveSessionById(room.sessionId);
         const user = await storage.getUser(userId);

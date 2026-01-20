@@ -65,7 +65,7 @@ import {
   type InsertAdminInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, count, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, sql, count, and, isNull, isNotNull, gte } from "drizzle-orm";
 
 export interface IStorage {
   // Course Categories
@@ -266,6 +266,7 @@ export interface IStorage {
   
   // Room Bookings
   getRoomBookingsByUserId(userId: string): Promise<RoomBooking[]>;
+  getRoomBookingsByUserIdSince(userId: string, since: Date): Promise<RoomBooking[]>;
   getRoomBookingsByRoomId(roomId: string): Promise<RoomBooking[]>;
   createRoomBooking(booking: InsertRoomBooking): Promise<RoomBooking>;
   
@@ -651,13 +652,23 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     const subscriptionTier = user?.subscriptionTier || 'free';
     const isFreeUser = subscriptionTier === 'free';
-    const FREE_LESSON_LIMIT = 3; // First 3 lessons are free
+    const FREE_LESSON_LIMIT = 3; // First 3 lessons of Module 1 are free
     
     // Get all lessons for the course ordered by orderIndex
     const courseLessons = await db.select()
       .from(lessons)
       .where(eq(lessons.courseId, courseId))
       .orderBy(lessons.orderIndex);
+    
+    // Get all modules for the course to identify Module 1
+    const courseModulesData = await db.select()
+      .from(courseModules)
+      .where(eq(courseModules.courseId, courseId))
+      .orderBy(courseModules.orderIndex);
+    
+    // Find Module 1 (first module with orderIndex 1)
+    const module1 = courseModulesData.find(m => m.orderIndex === 1);
+    const module1Id = module1?.id;
     
     // Get user's progress for all lessons in this course
     const userProgress = await db.select()
@@ -675,6 +686,9 @@ export class DatabaseStorage implements IStorage {
     // Create a map of lessonId -> has quiz
     const quizMap = new Map(lessonQuizzes.map(q => [q.lessonId, true]));
     
+    // Group lessons by module to count within each module
+    const module1Lessons = courseLessons.filter(l => l.moduleId === module1Id);
+    
     // Calculate unlock status for each lesson
     const lessonsWithStatus = courseLessons.map((lesson, index) => {
       const progress = progressMap.get(lesson.id);
@@ -682,8 +696,26 @@ export class DatabaseStorage implements IStorage {
       const isCompleted = progress?.isCompleted ?? false;
       const quizPassed = progress?.quizPassed ?? false;
       
-      // Check if locked by subscription (free users only get first 3 lessons)
-      const isLockedBySubscription = isFreeUser && index >= FREE_LESSON_LIMIT;
+      // Check if locked by subscription for free users:
+      // - Only first 3 lessons of Module 1 are accessible
+      // - Lessons not in Module 1 are always locked
+      // - Lessons beyond position 3 in Module 1 are locked
+      // - If no Module 1 exists (missing data), lock all lessons for free users (secure default)
+      let isLockedBySubscription = false;
+      if (isFreeUser) {
+        if (!module1Id) {
+          // No Module 1 found - lock all lessons for free users (secure default)
+          isLockedBySubscription = true;
+        } else if (lesson.moduleId !== module1Id) {
+          // Not in Module 1 - locked for free users
+          isLockedBySubscription = true;
+        } else {
+          // In Module 1 - check position within module
+          const positionInModule1 = module1Lessons.findIndex(l => l.id === lesson.id);
+          // If not found or beyond limit, lock it
+          isLockedBySubscription = positionInModule1 < 0 || positionInModule1 >= FREE_LESSON_LIMIT;
+        }
+      }
       
       // Determine if lesson is unlocked (sequential progression):
       // 1. First lesson is always unlocked
@@ -1202,6 +1234,16 @@ export class DatabaseStorage implements IStorage {
   // Room Bookings
   async getRoomBookingsByUserId(userId: string): Promise<RoomBooking[]> {
     return db.select().from(roomBookings).where(eq(roomBookings.userId, userId));
+  }
+
+  async getRoomBookingsByUserIdSince(userId: string, since: Date): Promise<RoomBooking[]> {
+    return db.select().from(roomBookings).where(
+      and(
+        eq(roomBookings.userId, userId),
+        gte(roomBookings.bookedAt, since),
+        isNull(roomBookings.cancelledAt)
+      )
+    );
   }
 
   async getRoomBookingsByRoomId(roomId: string): Promise<RoomBooking[]> {
