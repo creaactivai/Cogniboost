@@ -625,7 +625,14 @@ export async function registerRoutes(
   // Admin: Create course
   app.post("/api/admin/courses", requireAdmin, async (req, res) => {
     try {
-      const course = await storage.createCourse(req.body);
+      const { modulesCount = 1, ...courseData } = req.body;
+      const course = await storage.createCourse({ ...courseData, modulesCount });
+      
+      // Auto-create modules for the course
+      if (modulesCount > 0) {
+        await storage.createModulesForCourse(course.id, modulesCount);
+      }
+      
       res.status(201).json(course);
     } catch (error) {
       console.error("Error creating course:", error);
@@ -680,6 +687,57 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching course lessons:", error);
       res.status(500).json({ error: "Failed to fetch lessons" });
+    }
+  });
+
+  // Admin: Get modules for a specific course
+  app.get("/api/admin/courses/:id/modules", requireAdmin, async (req, res) => {
+    try {
+      const modules = await storage.getModulesByCourseId(req.params.id);
+      res.json(modules);
+    } catch (error) {
+      console.error("Error fetching course modules:", error);
+      res.status(500).json({ error: "Failed to fetch modules" });
+    }
+  });
+
+  // Admin: Create modules for a course
+  app.post("/api/admin/courses/:id/modules", requireAdmin, async (req, res) => {
+    try {
+      const { count } = req.body;
+      if (!count || count < 1) {
+        return res.status(400).json({ error: "Count must be at least 1" });
+      }
+      const modules = await storage.createModulesForCourse(req.params.id, count);
+      res.status(201).json(modules);
+    } catch (error) {
+      console.error("Error creating course modules:", error);
+      res.status(500).json({ error: "Failed to create modules" });
+    }
+  });
+
+  // Admin: Update a module
+  app.patch("/api/admin/modules/:id", requireAdmin, async (req, res) => {
+    try {
+      const module = await storage.updateModule(req.params.id, req.body);
+      if (!module) {
+        return res.status(404).json({ error: "Module not found" });
+      }
+      res.json(module);
+    } catch (error) {
+      console.error("Error updating module:", error);
+      res.status(500).json({ error: "Failed to update module" });
+    }
+  });
+
+  // Admin: Delete a module
+  app.delete("/api/admin/modules/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteModule(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      res.status(500).json({ error: "Failed to delete module" });
     }
   });
 

@@ -28,6 +28,7 @@ export default function AdminCourses() {
     level: "A1",
     topic: "",
     duration: "",
+    modulesCount: 1,
     lessonsCount: 0,
     thumbnailUrl: "",
     isPublished: false,
@@ -102,6 +103,7 @@ export default function AdminCourses() {
       level: "A1",
       topic: "",
       duration: "",
+      modulesCount: 1,
       lessonsCount: 0,
       thumbnailUrl: "",
       isPublished: false,
@@ -120,6 +122,7 @@ export default function AdminCourses() {
       level: course.level,
       topic: categoryDisplayName,
       duration: course.duration || "",
+      modulesCount: (course as any).modulesCount || 1,
       lessonsCount: course.lessonsCount,
       thumbnailUrl: course.thumbnailUrl || "",
       isPublished: course.isPublished,
@@ -263,13 +266,20 @@ export default function AdminCourses() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Número de Lecciones</Label>
+                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Número de Módulos</Label>
                     <Input
                       type="number"
-                      value={formData.lessonsCount}
-                      onChange={(e) => setFormData({ ...formData, lessonsCount: parseInt(e.target.value) || 0 })}
-                      data-testid="input-course-lessons"
+                      min="1"
+                      value={formData.modulesCount}
+                      onChange={(e) => setFormData({ ...formData, modulesCount: Math.max(1, parseInt(e.target.value) || 1) })}
+                      data-testid="input-course-modules"
+                      disabled={!!editingCourse}
                     />
+                    {!editingCourse && (
+                      <p className="text-xs text-muted-foreground">
+                        Los módulos se crearán automáticamente al guardar
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>URL de Imagen</Label>
@@ -348,7 +358,7 @@ export default function AdminCourses() {
                         {course.title}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {course.level} · {categories.find(c => c.name === course.topic)?.displayName || course.topic} · {course.lessonsCount} lecciones
+                        {course.level} · {categories.find(c => c.name === course.topic)?.displayName || course.topic} · {(course as any).modulesCount || 1} módulos · {course.lessonsCount} lecciones
                       </p>
                     </div>
                   </div>

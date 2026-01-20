@@ -8,11 +8,103 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList } from "lucide-react";
-import type { Course, Lesson } from "@shared/schema";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers } from "lucide-react";
+import type { Course, Lesson, CourseModule } from "@shared/schema";
+
+interface LessonCardProps {
+  lesson: Lesson;
+  courseId: string;
+  onEdit: (lesson: Lesson) => void;
+  onDelete: (id: string) => void;
+  onTogglePublish: (id: string, isPublished: boolean) => void;
+}
+
+function LessonCard({ lesson, courseId, onEdit, onDelete, onTogglePublish }: LessonCardProps) {
+  return (
+    <Card className="p-4" data-testid={`card-lesson-${lesson.id}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <GripVertical className="w-4 h-4" />
+            <span className="text-sm font-mono w-6 text-center">{lesson.orderIndex + 1}</span>
+          </div>
+          <div 
+            className="w-10 h-10 flex items-center justify-center"
+            style={{ backgroundColor: lesson.vimeoId ? '#33CBFB' : '#e5e5e5' }}
+          >
+            <Video className="w-5 h-5" style={{ color: lesson.vimeoId ? 'black' : '#666' }} />
+          </div>
+          <div>
+            <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              {lesson.title}
+            </h3>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {lesson.duration > 0 && <span>{lesson.duration} min</span>}
+              {lesson.pdfMaterials && lesson.pdfMaterials.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  {lesson.pdfMaterials.length} PDF
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge 
+            variant={lesson.isPublished ? "default" : "secondary"}
+            style={{ backgroundColor: lesson.isPublished ? '#33CBFB' : undefined }}
+          >
+            {lesson.isPublished ? "Publicado" : "Borrador"}
+          </Badge>
+          {lesson.isPreview && (
+            <Badge variant="outline">Vista Previa</Badge>
+          )}
+          {lesson.isOpen && (
+            <Badge variant="outline" className="border-primary text-primary">Abierta</Badge>
+          )}
+          <Link href={`/admin/courses/${courseId}/lessons/${lesson.id}/quiz`}>
+            <Button
+              size="icon"
+              variant="ghost"
+              data-testid={`button-quiz-lesson-${lesson.id}`}
+              title="Gestionar Quiz"
+            >
+              <ClipboardList className="w-4 h-4" />
+            </Button>
+          </Link>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onTogglePublish(lesson.id, !lesson.isPublished)}
+            data-testid={`button-toggle-publish-lesson-${lesson.id}`}
+          >
+            {lesson.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onEdit(lesson)}
+            data-testid={`button-edit-lesson-${lesson.id}`}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onDelete(lesson.id)}
+            data-testid={`button-delete-lesson-${lesson.id}`}
+          >
+            <Trash2 className="w-4 h-4 text-destructive" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export default function AdminCourseLessons() {
   const { id: courseId } = useParams<{ id: string }>();
@@ -24,6 +116,7 @@ export default function AdminCourseLessons() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    moduleId: "" as string | null,
     vimeoId: "",
     duration: 0,
     orderIndex: 0,
@@ -40,6 +133,11 @@ export default function AdminCourseLessons() {
 
   const { data: lessons, isLoading: lessonsLoading } = useQuery<Lesson[]>({
     queryKey: [`/api/admin/courses/${courseId}/lessons`],
+    enabled: !!courseId,
+  });
+
+  const { data: modules = [] } = useQuery<CourseModule[]>({
+    queryKey: [`/api/admin/courses/${courseId}/modules`],
     enabled: !!courseId,
   });
 
@@ -97,6 +195,7 @@ export default function AdminCourseLessons() {
     setFormData({
       title: "",
       description: "",
+      moduleId: modules.length > 0 ? modules[0].id : null,
       vimeoId: "",
       duration: 0,
       orderIndex: lessons?.length || 0,
@@ -113,6 +212,7 @@ export default function AdminCourseLessons() {
     setFormData({
       title: lesson.title,
       description: lesson.description || "",
+      moduleId: (lesson as any).moduleId || null,
       vimeoId: lesson.vimeoId || "",
       duration: lesson.duration,
       orderIndex: lesson.orderIndex,
@@ -266,6 +366,33 @@ export default function AdminCourseLessons() {
                   </div>
                 </div>
 
+                {modules.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      <Layers className="w-4 h-4" />
+                      Módulo
+                    </Label>
+                    <Select 
+                      value={formData.moduleId || ""} 
+                      onValueChange={(v) => setFormData({ ...formData, moduleId: v || null })}
+                    >
+                      <SelectTrigger data-testid="select-lesson-module">
+                        <SelectValue placeholder="Selecciona un módulo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modules.sort((a, b) => a.orderIndex - b.orderIndex).map((module) => (
+                          <SelectItem key={module.id} value={module.id}>
+                            {module.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Asigna esta lección a un módulo del curso
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Descripción</Label>
                   <Textarea
@@ -410,95 +537,84 @@ export default function AdminCourseLessons() {
           </Dialog>
         </div>
 
-        <div className="space-y-3">
-          {lessons?.length === 0 ? (
+        <div className="space-y-6">
+          {modules.length > 0 ? (
+            <>
+              {modules.sort((a, b) => a.orderIndex - b.orderIndex).map((module) => {
+                const moduleLessons = lessons?.filter((l) => (l as any).moduleId === module.id) || [];
+                
+                return (
+                  <div key={module.id} className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Layers className="w-5 h-5" style={{ color: '#33CBFB' }} />
+                      <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        {module.title}
+                      </h3>
+                      <Badge variant="secondary">{moduleLessons.length} lecciones</Badge>
+                    </div>
+                    {moduleLessons.length === 0 ? (
+                      <p className="text-sm text-muted-foreground pl-7">
+                        Sin lecciones en este módulo
+                      </p>
+                    ) : (
+                      moduleLessons.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson) => (
+                        <LessonCard 
+                          key={lesson.id} 
+                          lesson={lesson} 
+                          courseId={courseId!}
+                          onEdit={handleEdit}
+                          onDelete={(id) => deleteMutation.mutate(id)}
+                          onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
+                        />
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+              {/* Unassigned lessons section for legacy courses */}
+              {(() => {
+                const unassignedLessons = lessons?.filter((l) => !(l as any).moduleId) || [];
+                if (unassignedLessons.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-dashed">
+                      <h3 className="font-bold text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        Sin Módulo Asignado
+                      </h3>
+                      <Badge variant="outline">{unassignedLessons.length} lecciones</Badge>
+                    </div>
+                    {unassignedLessons.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson) => (
+                      <LessonCard 
+                        key={lesson.id} 
+                        lesson={lesson} 
+                        courseId={courseId!}
+                        onEdit={handleEdit}
+                        onDelete={(id) => deleteMutation.mutate(id)}
+                        onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
+          ) : lessons && lessons.length > 0 ? (
+            lessons.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson) => (
+              <LessonCard 
+                key={lesson.id} 
+                lesson={lesson} 
+                courseId={courseId!}
+                onEdit={handleEdit}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
+              />
+            ))
+          ) : (
             <Card className="p-8 text-center">
               <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                 No hay lecciones todavía. Crea tu primera lección.
               </p>
             </Card>
-          ) : (
-            lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson) => (
-              <Card key={lesson.id} className="p-4" data-testid={`card-lesson-${lesson.id}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <GripVertical className="w-4 h-4" />
-                      <span className="text-sm font-mono w-6 text-center">{lesson.orderIndex + 1}</span>
-                    </div>
-                    <div 
-                      className="w-10 h-10 flex items-center justify-center"
-                      style={{ backgroundColor: lesson.vimeoId ? '#33CBFB' : '#e5e5e5' }}
-                    >
-                      <Video className="w-5 h-5" style={{ color: lesson.vimeoId ? 'black' : '#666' }} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                        {lesson.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {lesson.duration > 0 && <span>{lesson.duration} min</span>}
-                        {lesson.pdfMaterials && lesson.pdfMaterials.length > 0 && (
-                          <span className="flex items-center gap-1">
-                            <FileText className="w-3 h-3" />
-                            {lesson.pdfMaterials.length} PDF
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={lesson.isPublished ? "default" : "secondary"}
-                      style={{ backgroundColor: lesson.isPublished ? '#33CBFB' : undefined }}
-                    >
-                      {lesson.isPublished ? "Publicado" : "Borrador"}
-                    </Badge>
-                    {lesson.isPreview && (
-                      <Badge variant="outline">Vista Previa</Badge>
-                    )}
-                    {lesson.isOpen && (
-                      <Badge variant="outline" className="border-primary text-primary">Abierta</Badge>
-                    )}
-                    <Link href={`/admin/courses/${courseId}/lessons/${lesson.id}/quiz`}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        data-testid={`button-quiz-lesson-${lesson.id}`}
-                        title="Gestionar Quiz"
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => togglePublishMutation.mutate({ id: lesson.id, isPublished: !lesson.isPublished })}
-                      data-testid={`button-toggle-publish-lesson-${lesson.id}`}
-                    >
-                      {lesson.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleEdit(lesson)}
-                      data-testid={`button-edit-lesson-${lesson.id}`}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => deleteMutation.mutate(lesson.id)}
-                      data-testid={`button-delete-lesson-${lesson.id}`}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { 
   courseCategories,
   courses, 
+  courseModules,
   lessons, 
   enrollments, 
   conversationLabs, 
@@ -24,6 +25,8 @@ import {
   type InsertCourseCategory,
   type Course, 
   type InsertCourse, 
+  type CourseModule,
+  type InsertCourseModule,
   type Lesson,
   type InsertLesson,
   type Enrollment,
@@ -76,6 +79,15 @@ export interface IStorage {
   createCourse(course: InsertCourse): Promise<Course>;
   updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<boolean>;
+  
+  // Course Modules
+  getModulesByCourseId(courseId: string): Promise<CourseModule[]>;
+  getModuleById(id: string): Promise<CourseModule | undefined>;
+  createModule(module: InsertCourseModule): Promise<CourseModule>;
+  createModulesForCourse(courseId: string, count: number): Promise<CourseModule[]>;
+  updateModule(id: string, module: Partial<InsertCourseModule>): Promise<CourseModule | undefined>;
+  deleteModule(id: string): Promise<boolean>;
+  deleteModulesByCourseId(courseId: string): Promise<boolean>;
   
   // Lessons
   getLessonsByCourseId(courseId: string): Promise<Lesson[]>;
@@ -332,6 +344,48 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCourse(id: string): Promise<boolean> {
     const result = await db.delete(courses).where(eq(courses.id, id));
+    return true;
+  }
+
+  // Course Modules
+  async getModulesByCourseId(courseId: string): Promise<CourseModule[]> {
+    return db.select().from(courseModules).where(eq(courseModules.courseId, courseId)).orderBy(courseModules.orderIndex);
+  }
+
+  async getModuleById(id: string): Promise<CourseModule | undefined> {
+    const [module] = await db.select().from(courseModules).where(eq(courseModules.id, id));
+    return module;
+  }
+
+  async createModule(module: InsertCourseModule): Promise<CourseModule> {
+    const [newModule] = await db.insert(courseModules).values(module).returning();
+    return newModule;
+  }
+
+  async createModulesForCourse(courseId: string, count: number): Promise<CourseModule[]> {
+    const modulesToCreate = Array.from({ length: count }, (_, i) => ({
+      courseId,
+      title: `Módulo ${i + 1}`,
+      description: null,
+      orderIndex: i + 1,
+    }));
+    
+    const createdModules = await db.insert(courseModules).values(modulesToCreate).returning();
+    return createdModules;
+  }
+
+  async updateModule(id: string, module: Partial<InsertCourseModule>): Promise<CourseModule | undefined> {
+    const [updated] = await db.update(courseModules).set(module).where(eq(courseModules.id, id)).returning();
+    return updated;
+  }
+
+  async deleteModule(id: string): Promise<boolean> {
+    await db.delete(courseModules).where(eq(courseModules.id, id));
+    return true;
+  }
+
+  async deleteModulesByCourseId(courseId: string): Promise<boolean> {
+    await db.delete(courseModules).where(eq(courseModules.courseId, courseId));
     return true;
   }
 

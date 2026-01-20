@@ -31,12 +31,23 @@ export const courses = pgTable("courses", {
   level: courseLevelEnum("level").notNull(),
   topic: text("topic").notNull(),
   duration: text("duration"), // flexible duration string (e.g., "4 weeks")
+  modulesCount: integer("modules_count").notNull().default(1), // number of modules in the course
   lessonsCount: integer("lessons_count").notNull().default(0),
   instructorId: varchar("instructor_id").references(() => instructors.id),
   price: decimal("price", { precision: 10, scale: 2 }),
   isFree: boolean("is_free").notNull().default(false),
   isPremium: boolean("is_premium").notNull().default(false),
   isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Course Modules table - organize lessons within a course
+export const courseModules = pgTable("course_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  courseId: varchar("course_id").references(() => courses.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  orderIndex: integer("order_index").notNull(), // 1-based index for display order
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -58,6 +69,7 @@ export const instructors = pgTable("instructors", {
 export const lessons = pgTable("lessons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   courseId: varchar("course_id").references(() => courses.id).notNull(),
+  moduleId: varchar("module_id").references(() => courseModules.id), // optional module assignment
   title: text("title").notNull(),
   description: text("description"),
   videoUrl: text("video_url"),
@@ -206,14 +218,27 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
     fields: [courses.instructorId],
     references: [instructors.id],
   }),
+  modules: many(courseModules),
   lessons: many(lessons),
   enrollments: many(enrollments),
+}));
+
+export const courseModulesRelations = relations(courseModules, ({ one, many }) => ({
+  course: one(courses, {
+    fields: [courseModules.courseId],
+    references: [courses.id],
+  }),
+  lessons: many(lessons),
 }));
 
 export const lessonsRelations = relations(lessons, ({ one }) => ({
   course: one(courses, {
     fields: [lessons.courseId],
     references: [courses.id],
+  }),
+  module: one(courseModules, {
+    fields: [lessons.moduleId],
+    references: [courseModules.id],
   }),
 }));
 
@@ -266,6 +291,7 @@ export const roomBookingsRelations = relations(roomBookings, ({ one }) => ({
 // Insert schemas
 export const insertCourseCategorySchema = createInsertSchema(courseCategories).omit({ id: true, createdAt: true });
 export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, createdAt: true });
+export const insertCourseModuleSchema = createInsertSchema(courseModules).omit({ id: true, createdAt: true });
 export const insertInstructorSchema = createInsertSchema(instructors).omit({ id: true, createdAt: true });
 export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true, createdAt: true });
 export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({ id: true, enrolledAt: true });
@@ -284,6 +310,8 @@ export type CourseCategory = typeof courseCategories.$inferSelect;
 export type InsertCourseCategory = z.infer<typeof insertCourseCategorySchema>;
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
+export type CourseModule = typeof courseModules.$inferSelect;
+export type InsertCourseModule = z.infer<typeof insertCourseModuleSchema>;
 export type Instructor = typeof instructors.$inferSelect;
 export type InsertInstructor = z.infer<typeof insertInstructorSchema>;
 export type Lesson = typeof lessons.$inferSelect;

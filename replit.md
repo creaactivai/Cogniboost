@@ -36,11 +36,12 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
 - **Storage**: Object Storage for file uploads
 
 ### Key Features
+- **Course Module System**: Courses are organized into modules for structured learning. The `course_modules` table stores modules (id, courseId, title, description, orderIndex). Lessons have a `moduleId` field linking to their module. Modules are auto-created when creating a course based on the specified `modulesCount`. Legacy courses without modules display lessons in a flat list, with an "Unassigned Lessons" section for lessons lacking a moduleId.
 - **Custom Course Categories**: Admins can create custom course categories via input with datalist suggestions. Categories are stored in `course_categories` table (id, name, displayName). New categories are auto-created when typing a name that doesn't exist.
 - **Multilingual Content**: Topics stored in English for consistency, displayed in Spanish via a translation pattern.
 - **Admin LMS Dashboard**: Comprehensive platform management including student, course, financial, lab, instructor, onboarding, and lead management. Admin API routes are protected by `requireAdmin` middleware.
 - **Student Status Management**: Users have `active`, `hold`, and `inactive` statuses, manageable by admins.
-- **Linear Course Progression**: Students must complete lessons sequentially. Lessons can be marked `open` to bypass prerequisites or `preview` for marketing.
+- **Linear Course Progression**: Students must complete lessons sequentially within their module. Lessons can be marked `open` to bypass prerequisites or `preview` for marketing.
 - **AI-Powered Quiz System**: Quizzes are generated and evaluated using OpenAI's gpt-4o-mini. Includes a placement quiz with adaptive difficulty.
 - **Lead Automation System**: Manages leads through a lifecycle (new, engaged, nurture, qualified, converted, inactive) with automated email sequences and lead scoring based on engagement.
 - **Conversation Labs (Breakout Rooms)**: Supports live sessions with multiple topic-specific breakout rooms that students can book.
