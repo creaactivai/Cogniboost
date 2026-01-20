@@ -128,8 +128,9 @@ export function AdminSidebar() {
           variant="ghost" 
           className="w-full justify-start gap-2" 
           data-testid="button-logout"
-          onClick={() => {
-            window.location.href = "/__replit/auth/logout";
+          onClick={async () => {
+            await fetch("/__replit/auth/logout", { method: "GET" });
+            window.location.href = "/";
           }}
         >
           <ChevronLeft className="w-4 h-4" />
