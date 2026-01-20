@@ -1785,34 +1785,137 @@ export async function registerRoutes(
     }
   });
 
-  // Admin: Create live session
+  // Validation schema for live session with groups
+  const labGroupSchema = z.object({
+    topic: z.string().min(1),
+    level: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
+  });
+
+  const createLiveSessionSchema = z.object({
+    title: z.string().min(1, "Título requerido"),
+    description: z.string().optional(),
+    instructorId: z.string().min(1, "Instructor requerido"),
+    scheduledAt: z.string().min(1, "Fecha requerida"),
+    duration: z.number().min(1).default(60),
+    meetingUrl: z.string().optional(),
+    isPremium: z.boolean().default(false),
+    groups: z.array(labGroupSchema).min(1, "Al menos un grupo es requerido"),
+  });
+
+  // Admin: Get all live sessions with rooms
+  app.get("/api/admin/live-sessions", requireAdmin, async (req, res) => {
+    try {
+      const sessions = await storage.getLiveSessions();
+      const sessionsWithRooms = await Promise.all(
+        sessions.map(async (session) => {
+          const rooms = await storage.getSessionRooms(session.id);
+          return { ...session, rooms };
+        })
+      );
+      res.json(sessionsWithRooms);
+    } catch (error) {
+      console.error("Error fetching live sessions:", error);
+      res.status(500).json({ error: "Failed to fetch live sessions" });
+    }
+  });
+
+  // Admin: Create live session with groups
   app.post("/api/admin/live-sessions", requireAdmin, async (req, res) => {
     try {
-      const session = await storage.createLiveSession(req.body);
-      res.status(201).json(session);
+      const validation = createLiveSessionSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Datos inválidos", details: validation.error.errors });
+      }
+      
+      const { groups, ...sessionData } = validation.data;
+      
+      // Create the live session
+      const session = await storage.createLiveSession({
+        ...sessionData,
+        scheduledAt: new Date(sessionData.scheduledAt),
+      });
+      
+      // Create session rooms for each group
+      for (const group of groups) {
+        await storage.createSessionRoom({
+          sessionId: session.id,
+          topic: group.topic,
+          level: group.level,
+          maxParticipants: 6, // Default max per room
+        });
+      }
+      
+      // Return session with rooms
+      const rooms = await storage.getSessionRooms(session.id);
+      res.status(201).json({ ...session, rooms });
     } catch (error) {
       console.error("Error creating live session:", error);
       res.status(500).json({ error: "Failed to create live session" });
     }
   });
 
-  // Admin: Update live session
+  // Admin: Update live session with groups
+  const updateLiveSessionSchema = createLiveSessionSchema.partial().extend({
+    groups: z.array(labGroupSchema).optional(),
+  });
+
   app.patch("/api/admin/live-sessions/:id", requireAdmin, async (req, res) => {
     try {
-      const session = await storage.updateLiveSession(req.params.id, req.body);
+      const validation = updateLiveSessionSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Datos inválidos", details: validation.error.errors });
+      }
+      
+      const { groups, scheduledAt, ...restSessionData } = validation.data;
+      
+      // Update the session data
+      const updateData: Record<string, any> = { ...restSessionData };
+      if (scheduledAt) {
+        updateData.scheduledAt = new Date(scheduledAt);
+      }
+      
+      const session = await storage.updateLiveSession(req.params.id, updateData);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      res.json(session);
+      
+      // If groups are provided, recreate the rooms
+      if (groups && groups.length > 0) {
+        // Delete existing rooms
+        const existingRooms = await storage.getSessionRooms(req.params.id);
+        for (const room of existingRooms) {
+          await storage.deleteSessionRoom(room.id);
+        }
+        
+        // Create new rooms
+        for (const group of groups) {
+          await storage.createSessionRoom({
+            sessionId: session.id,
+            topic: group.topic,
+            level: group.level,
+            maxParticipants: 6,
+          });
+        }
+      }
+      
+      // Return session with updated rooms
+      const rooms = await storage.getSessionRooms(session.id);
+      res.json({ ...session, rooms });
     } catch (error) {
       console.error("Error updating live session:", error);
       res.status(500).json({ error: "Failed to update live session" });
     }
   });
 
-  // Admin: Delete live session
+  // Admin: Delete live session and its rooms
   app.delete("/api/admin/live-sessions/:id", requireAdmin, async (req, res) => {
     try {
+      // Delete associated rooms first
+      const rooms = await storage.getSessionRooms(req.params.id);
+      for (const room of rooms) {
+        await storage.deleteSessionRoom(room.id);
+      }
+      
       await storage.deleteLiveSession(req.params.id);
       res.status(204).send();
     } catch (error) {

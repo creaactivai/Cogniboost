@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video } from "lucide-react";
-import type { ConversationLab, Instructor } from "@shared/schema";
+import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video, X, MessageCircle } from "lucide-react";
+import type { Instructor, LiveSession, SessionRoom } from "@shared/schema";
 
 const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const topics = ["general", "business", "travel", "technology", "culture", "current-events"];
@@ -25,25 +25,32 @@ const topicLabels: Record<string, string> = {
   "current-events": "Actualidad",
 };
 
+interface LabGroup {
+  topic: string;
+  level: string;
+}
+
+interface LabWithRooms extends LiveSession {
+  rooms?: SessionRoom[];
+}
+
 export default function AdminLabs() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingLab, setEditingLab] = useState<ConversationLab | null>(null);
+  const [editingLab, setEditingLab] = useState<LabWithRooms | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    topic: "general",
-    level: "A1",
     instructorId: "",
     scheduledAt: "",
     duration: 60,
-    maxParticipants: 10,
     meetingUrl: "",
     isPremium: false,
+    groups: [{ topic: "general", level: "A1" }] as LabGroup[],
   });
 
-  const { data: labs, isLoading } = useQuery<ConversationLab[]>({
-    queryKey: ["/api/labs"],
+  const { data: labs, isLoading } = useQuery<LabWithRooms[]>({
+    queryKey: ["/api/admin/live-sessions"],
   });
 
   const { data: instructors } = useQuery<Instructor[]>({
@@ -56,10 +63,10 @@ export default function AdminLabs() {
         ...data,
         scheduledAt: new Date(data.scheduledAt).toISOString(),
       };
-      return apiRequest("/api/admin/labs", { method: "POST", body: JSON.stringify(payload) });
+      return apiRequest("POST", "/api/admin/live-sessions", payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/labs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/live-sessions"] });
       toast({ title: "Laboratorio creado exitosamente" });
       setIsDialogOpen(false);
       resetForm();
@@ -74,10 +81,10 @@ export default function AdminLabs() {
       const payload = data.scheduledAt
         ? { ...data, scheduledAt: new Date(data.scheduledAt).toISOString() }
         : data;
-      return apiRequest(`/api/admin/labs/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      return apiRequest("PATCH", `/api/admin/live-sessions/${id}`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/labs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/live-sessions"] });
       toast({ title: "Laboratorio actualizado exitosamente" });
       setIsDialogOpen(false);
       resetForm();
@@ -88,9 +95,9 @@ export default function AdminLabs() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/admin/labs/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/live-sessions/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/labs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/live-sessions"] });
       toast({ title: "Laboratorio eliminado exitosamente" });
     },
     onError: () => {
@@ -102,38 +109,41 @@ export default function AdminLabs() {
     setFormData({
       title: "",
       description: "",
-      topic: "general",
-      level: "A1",
       instructorId: "",
       scheduledAt: "",
       duration: 60,
-      maxParticipants: 10,
       meetingUrl: "",
       isPremium: false,
+      groups: [{ topic: "general", level: "A1" }],
     });
     setEditingLab(null);
   };
 
-  const handleEdit = (lab: ConversationLab) => {
+  const handleEdit = (lab: LabWithRooms) => {
     setEditingLab(lab);
     const scheduledDate = lab.scheduledAt ? new Date(lab.scheduledAt) : new Date();
+    const groups = lab.rooms && lab.rooms.length > 0 
+      ? lab.rooms.map(r => ({ topic: r.topic, level: r.level }))
+      : [{ topic: "general", level: "A1" }];
     setFormData({
       title: lab.title,
       description: lab.description || "",
-      topic: lab.topic,
-      level: lab.level,
       instructorId: lab.instructorId,
       scheduledAt: scheduledDate.toISOString().slice(0, 16),
       duration: lab.duration,
-      maxParticipants: lab.maxParticipants,
       meetingUrl: lab.meetingUrl || "",
       isPremium: lab.isPremium,
+      groups,
     });
     setIsDialogOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.groups.length === 0) {
+      toast({ title: "Debe agregar al menos un grupo", variant: "destructive" });
+      return;
+    }
     if (editingLab) {
       updateMutation.mutate({ id: editingLab.id, data: formData });
     } else {
@@ -141,7 +151,29 @@ export default function AdminLabs() {
     }
   };
 
-  const getLabStatus = (lab: ConversationLab) => {
+  const addGroup = () => {
+    setFormData({
+      ...formData,
+      groups: [...formData.groups, { topic: "general", level: "A1" }],
+    });
+  };
+
+  const removeGroup = (index: number) => {
+    if (formData.groups.length <= 1) {
+      toast({ title: "Debe haber al menos un grupo", variant: "destructive" });
+      return;
+    }
+    const newGroups = formData.groups.filter((_, i) => i !== index);
+    setFormData({ ...formData, groups: newGroups });
+  };
+
+  const updateGroup = (index: number, field: keyof LabGroup, value: string) => {
+    const newGroups = [...formData.groups];
+    newGroups[index] = { ...newGroups[index], [field]: value };
+    setFormData({ ...formData, groups: newGroups });
+  };
+
+  const getLabStatus = (lab: LabWithRooms) => {
     const now = new Date();
     const scheduled = new Date(lab.scheduledAt);
     const endTime = new Date(scheduled.getTime() + lab.duration * 60000);
@@ -149,6 +181,17 @@ export default function AdminLabs() {
     if (now < scheduled) return { label: "Próximo", color: "#33CBFB" };
     if (now >= scheduled && now <= endTime) return { label: "En Vivo", color: "#10B981" };
     return { label: "Finalizado", color: "#6B7280" };
+  };
+
+  const getTotalParticipants = (lab: LabWithRooms) => {
+    if (!lab.rooms) return { current: 0, max: 0 };
+    return lab.rooms.reduce(
+      (acc, room) => ({
+        current: acc.current + room.currentParticipants,
+        max: acc.max + room.maxParticipants,
+      }),
+      { current: 0, max: 0 }
+    );
   };
 
   return (
@@ -165,7 +208,7 @@ export default function AdminLabs() {
                 Nuevo Laboratorio
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
                   {editingLab ? "Editar Laboratorio" : "Crear Nuevo Laboratorio"}
@@ -212,35 +255,6 @@ export default function AdminLabs() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Tema</Label>
-                    <Select value={formData.topic} onValueChange={(v) => setFormData({ ...formData, topic: v })}>
-                      <SelectTrigger data-testid="select-lab-topic">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {topics.map((topic) => (
-                          <SelectItem key={topic} value={topic}>{topicLabels[topic]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Nivel</Label>
-                    <Select value={formData.level} onValueChange={(v) => setFormData({ ...formData, level: v })}>
-                      <SelectTrigger data-testid="select-lab-level">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {levels.map((level) => (
-                          <SelectItem key={level} value={level}>{level}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
                     <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Fecha y Hora</Label>
                     <Input
                       type="datetime-local"
@@ -261,24 +275,85 @@ export default function AdminLabs() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Máximo Participantes</Label>
-                    <Input
-                      type="number"
-                      value={formData.maxParticipants}
-                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) || 10 })}
-                      data-testid="input-lab-participants"
-                    />
+                <div className="space-y-2">
+                  <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>URL de Reunión Principal</Label>
+                  <Input
+                    value={formData.meetingUrl}
+                    onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
+                    placeholder="https://zoom.us/..."
+                    data-testid="input-lab-url"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Grupos de Conversación ({formData.groups.length})
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addGroup}
+                      data-testid="button-add-group"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Agregar Grupo
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>URL de Reunión</Label>
-                    <Input
-                      value={formData.meetingUrl}
-                      onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
-                      placeholder="https://zoom.us/..."
-                      data-testid="input-lab-url"
-                    />
+                  
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {formData.groups.map((group, index) => (
+                      <div 
+                        key={index} 
+                        className="flex items-center gap-2 p-3 bg-muted/50 rounded-md"
+                        data-testid={`group-row-${index}`}
+                      >
+                        <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-full text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <Select 
+                            value={group.topic} 
+                            onValueChange={(v) => updateGroup(index, 'topic', v)}
+                          >
+                            <SelectTrigger data-testid={`select-group-topic-${index}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {topics.map((topic) => (
+                                <SelectItem key={topic} value={topic}>{topicLabels[topic]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-24">
+                          <Select 
+                            value={group.level} 
+                            onValueChange={(v) => updateGroup(index, 'level', v)}
+                          >
+                            <SelectTrigger data-testid={`select-group-level-${index}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {levels.map((level) => (
+                                <SelectItem key={level} value={level}>{level}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeGroup(index)}
+                          disabled={formData.groups.length <= 1}
+                          data-testid={`button-remove-group-${index}`}
+                        >
+                          <X className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -327,17 +402,18 @@ export default function AdminLabs() {
             labs?.map((lab) => {
               const status = getLabStatus(lab);
               const instructor = instructors?.find((i) => i.id === lab.instructorId);
+              const participants = getTotalParticipants(lab);
               return (
                 <Card key={lab.id} className="p-4" data-testid={`card-lab-${lab.id}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4 flex-1">
                       <div 
-                        className="w-12 h-12 flex items-center justify-center"
+                        className="w-12 h-12 flex items-center justify-center shrink-0"
                         style={{ backgroundColor: status.color }}
                       >
                         <Video className="w-6 h-6 text-black" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                           {lab.title}
                         </h3>
@@ -354,19 +430,38 @@ export default function AdminLabs() {
                         <p className="text-xs text-muted-foreground">
                           Instructor: {instructor?.name || "No asignado"}
                         </p>
+                        
+                        {lab.rooms && lab.rooms.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {lab.rooms.map((room) => (
+                              <div 
+                                key={room.id}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md text-xs"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                <span>{topicLabels[room.topic] || room.topic}</span>
+                                <Badge variant="secondary" className="text-[10px] px-1">
+                                  {room.level}
+                                </Badge>
+                                <span className="text-muted-foreground">
+                                  {room.currentParticipants}/{room.maxParticipants}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="w-4 h-4" />
                         {lab.duration} min
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Users className="w-4 h-4" />
-                        {lab.currentParticipants}/{lab.maxParticipants}
+                        {lab.rooms?.length || 0} grupos
                       </div>
                       <Badge style={{ backgroundColor: status.color }}>{status.label}</Badge>
-                      <Badge variant="secondary">{lab.level}</Badge>
                       {lab.isPremium && (
                         <Badge style={{ backgroundColor: '#FD335A' }}>Premium</Badge>
                       )}
