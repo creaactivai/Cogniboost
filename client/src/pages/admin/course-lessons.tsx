@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers } from "lucide-react";
@@ -19,7 +20,7 @@ interface LessonCardProps {
   lesson: Lesson;
   courseId: string;
   onEdit: (lesson: Lesson) => void;
-  onDelete: (id: string) => void;
+  onDelete: () => void;
   onTogglePublish: (id: string, isPublished: boolean) => void;
 }
 
@@ -95,7 +96,7 @@ function LessonCard({ lesson, courseId, onEdit, onDelete, onTogglePublish }: Les
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => onDelete(lesson.id)}
+            onClick={onDelete}
             data-testid={`button-delete-lesson-${lesson.id}`}
           >
             <Trash2 className="w-4 h-4 text-destructive" />
@@ -111,6 +112,7 @@ export default function AdminCourseLessons() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [formData, setFormData] = useState({
@@ -176,6 +178,7 @@ export default function AdminCourseLessons() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/lessons`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Lección eliminada exitosamente" });
+      setLessonToDelete(null);
     },
     onError: () => {
       toast({ title: "Error al eliminar lección", variant: "destructive" });
@@ -563,7 +566,7 @@ export default function AdminCourseLessons() {
                           lesson={lesson} 
                           courseId={courseId!}
                           onEdit={handleEdit}
-                          onDelete={(id) => deleteMutation.mutate(id)}
+                          onDelete={() => setLessonToDelete(lesson)}
                           onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
                         />
                       ))
@@ -589,7 +592,7 @@ export default function AdminCourseLessons() {
                         lesson={lesson} 
                         courseId={courseId!}
                         onEdit={handleEdit}
-                        onDelete={(id) => deleteMutation.mutate(id)}
+                        onDelete={() => setLessonToDelete(lesson)}
                         onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
                       />
                     ))}
@@ -604,7 +607,7 @@ export default function AdminCourseLessons() {
                 lesson={lesson} 
                 courseId={courseId!}
                 onEdit={handleEdit}
-                onDelete={(id) => deleteMutation.mutate(id)}
+                onDelete={() => setLessonToDelete(lesson)}
                 onTogglePublish={(id, isPublished) => togglePublishMutation.mutate({ id, isPublished })}
               />
             ))
@@ -617,6 +620,31 @@ export default function AdminCourseLessons() {
             </Card>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!lessonToDelete} onOpenChange={(open) => !open && setLessonToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                ¿Eliminar lección permanentemente?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente la lección
+                <strong> "{lessonToDelete?.title}"</strong> junto con todo el progreso de estudiantes asociado.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => lessonToDelete && deleteMutation.mutate(lessonToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete-lesson"
+              >
+                {deleteMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, UserCheck, Star, Award, Globe } from "lucide-react";
@@ -17,6 +18,7 @@ export default function AdminInstructors() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null);
+  const [instructorToDelete, setInstructorToDelete] = useState<Instructor | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     bio: "",
@@ -35,7 +37,7 @@ export default function AdminInstructors() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/admin/instructors", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/admin/instructors", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/instructors"] });
       toast({ title: "Instructor creado exitosamente" });
@@ -49,7 +51,7 @@ export default function AdminInstructors() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<typeof formData> }) =>
-      apiRequest(`/api/admin/instructors/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      apiRequest("PATCH", `/api/admin/instructors/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/instructors"] });
       toast({ title: "Instructor actualizado exitosamente" });
@@ -62,19 +64,21 @@ export default function AdminInstructors() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/admin/instructors/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/instructors/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/instructors"] });
       toast({ title: "Instructor eliminado exitosamente" });
+      setInstructorToDelete(null);
     },
     onError: () => {
       toast({ title: "Error al eliminar instructor", variant: "destructive" });
+      setInstructorToDelete(null);
     },
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      apiRequest(`/api/admin/instructors/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+      apiRequest("PATCH", `/api/admin/instructors/${id}`, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/instructors"] });
       toast({ title: "Estado del instructor actualizado" });
@@ -386,7 +390,7 @@ export default function AdminInstructors() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    onClick={() => deleteMutation.mutate(instructor.id)}
+                    onClick={() => setInstructorToDelete(instructor)}
                     data-testid={`button-delete-instructor-${instructor.id}`}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
@@ -396,6 +400,32 @@ export default function AdminInstructors() {
             ))
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!instructorToDelete} onOpenChange={(open) => !open && setInstructorToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                ¿Eliminar instructor permanentemente?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente el instructor
+                <strong> "{instructorToDelete?.name}"</strong> y todos los datos asociados, 
+                incluyendo sesiones programadas.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => instructorToDelete && deleteMutation.mutate(instructorToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete-instructor"
+              >
+                {deleteMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, BookOpen, Eye, EyeOff, FileText } from "lucide-react";
@@ -22,6 +23,7 @@ export default function AdminCourses() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -81,9 +83,11 @@ export default function AdminCourses() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso eliminado exitosamente" });
+      setCourseToDelete(null);
     },
     onError: () => {
       toast({ title: "Error al eliminar curso", variant: "destructive" });
+      setCourseToDelete(null);
     },
   });
 
@@ -401,7 +405,7 @@ export default function AdminCourses() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => deleteMutation.mutate(course.id)}
+                      onClick={() => setCourseToDelete(course)}
                       data-testid={`button-delete-${course.id}`}
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
@@ -412,6 +416,32 @@ export default function AdminCourses() {
             ))
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                ¿Eliminar curso permanentemente?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente el curso 
+                <strong> "{courseToDelete?.title}"</strong> junto con todas sus lecciones, 
+                módulos y progreso de estudiantes.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => courseToDelete && deleteMutation.mutate(courseToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete-course"
+              >
+                {deleteMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

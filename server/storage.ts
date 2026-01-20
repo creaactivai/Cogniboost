@@ -343,7 +343,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCourse(id: string): Promise<boolean> {
-    const result = await db.delete(courses).where(eq(courses.id, id));
+    // Get all lessons for this course
+    const courseLessons = await db.select().from(lessons).where(eq(lessons.courseId, id));
+    
+    // Delete lesson progress for all lessons in this course
+    for (const lesson of courseLessons) {
+      await db.delete(lessonProgress).where(eq(lessonProgress.lessonId, lesson.id));
+    }
+    
+    // Delete all lessons for this course
+    await db.delete(lessons).where(eq(lessons.courseId, id));
+    
+    // Delete all modules for this course
+    await db.delete(courseModules).where(eq(courseModules.courseId, id));
+    
+    // Delete the course
+    await db.delete(courses).where(eq(courses.id, id));
     return true;
   }
 
@@ -410,6 +425,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLesson(id: string): Promise<boolean> {
+    // Delete lesson progress first
+    await db.delete(lessonProgress).where(eq(lessonProgress.lessonId, id));
+    // Delete the lesson
     await db.delete(lessons).where(eq(lessons.id, id));
     return true;
   }
@@ -546,6 +564,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteInstructor(id: string): Promise<boolean> {
+    // Get all live sessions for this instructor
+    const instructorSessions = await db.select().from(liveSessions).where(eq(liveSessions.instructorId, id));
+    
+    // Delete session rooms for all sessions
+    for (const session of instructorSessions) {
+      await db.delete(sessionRooms).where(eq(sessionRooms.sessionId, session.id));
+    }
+    
+    // Delete live sessions
+    await db.delete(liveSessions).where(eq(liveSessions.instructorId, id));
+    
+    // Delete conversation labs
+    await db.delete(conversationLabs).where(eq(conversationLabs.instructorId, id));
+    
+    // Unlink courses from this instructor (set instructorId to null)
+    await db.update(courses).set({ instructorId: null }).where(eq(courses.instructorId, id));
+    
+    // Delete the instructor
     await db.delete(instructors).where(eq(instructors.id, id));
     return true;
   }
