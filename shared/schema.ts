@@ -14,6 +14,14 @@ export const courseLevelEnum = pgEnum("course_level", ["A1", "A2", "B1", "B2", "
 export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "standard", "premium"]);
 export const labStatusEnum = pgEnum("lab_status", ["scheduled", "in_progress", "completed", "cancelled"]);
 
+// Course categories table (custom categories created by admins)
+export const courseCategories = pgTable("course_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Courses table
 export const courses = pgTable("courses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -256,6 +264,7 @@ export const roomBookingsRelations = relations(roomBookings, ({ one }) => ({
 }));
 
 // Insert schemas
+export const insertCourseCategorySchema = createInsertSchema(courseCategories).omit({ id: true, createdAt: true });
 export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, createdAt: true });
 export const insertInstructorSchema = createInsertSchema(instructors).omit({ id: true, createdAt: true });
 export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true, createdAt: true });
@@ -271,6 +280,8 @@ export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ i
 export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({ id: true, bookedAt: true });
 
 // Types
+export type CourseCategory = typeof courseCategories.$inferSelect;
+export type InsertCourseCategory = z.infer<typeof insertCourseCategorySchema>;
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
 export type Instructor = typeof instructors.$inferSelect;

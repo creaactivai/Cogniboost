@@ -32,8 +32,22 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    // Check if this is a new user (for welcome email)
-    const existingUser = await this.getUser(userData.id!);
+    // Check if a user with this email already exists (different from ID-based lookup)
+    let existingUser = await this.getUser(userData.id!);
+    let existingUserByEmail: User | undefined;
+    
+    if (userData.email) {
+      const [userByEmail] = await db.select().from(users).where(eq(users.email, userData.email.toLowerCase()));
+      existingUserByEmail = userByEmail;
+    }
+    
+    // If user exists by email but with different ID, update that user instead
+    if (existingUserByEmail && existingUserByEmail.id !== userData.id) {
+      existingUser = existingUserByEmail;
+      // Use the existing user's ID to avoid unique constraint violation
+      userData = { ...userData, id: existingUserByEmail.id };
+    }
+    
     const isNewUser = !existingUser;
 
     // Auto-grant admin to super admin emails during beta or if invited as admin

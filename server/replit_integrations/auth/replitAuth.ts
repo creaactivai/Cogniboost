@@ -51,13 +51,15 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
-  await authStorage.upsertUser({
+  const user = await authStorage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+  // Return the actual user ID (might be different if email already existed)
+  return user.id;
 }
 
 export async function setupAuth(app: Express) {
@@ -72,9 +74,14 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user = {} as any;
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    // Get the actual user ID (might differ if email already existed)
+    const actualUserId = await upsertUser(tokens.claims());
+    // Update the claims sub with the actual user ID for session consistency
+    if (user.claims && actualUserId !== user.claims.sub) {
+      user.claims = { ...user.claims, sub: actualUserId };
+    }
     verified(null, user);
   };
 

@@ -1,4 +1,5 @@
 import { 
+  courseCategories,
   courses, 
   lessons, 
   enrollments, 
@@ -19,6 +20,8 @@ import {
   placementQuizAttempts,
   leads,
   adminInvitations,
+  type CourseCategory,
+  type InsertCourseCategory,
   type Course, 
   type InsertCourse, 
   type Lesson,
@@ -62,6 +65,10 @@ import { db } from "./db";
 import { eq, desc, sql, count, and } from "drizzle-orm";
 
 export interface IStorage {
+  // Course Categories
+  getCourseCategories(): Promise<CourseCategory[]>;
+  createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory>;
+  
   // Courses
   getCourses(): Promise<Course[]>;
   getAllCourses(): Promise<Course[]>;
@@ -289,6 +296,16 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Course Categories
+  async getCourseCategories(): Promise<CourseCategory[]> {
+    return db.select().from(courseCategories).orderBy(courseCategories.displayName);
+  }
+
+  async createCourseCategory(category: InsertCourseCategory): Promise<CourseCategory> {
+    const [newCategory] = await db.insert(courseCategories).values(category).returning();
+    return newCategory;
+  }
+
   // Courses
   async getCourses(): Promise<Course[]> {
     return db.select().from(courses).where(eq(courses.isPublished, true));

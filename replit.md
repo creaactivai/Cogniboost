@@ -36,6 +36,7 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
 - **Storage**: Object Storage for file uploads
 
 ### Key Features
+- **Custom Course Categories**: Admins can create custom course categories via input with datalist suggestions. Categories are stored in `course_categories` table (id, name, displayName). New categories are auto-created when typing a name that doesn't exist.
 - **Multilingual Content**: Topics stored in English for consistency, displayed in Spanish via a translation pattern.
 - **Admin LMS Dashboard**: Comprehensive platform management including student, course, financial, lab, instructor, onboarding, and lead management. Admin API routes are protected by `requireAdmin` middleware.
 - **Student Status Management**: Users have `active`, `hold`, and `inactive` statuses, manageable by admins.

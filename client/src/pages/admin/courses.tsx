@@ -13,30 +13,20 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, BookOpen, Eye, EyeOff, FileText } from "lucide-react";
 import { Link } from "wouter";
-import type { Course } from "@shared/schema";
+import type { Course, CourseCategory } from "@shared/schema";
 
 const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
-const topics = ["grammar", "vocabulary", "speaking", "listening", "reading", "writing", "pronunciation", "business"];
-const topicLabels: Record<string, string> = {
-  grammar: "Gramática",
-  vocabulary: "Vocabulario",
-  speaking: "Conversación",
-  listening: "Comprensión Auditiva",
-  reading: "Lectura",
-  writing: "Escritura",
-  pronunciation: "Pronunciación",
-  business: "Inglés de Negocios",
-};
 
 export default function AdminCourses() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     level: "A1",
-    topic: "grammar",
+    topic: "",
     duration: "",
     lessonsCount: 0,
     thumbnailUrl: "",
@@ -48,13 +38,25 @@ export default function AdminCourses() {
     queryKey: ["/api/admin/courses"],
   });
 
+  const { data: categories = [] } = useQuery<CourseCategory[]>({
+    queryKey: ["/api/admin/course-categories"],
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; displayName: string }) => {
+      const response = await apiRequest("POST", "/api/admin/course-categories", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/course-categories"] });
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => apiRequest("POST", "/api/admin/courses", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso creado exitosamente" });
-      setIsDialogOpen(false);
-      resetForm();
     },
     onError: () => {
       toast({ title: "Error al crear curso", variant: "destructive" });
@@ -67,8 +69,6 @@ export default function AdminCourses() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
       toast({ title: "Curso actualizado exitosamente" });
-      setIsDialogOpen(false);
-      resetForm();
     },
     onError: () => {
       toast({ title: "Error al actualizar curso", variant: "destructive" });
@@ -100,7 +100,7 @@ export default function AdminCourses() {
       title: "",
       description: "",
       level: "A1",
-      topic: "grammar",
+      topic: "",
       duration: "",
       lessonsCount: 0,
       thumbnailUrl: "",
@@ -112,11 +112,13 @@ export default function AdminCourses() {
 
   const handleEdit = (course: Course) => {
     setEditingCourse(course);
+    // Get the display name for the topic
+    const categoryDisplayName = categories.find(c => c.name === course.topic)?.displayName || course.topic;
     setFormData({
       title: course.title,
       description: course.description || "",
       level: course.level,
-      topic: course.topic,
+      topic: categoryDisplayName,
       duration: course.duration || "",
       lessonsCount: course.lessonsCount,
       thumbnailUrl: course.thumbnailUrl || "",
@@ -126,12 +128,46 @@ export default function AdminCourses() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingCourse) {
-      updateMutation.mutate({ id: editingCourse.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
+    
+    if (!formData.topic.trim()) {
+      toast({ title: "Por favor ingresa una categoría", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Normalize the topic name
+    const topicName = formData.topic.trim().toLowerCase().replace(/\s+/g, '_');
+    const topicDisplayName = formData.topic.trim();
+    
+    // Check if category exists, if not create it
+    const existingCategory = categories.find(c => c.name === topicName || c.displayName.toLowerCase() === topicDisplayName.toLowerCase());
+    
+    if (!existingCategory) {
+      try {
+        await createCategoryMutation.mutateAsync({ name: topicName, displayName: topicDisplayName });
+      } catch (error) {
+        // Category might already exist (race condition), continue
+      }
+    }
+
+    const courseData = { ...formData, topic: topicName };
+    
+    try {
+      if (editingCourse) {
+        await updateMutation.mutateAsync({ id: editingCourse.id, data: courseData });
+      } else {
+        await createMutation.mutateAsync(courseData);
+      }
+      // Explicitly close dialog and reset form after successful mutation
+      resetForm();
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error handling is done in mutation's onError
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -142,7 +178,7 @@ export default function AdminCourses() {
           <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
             {courses?.length || 0} cursos en total
           </p>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!isSubmitting) { setIsDialogOpen(open); if (!open) resetForm(); } }}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-course">
                 <Plus className="w-4 h-4 mr-2" />
@@ -194,17 +230,25 @@ export default function AdminCourses() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Tema</Label>
-                    <Select value={formData.topic} onValueChange={(v) => setFormData({ ...formData, topic: v })}>
-                      <SelectTrigger data-testid="select-course-topic">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {topics.map((topic) => (
-                          <SelectItem key={topic} value={topic}>{topicLabels[topic]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Categoría</Label>
+                    <Input
+                      value={formData.topic}
+                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      placeholder="Escribe o selecciona una categoría"
+                      list="category-suggestions"
+                      required
+                      data-testid="input-course-topic"
+                    />
+                    <datalist id="category-suggestions">
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.displayName} />
+                      ))}
+                    </datalist>
+                    {categories.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Categorías existentes: {categories.map(c => c.displayName).join(', ')}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Duración</Label>
@@ -260,15 +304,15 @@ export default function AdminCourses() {
                 </div>
 
                 <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
                     Cancelar
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={isSubmitting}
                     data-testid="button-submit-course"
                   >
-                    {editingCourse ? "Guardar Cambios" : "Crear Curso"}
+                    {isSubmitting ? "Guardando..." : editingCourse ? "Guardar Cambios" : "Crear Curso"}
                   </Button>
                 </div>
               </form>
@@ -304,7 +348,7 @@ export default function AdminCourses() {
                         {course.title}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {course.level} · {topicLabels[course.topic] || course.topic} · {course.lessonsCount} lecciones
+                        {course.level} · {categories.find(c => c.name === course.topic)?.displayName || course.topic} · {course.lessonsCount} lecciones
                       </p>
                     </div>
                   </div>

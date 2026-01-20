@@ -581,6 +581,36 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Get all course categories
+  app.get("/api/admin/course-categories", requireAdmin, async (req, res) => {
+    try {
+      const categories = await storage.getCourseCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching course categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // Admin: Create course category
+  app.post("/api/admin/course-categories", requireAdmin, async (req, res) => {
+    try {
+      const { insertCourseCategorySchema } = await import("@shared/schema");
+      const parseResult = insertCourseCategorySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid category data", details: parseResult.error.flatten() });
+      }
+      const category = await storage.createCourseCategory(parseResult.data);
+      res.status(201).json(category);
+    } catch (error: any) {
+      console.error("Error creating course category:", error);
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(409).json({ error: "Category already exists" });
+      }
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
   // Admin: Get all courses (including unpublished)
   app.get("/api/admin/courses", requireAdmin, async (req, res) => {
     try {
