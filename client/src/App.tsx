@@ -26,6 +26,7 @@ import Legal from "@/pages/legal";
 import PurchaseComplete from "@/pages/purchase-complete";
 import ChoosePlan from "@/pages/choose-plan";
 import ActivatePage from "@/pages/activate";
+import VerifyEmailPage from "@/pages/verify-email";
 import { CookieConsent } from "@/components/cookie-consent";
 
 // Protected route wrapper - requires auth + completed onboarding
@@ -108,6 +109,7 @@ function Router() {
       <Route path="/sobre-nosotros" component={SobreNosotros} />
       <Route path="/legal" component={Legal} />
       <Route path="/activate" component={ActivatePage} />
+      <Route path="/verify-email" component={VerifyEmailPage} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/choose-plan">
         <ProtectedRoute>
