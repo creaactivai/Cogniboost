@@ -145,6 +145,99 @@ export async function registerRoutes(
     }
   });
 
+  // Email verification endpoint for self-registered users
+  app.post("/api/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: "Token de verificación requerido" });
+      }
+
+      // Find user by email verification token
+      const allUsers = await storage.getAllUsers();
+      const user = allUsers.find(u => u.emailVerificationToken === token);
+
+      if (!user) {
+        return res.status(404).json({ error: "Token de verificación inválido" });
+      }
+
+      // Check if token has expired (24 hours)
+      if (user.emailVerificationExpiresAt) {
+        const now = new Date();
+        if (now > new Date(user.emailVerificationExpiresAt)) {
+          return res.status(400).json({ error: "El enlace de verificación ha expirado. Por favor solicita uno nuevo." });
+        }
+      }
+
+      // Check if already verified
+      if (user.emailVerified) {
+        return res.json({ success: true, message: "Tu correo ya ha sido verificado", alreadyVerified: true });
+      }
+
+      // Mark email as verified
+      await storage.updateUser(user.id, {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+        updatedAt: new Date(),
+      } as any);
+
+      res.json({ success: true, message: "Correo verificado exitosamente" });
+    } catch (error) {
+      console.error("Error verifying email:", error);
+      res.status(500).json({ error: "Error al verificar el correo" });
+    }
+  });
+
+  // Resend verification email endpoint
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Debes iniciar sesión primero" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      if (user.emailVerified) {
+        return res.json({ success: true, message: "Tu correo ya está verificado", alreadyVerified: true });
+      }
+
+      if (!user.email) {
+        return res.status(400).json({ error: "No tienes un correo registrado" });
+      }
+
+      // Generate new verification token
+      const { randomBytes } = await import("crypto");
+      const newToken = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await storage.updateUser(userId, {
+        emailVerificationToken: newToken,
+        emailVerificationExpiresAt: expiresAt,
+        updatedAt: new Date(),
+      } as any);
+
+      // Send verification email
+      const { sendEmail } = await import("./resendClient");
+      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+      const verificationUrl = `${baseUrl}/verify-email?token=${newToken}`;
+
+      await sendEmail(user.email, 'email_verification', {
+        firstName: user.firstName || 'estudiante',
+        verificationUrl,
+      });
+
+      res.json({ success: true, message: "Correo de verificación enviado" });
+    } catch (error) {
+      console.error("Error resending verification email:", error);
+      res.status(500).json({ error: "Error al enviar el correo de verificación" });
+    }
+  });
+
   // API Routes
 
   // Get all courses
