@@ -45,6 +45,7 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
 - **AI-Powered Quiz System**: Quizzes are generated and evaluated using OpenAI's gpt-4o-mini. Includes a placement quiz with adaptive difficulty.
 - **Lead Automation System**: Manages leads through a lifecycle (new, engaged, nurture, qualified, converted, inactive) with automated email sequences and lead scoring based on engagement.
 - **Conversation Labs (Breakout Rooms)**: Supports live sessions with multiple topic-specific breakout rooms that students can book.
+- **Email Verification**: Self-registered users receive a verification email with a 24-hour expiring token. Dashboard shows a banner prompting unverified users to verify their email, with option to resend. Manually-added students skip verification.
 
 ### Core Files & Directories
 - `client/src/components/landing/`: Landing page components
