@@ -8,11 +8,12 @@ import { CourseViewer } from "@/components/dashboard/course-viewer";
 import { ConversationLabs } from "@/components/dashboard/conversation-labs";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
+import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Subscription } from "@shared/schema";
 
 const ANONYMOUS_ID_KEY = "cogniboost_anonymous_id";
@@ -154,6 +155,9 @@ export default function Dashboard() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>
+
+          {/* Email verification banner */}
+          <EmailVerificationBanner />
 
           {/* Main content */}
           <main className="flex-1 p-6 overflow-auto">
