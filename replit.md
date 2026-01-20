@@ -65,6 +65,12 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
 - **Lead Automation System**: Manages leads through a lifecycle (new, engaged, nurture, qualified, converted, inactive) with automated email sequences and lead scoring based on engagement.
 - **Conversation Labs (Breakout Rooms)**: Supports live sessions with multiple topic-specific breakout rooms that students can book. Labs are filtered by student's English level (A1-C2) with server-side tier enforcement for booking limits.
 - **Email Verification**: Self-registered users receive a verification email with a 24-hour expiring token. Dashboard shows a banner prompting unverified users to verify their email, with option to resend. Manually-added students skip verification.
+- **Staff Invitation System**: Secure magic-link invitations for onboarding new admin and instructor staff. Features include:
+  - Role-specific email templates (purple for admin, turquoise for instructor)
+  - SHA-256 token hashing for security (raw tokens only in email URLs)
+  - 7-day invitation expiry with ability to resend or revoke
+  - Accept invitation endpoint validates token, email match, and assigns role
+  - Admin UI in "Equipo" tab with status tracking (Pendiente/Aceptada/Revocada/Expirada)
 
 ### Core Files & Directories
 - `client/src/components/landing/`: Landing page components
