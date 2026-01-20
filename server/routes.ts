@@ -2512,6 +2512,76 @@ Important:
     }
   });
 
+  // Admin: Export all leads as CSV
+  app.get("/api/admin/leads/export", requireAdmin, async (req, res) => {
+    try {
+      const leads = await storage.getAllLeads();
+      
+      const headers = [
+        'ID',
+        'Email',
+        'First Name',
+        'Last Name',
+        'Phone',
+        'Placement Level',
+        'Placement Confidence',
+        'Quiz Attempt ID',
+        'Status',
+        'Score',
+        'Source',
+        'Result Email Sent',
+        'Day 1 Email Sent',
+        'Day 3 Email Sent',
+        'Day 7 Email Sent',
+        'Converted to User',
+        'Quiz Completed At',
+        'Created At',
+        'Updated At'
+      ];
+      
+      const escapeCSV = (value: any): string => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      
+      const rows = leads.map(lead => [
+        escapeCSV(lead.id),
+        escapeCSV(lead.email),
+        escapeCSV(lead.firstName),
+        escapeCSV(lead.lastName),
+        escapeCSV(lead.phone),
+        escapeCSV(lead.placementLevel),
+        escapeCSV(lead.placementConfidence),
+        escapeCSV(lead.quizAttemptId),
+        escapeCSV(lead.status),
+        escapeCSV(lead.score),
+        escapeCSV(lead.source),
+        escapeCSV(lead.resultEmailSent ? 'Yes' : 'No'),
+        escapeCSV(lead.day1EmailSent ? 'Yes' : 'No'),
+        escapeCSV(lead.day3EmailSent ? 'Yes' : 'No'),
+        escapeCSV(lead.day7EmailSent ? 'Yes' : 'No'),
+        escapeCSV(lead.convertedToUser ? 'Yes' : 'No'),
+        escapeCSV(lead.quizCompletedAt ? new Date(lead.quizCompletedAt).toISOString() : ''),
+        escapeCSV(lead.createdAt ? new Date(lead.createdAt).toISOString() : ''),
+        escapeCSV(lead.updatedAt ? new Date(lead.updatedAt).toISOString() : '')
+      ].join(','));
+      
+      const csv = [headers.join(','), ...rows].join('\n');
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="leads_export_${timestamp}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting leads:", error);
+      res.status(500).json({ error: "Failed to export leads" });
+    }
+  });
+
   // Admin: Run automated email sequences (manually trigger or for cron job)
   app.post("/api/admin/leads/run-sequences", requireAdmin, async (req, res) => {
     try {

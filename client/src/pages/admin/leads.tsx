@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, Mail, Phone, TrendingUp, UserPlus, Filter, Play, Send, Calendar, Target, BarChart3 } from "lucide-react";
+import { Users, Search, Mail, Phone, TrendingUp, UserPlus, Filter, Play, Send, Calendar, Target, BarChart3, Download } from "lucide-react";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -202,14 +202,26 @@ export default function AdminLeads() {
             </h1>
             <p className="text-muted-foreground">Administra los prospectos y secuencias de email</p>
           </div>
-          <Button 
-            onClick={() => runSequencesMutation.mutate()}
-            disabled={runSequencesMutation.isPending}
-            data-testid="button-run-sequences"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            {runSequencesMutation.isPending ? "Ejecutando..." : "Ejecutar Secuencias"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                window.location.href = "/api/admin/leads/export";
+              }}
+              data-testid="button-export-leads"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Descargar CSV
+            </Button>
+            <Button 
+              onClick={() => runSequencesMutation.mutate()}
+              disabled={runSequencesMutation.isPending}
+              data-testid="button-run-sequences"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              {runSequencesMutation.isPending ? "Ejecutando..." : "Ejecutar Secuencias"}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
