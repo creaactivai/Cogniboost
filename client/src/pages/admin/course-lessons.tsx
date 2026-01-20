@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink } from "lucide-react";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
 
 interface LessonCardProps {
@@ -67,6 +67,15 @@ function LessonCard({ lesson, courseId, onEdit, onDelete, onTogglePublish }: Les
           {lesson.isOpen && (
             <Badge variant="outline" className="border-primary text-primary">Abierta</Badge>
           )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => window.open(`/dashboard/courses/${courseId}/lessons/${lesson.id}`, '_blank')}
+            data-testid={`button-preview-lesson-${lesson.id}`}
+            title="Vista previa como estudiante"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </Button>
           <Link href={`/admin/courses/${courseId}/lessons/${lesson.id}/quiz`}>
             <Button
               size="icon"

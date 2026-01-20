@@ -344,7 +344,9 @@ export const quizzes = pgTable("quizzes", {
   courseId: varchar("course_id").references(() => courses.id),
   title: text("title").notNull(),
   description: text("description"),
+  type: varchar("type").notNull().default("ai"), // 'ai' for AI-generated, 'manual' for admin-created
   passingScore: integer("passing_score").notNull().default(70), // percentage
+  totalPoints: integer("total_points").notNull().default(100), // total points for the quiz
   timeLimit: integer("time_limit"), // in minutes, null = no limit
   isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -357,6 +359,7 @@ export const quizQuestions = pgTable("quiz_questions", {
   question: text("question").notNull(),
   options: text("options").array().notNull(), // array of answer options
   correctOptionIndex: integer("correct_option_index").notNull(), // 0-based index
+  points: integer("points").notNull().default(10), // points for this question
   explanation: text("explanation"), // explanation for the correct answer
   orderIndex: integer("order_index").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),

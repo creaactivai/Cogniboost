@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useQuery } from "@tanstack/react-query";
 import { 
   TrendingUp, 
   Clock, 
@@ -11,7 +13,11 @@ import {
   Share2,
   Flame,
   Target,
-  Zap
+  Zap,
+  Trophy,
+  GraduationCap,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import {
   RadarChart,
@@ -75,7 +81,29 @@ const achievements = [
   { icon: Zap, title: "Aprendiz Veloz", description: "Termina un curso en una semana", unlocked: true },
 ];
 
+interface CourseScore {
+  courseId: string;
+  courseTitle: string;
+  courseLevel: string;
+  score: number;
+  gpa: number;
+  isPassed: boolean;
+  modulesCompleted: number;
+  totalModules: number;
+}
+
+interface StudentScores {
+  courses: CourseScore[];
+  overallGpa: number;
+  totalCoursesEnrolled: number;
+  coursesPassed: number;
+}
+
 export function ProgressTracking() {
+  // Fetch student scores from API
+  const { data: studentScores, isLoading: scoresLoading } = useQuery<StudentScores>({
+    queryKey: ["/api/student/scores"],
+  });
   const currentLevel = "B1";
   const nextLevel = "B2";
   const xpProgress = 65; // % towards next level
@@ -133,6 +161,99 @@ export function ProgressTracking() {
         </div>
       </Card>
 
+      {/* GPA and Course Scores Section */}
+      {scoresLoading ? (
+        <Card className="p-6 border-border">
+          <div className="flex items-center gap-3 mb-6">
+            <GraduationCap className="w-6 h-6 text-primary" />
+            <h3 className="text-lg font-display uppercase">Puntuaciones de Cursos</h3>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        </Card>
+      ) : studentScores && (studentScores.courses?.length > 0 || studentScores.overallGpa > 0) ? (
+        <Card className="p-6 border-border">
+          <div className="flex items-center gap-3 mb-6">
+            <GraduationCap className="w-6 h-6 text-primary" />
+            <h3 className="text-lg font-display uppercase">Puntuaciones de Cursos</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-4 gap-4 mb-6">
+            <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <div className="flex items-center gap-2 mb-1">
+                <Trophy className="w-4 h-4 text-primary" />
+                <span className="text-xs font-mono text-muted-foreground">GPA Global</span>
+              </div>
+              <p className="text-3xl font-display text-primary">{studentScores.overallGpa.toFixed(2)}</p>
+              <p className="text-xs font-mono text-muted-foreground">de 4.0</p>
+            </Card>
+            <Card className="p-4 border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <BookOpen className="w-4 h-4 text-accent" />
+                <span className="text-xs font-mono text-muted-foreground">Cursos Inscritos</span>
+              </div>
+              <p className="text-3xl font-display">{studentScores.totalCoursesEnrolled}</p>
+            </Card>
+            <Card className="p-4 border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-xs font-mono text-muted-foreground">Cursos Aprobados</span>
+              </div>
+              <p className="text-3xl font-display text-green-600">{studentScores.coursesPassed}</p>
+            </Card>
+            <Card className="p-4 border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="w-4 h-4 text-accent" />
+                <span className="text-xs font-mono text-muted-foreground">Promedio</span>
+              </div>
+              <p className="text-3xl font-display">
+                {studentScores.courses?.length > 0 
+                  ? Math.round(studentScores.courses.reduce((sum, c) => sum + c.score, 0) / studentScores.courses.length) 
+                  : 0}%
+              </p>
+            </Card>
+          </div>
+          
+          {/* Course breakdown */}
+          {studentScores.courses?.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-mono text-muted-foreground uppercase">Desglose por Curso</h4>
+              {studentScores.courses.map((course) => (
+                <div key={course.courseId} className="flex items-center gap-4 p-3 bg-muted/30" data-testid={`score-course-${course.courseId}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium truncate">{course.courseTitle}</p>
+                      <Badge variant="outline" className="text-xs">{course.courseLevel}</Badge>
+                      {course.isPassed ? (
+                        <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Aprobado
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          En progreso
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="font-mono">{course.modulesCompleted}/{course.totalModules} módulos</span>
+                      <span className="font-mono">GPA: {course.gpa.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-24">
+                      <Progress value={course.score} className="h-2" />
+                    </div>
+                    <span className="font-mono font-bold text-lg w-12 text-right">{course.score}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      ) : null}
+
       {/* Stats grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-5 border-border">
@@ -151,7 +272,7 @@ export function ProgressTracking() {
             </div>
             <span className="text-xs font-mono text-muted-foreground uppercase">Cursos Hechos</span>
           </div>
-          <p className="text-3xl font-display">3</p>
+          <p className="text-3xl font-display">{studentScores?.coursesPassed || 0}</p>
         </Card>
         <Card className="p-5 border-border">
           <div className="flex items-center gap-3 mb-3">

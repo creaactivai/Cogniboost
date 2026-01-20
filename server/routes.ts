@@ -484,6 +484,177 @@ export async function registerRoutes(
     }
   });
 
+  // ============== STUDENT SCORES ROUTES ==============
+
+  // Get comprehensive student scores for a course (modules, lessons, quizzes)
+  app.get("/api/courses/:courseId/scores", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { courseId } = req.params;
+      
+      // Get course with modules
+      const course = await storage.getCourseById(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      const modules = await storage.getModulesByCourseId(courseId);
+      const lessons = await storage.getLessonsByCourseId(courseId);
+      const quizzes = await storage.getQuizzesByCourseId(courseId);
+      const userAttempts = await storage.getQuizAttemptsByUserId(userId);
+      
+      // Calculate scores per module
+      const moduleScores = modules.map(module => {
+        const moduleLessons = lessons.filter(l => l.moduleId === module.id);
+        const lessonScores = moduleLessons.map(lesson => {
+          const lessonQuizzes = quizzes.filter(q => q.lessonId === lesson.id && q.isPublished);
+          const quizScores = lessonQuizzes.map(quiz => {
+            const attempts = userAttempts.filter(a => a.quizId === quiz.id);
+            const bestAttempt = attempts.length > 0 
+              ? attempts.reduce((best, current) => current.score > best.score ? current : best)
+              : null;
+            return {
+              quizId: quiz.id,
+              quizTitle: quiz.title,
+              passingScore: quiz.passingScore,
+              totalPoints: quiz.totalPoints || 100,
+              bestScore: bestAttempt?.score || 0,
+              isPassed: bestAttempt?.isPassed || false,
+              attempts: attempts.length
+            };
+          });
+          
+          const avgLessonScore = quizScores.length > 0 
+            ? quizScores.reduce((sum, q) => sum + q.bestScore, 0) / quizScores.length
+            : 0;
+          const allQuizzesPassed = quizScores.length > 0 && quizScores.every(q => q.isPassed);
+          
+          return {
+            lessonId: lesson.id,
+            lessonTitle: lesson.title,
+            orderIndex: lesson.orderIndex,
+            quizzes: quizScores,
+            averageScore: Math.round(avgLessonScore),
+            allQuizzesPassed
+          };
+        });
+        
+        const avgModuleScore = lessonScores.length > 0 
+          ? lessonScores.reduce((sum, l) => sum + l.averageScore, 0) / lessonScores.length
+          : 0;
+        const allLessonsPassed = lessonScores.length > 0 && lessonScores.every(l => l.allQuizzesPassed);
+        
+        return {
+          moduleId: module.id,
+          moduleTitle: module.title,
+          orderIndex: module.orderIndex,
+          lessons: lessonScores,
+          averageScore: Math.round(avgModuleScore),
+          allLessonsPassed
+        };
+      });
+      
+      // Calculate overall course score (average of module scores)
+      const validModuleScores = moduleScores.filter(m => m.lessons.length > 0);
+      const courseScore = validModuleScores.length > 0
+        ? validModuleScores.reduce((sum, m) => sum + m.averageScore, 0) / validModuleScores.length
+        : 0;
+      
+      // Convert to GPA scale (0-4.0)
+      const gpa = (courseScore / 100) * 4;
+      
+      res.json({
+        courseId,
+        courseTitle: course.title,
+        modules: moduleScores,
+        overallScore: Math.round(courseScore),
+        gpa: Math.round(gpa * 100) / 100, // Round to 2 decimals
+        isPassed: courseScore >= 70 // 70% to pass
+      });
+    } catch (error) {
+      console.error("Error fetching course scores:", error);
+      res.status(500).json({ error: "Failed to fetch course scores" });
+    }
+  });
+
+  // Get all student scores across all enrolled courses (for dashboard)
+  app.get("/api/student/scores", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const enrollments = await storage.getEnrollmentsByUserId(userId);
+      const allAttempts = await storage.getQuizAttemptsByUserId(userId);
+      
+      const courseScores = await Promise.all(enrollments.map(async (enrollment) => {
+        const course = await storage.getCourseById(enrollment.courseId);
+        if (!course) return null;
+        
+        const modules = await storage.getModulesByCourseId(enrollment.courseId);
+        const lessons = await storage.getLessonsByCourseId(enrollment.courseId);
+        const quizzes = await storage.getQuizzesByCourseId(enrollment.courseId);
+        
+        // Calculate module scores
+        const moduleScores = modules.map(module => {
+          const moduleLessons = lessons.filter(l => l.moduleId === module.id);
+          const lessonScores = moduleLessons.map(lesson => {
+            const lessonQuizzes = quizzes.filter(q => q.lessonId === lesson.id && q.isPublished);
+            const quizScores = lessonQuizzes.map(quiz => {
+              const attempts = allAttempts.filter(a => a.quizId === quiz.id);
+              const bestAttempt = attempts.length > 0 
+                ? attempts.reduce((best, current) => current.score > best.score ? current : best)
+                : null;
+              return bestAttempt?.score || 0;
+            });
+            return quizScores.length > 0 
+              ? quizScores.reduce((sum, s) => sum + s, 0) / quizScores.length
+              : 0;
+          });
+          return lessonScores.length > 0 
+            ? lessonScores.reduce((sum, s) => sum + s, 0) / lessonScores.length
+            : 0;
+        });
+        
+        const courseScore = moduleScores.length > 0 
+          ? moduleScores.reduce((sum, s) => sum + s, 0) / moduleScores.length
+          : 0;
+        const gpa = (courseScore / 100) * 4;
+        
+        return {
+          courseId: course.id,
+          courseTitle: course.title,
+          courseLevel: course.level,
+          score: Math.round(courseScore),
+          gpa: Math.round(gpa * 100) / 100,
+          isPassed: courseScore >= 70,
+          modulesCompleted: moduleScores.filter(s => s >= 70).length,
+          totalModules: modules.length
+        };
+      }));
+      
+      const validCourses = courseScores.filter(Boolean);
+      const overallGpa = validCourses.length > 0
+        ? validCourses.reduce((sum, c) => sum + (c?.gpa || 0), 0) / validCourses.length
+        : 0;
+      
+      res.json({
+        courses: validCourses,
+        overallGpa: Math.round(overallGpa * 100) / 100,
+        totalCoursesEnrolled: validCourses.length,
+        coursesPassed: validCourses.filter(c => c?.isPassed).length
+      });
+    } catch (error) {
+      console.error("Error fetching student scores:", error);
+      res.status(500).json({ error: "Failed to fetch student scores" });
+    }
+  });
+
   // ============== ONBOARDING API ROUTES ==============
 
   // Save onboarding data with Zod validation

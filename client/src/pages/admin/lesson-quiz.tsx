@@ -33,7 +33,9 @@ export default function AdminLessonQuiz() {
   const [quizFormData, setQuizFormData] = useState({
     title: "",
     description: "",
+    type: "manual" as "ai" | "manual",
     passingScore: 70,
+    totalPoints: 100,
     timeLimit: null as number | null,
     isPublished: false,
   });
@@ -42,6 +44,7 @@ export default function AdminLessonQuiz() {
     question: "",
     options: ["", "", "", ""],
     correctOptionIndex: 0,
+    points: 10,
     explanation: "",
   });
 
@@ -170,7 +173,9 @@ export default function AdminLessonQuiz() {
     setQuizFormData({
       title: "",
       description: "",
+      type: "manual",
       passingScore: 70,
+      totalPoints: 100,
       timeLimit: null,
       isPublished: false,
     });
@@ -181,6 +186,7 @@ export default function AdminLessonQuiz() {
       question: "",
       options: ["", "", "", ""],
       correctOptionIndex: 0,
+      points: 10,
       explanation: "",
     });
     setEditingQuestion(null);
@@ -192,6 +198,7 @@ export default function AdminLessonQuiz() {
       question: question.question,
       options: question.options || ["", "", "", ""],
       correctOptionIndex: question.correctOptionIndex,
+      points: question.points || 10,
       explanation: question.explanation || "",
     });
     setIsQuestionDialogOpen(true);
@@ -311,7 +318,27 @@ export default function AdminLessonQuiz() {
                         data-testid="input-quiz-description"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Tipo de Quiz</Label>
+                      <Select
+                        value={quizFormData.type}
+                        onValueChange={(v) => setQuizFormData({ ...quizFormData, type: v as "ai" | "manual" })}
+                      >
+                        <SelectTrigger data-testid="select-quiz-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual (crear preguntas)</SelectItem>
+                          <SelectItem value="ai">IA (generar con inteligencia artificial)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {quizFormData.type === "manual" 
+                          ? "Tú creas las preguntas y marcas las respuestas correctas" 
+                          : "La IA genera preguntas basadas en el contenido de la lección"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>Puntaje mínimo (%)</Label>
                         <Input
@@ -320,13 +347,25 @@ export default function AdminLessonQuiz() {
                           max="100"
                           value={quizFormData.passingScore}
                           onChange={(e) =>
-                            setQuizFormData({ ...quizFormData, passingScore: parseInt(e.target.value) })
+                            setQuizFormData({ ...quizFormData, passingScore: parseInt(e.target.value) || 0 })
                           }
                           data-testid="input-quiz-passing-score"
                         />
                       </div>
                       <div>
-                        <Label>Tiempo límite (min)</Label>
+                        <Label>Puntos totales</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={quizFormData.totalPoints}
+                          onChange={(e) =>
+                            setQuizFormData({ ...quizFormData, totalPoints: parseInt(e.target.value) || 100 })
+                          }
+                          data-testid="input-quiz-total-points"
+                        />
+                      </div>
+                      <div>
+                        <Label>Tiempo (min)</Label>
                         <Input
                           type="number"
                           min="1"
@@ -391,12 +430,15 @@ export default function AdminLessonQuiz() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="font-medium">{quiz.title}</h3>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge variant={quiz.isPublished ? "default" : "secondary"}>
                             {quiz.isPublished ? "Publicado" : "Borrador"}
                           </Badge>
+                          <Badge variant="outline">
+                            {quiz.type === "ai" ? "IA" : "Manual"}
+                          </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {quiz.passingScore}% para aprobar
+                            {quiz.passingScore}% · {quiz.totalPoints || 100} pts
                           </span>
                         </div>
                       </div>
@@ -555,19 +597,40 @@ export default function AdminLessonQuiz() {
                               Haz clic en el número para marcar la respuesta correcta
                             </p>
                           </div>
-                          <div>
-                            <Label>Explicación (opcional)</Label>
-                            <Textarea
-                              value={questionFormData.explanation}
-                              onChange={(e) =>
-                                setQuestionFormData({
-                                  ...questionFormData,
-                                  explanation: e.target.value,
-                                })
-                              }
-                              placeholder="Esta respuesta es correcta porque..."
-                              data-testid="input-question-explanation"
-                            />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Puntos</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={questionFormData.points}
+                                onChange={(e) =>
+                                  setQuestionFormData({
+                                    ...questionFormData,
+                                    points: parseInt(e.target.value) || 10,
+                                  })
+                                }
+                                data-testid="input-question-points"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Puntos que vale esta pregunta
+                              </p>
+                            </div>
+                            <div>
+                              <Label>Explicación (opcional)</Label>
+                              <Textarea
+                                value={questionFormData.explanation}
+                                onChange={(e) =>
+                                  setQuestionFormData({
+                                    ...questionFormData,
+                                    explanation: e.target.value,
+                                  })
+                                }
+                                placeholder="Esta respuesta es correcta porque..."
+                                rows={2}
+                                data-testid="input-question-explanation"
+                              />
+                            </div>
                           </div>
                           <DialogFooter>
                             <Button
@@ -595,7 +658,9 @@ export default function AdminLessonQuiz() {
                         setQuizFormData({
                           title: selectedQuiz.title,
                           description: selectedQuiz.description || "",
+                          type: (selectedQuiz.type || "manual") as "ai" | "manual",
                           passingScore: selectedQuiz.passingScore,
+                          totalPoints: selectedQuiz.totalPoints || 100,
                           timeLimit: selectedQuiz.timeLimit,
                           isPublished: selectedQuiz.isPublished,
                         });
@@ -648,8 +713,11 @@ export default function AdminLessonQuiz() {
                     {quizWithQuestions?.questions?.map((question, index) => (
                       <Card key={question.id} className="p-4" data-testid={`card-question-${question.id}`}>
                         <div className="flex items-start gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 bg-primary/10 text-primary font-semibold flex-shrink-0">
-                            {index + 1}
+                          <div className="flex flex-col items-center justify-center w-10 flex-shrink-0 gap-1">
+                            <div className="flex items-center justify-center w-8 h-8 bg-primary/10 text-primary font-semibold">
+                              {index + 1}
+                            </div>
+                            <span className="text-xs text-muted-foreground">{question.points || 10} pts</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground mb-3">
