@@ -2,12 +2,18 @@ import { users, adminInvitations, type User, type UpsertUser } from "@shared/mod
 import { db } from "../../db";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "../../resendClient";
+import { randomBytes } from "crypto";
 
 // Super admin emails that automatically get admin access during beta
 const SUPER_ADMIN_EMAILS = [
   'cognimight@gmail.com',
   'acreaactiva@gmail.com',
 ];
+
+// Generate a secure random token for email verification
+function generateVerificationToken(): string {
+  return randomBytes(32).toString('hex');
+}
 
 // Check if email is in the admin invitations table
 async function isInvitedAdmin(email: string): Promise<boolean> {
@@ -56,23 +62,46 @@ class AuthStorage implements IAuthStorage {
     const shouldBeAdmin = isSuperAdmin || isInvited;
     const userDataWithAdmin = shouldBeAdmin ? { ...userData, isAdmin: true } : userData;
 
+    // For new self-registered users (not manually added), generate email verification token
+    let finalUserData = userDataWithAdmin;
+    if (isNewUser && !existingUserByEmail?.addedManually) {
+      const verificationToken = generateVerificationToken();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      finalUserData = {
+        ...userDataWithAdmin,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiresAt: expiresAt,
+        emailVerified: false,
+      };
+    }
+
     const [user] = await db
       .insert(users)
-      .values(userDataWithAdmin)
+      .values(finalUserData)
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userDataWithAdmin,
+          ...finalUserData,
           updatedAt: new Date(),
         },
       })
       .returning();
 
-    // Send welcome email to new users (async, don't wait)
-    if (isNewUser && user.email && !user.welcomeEmailSent) {
-      this.sendWelcomeEmail(user).catch(err => 
-        console.error("Failed to send welcome email:", err)
-      );
+    // Send emails to new users (async, don't wait)
+    if (isNewUser && user.email) {
+      // Send verification email for self-registered users
+      if (!user.addedManually && user.emailVerificationToken) {
+        this.sendVerificationEmail(user).catch(err => 
+          console.error("Failed to send verification email:", err)
+        );
+      }
+      
+      // Send welcome email
+      if (!user.welcomeEmailSent) {
+        this.sendWelcomeEmail(user).catch(err => 
+          console.error("Failed to send welcome email:", err)
+        );
+      }
     }
 
     return user;
@@ -95,6 +124,24 @@ class AuthStorage implements IAuthStorage {
       console.log(`Welcome email sent to ${user.email}`);
     } catch (error) {
       console.error(`Failed to send welcome email to ${user.email}:`, error);
+    }
+  }
+
+  private async sendVerificationEmail(user: User): Promise<void> {
+    if (!user.email || !user.emailVerificationToken) return;
+    
+    try {
+      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+      const verificationUrl = `${baseUrl}/verify-email?token=${user.emailVerificationToken}`;
+      
+      await sendEmail(user.email, 'email_verification', {
+        firstName: user.firstName || 'estudiante',
+        verificationUrl,
+      });
+      
+      console.log(`Verification email sent to ${user.email}`);
+    } catch (error) {
+      console.error(`Failed to send verification email to ${user.email}:`, error);
     }
   }
 }
