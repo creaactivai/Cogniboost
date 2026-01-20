@@ -870,12 +870,12 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <div class="header">
               <div class="logo">COGNIBOOST</div>
             </div>
-            <h1>¡Hola \${data.firstName}!</h1>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
             <p>Has sido invitado a unirte a <strong>CogniBoost</strong>, la plataforma líder para dominar el inglés.</p>
             <p>Se te ha asignado el siguiente plan:</p>
-            <div class="plan-badge">\${data.planName}</div>
+            <div class="plan-badge">${data.planName || 'Plan Asignado'}</div>
             <p>Para completar tu registro y comenzar a aprender, haz clic en el siguiente botón:</p>
-            <a href="\${data.activationUrl}" class="cta">ACTIVAR MI CUENTA</a>
+            <a href="${data.activationUrl || 'https://cogniboost.co'}" class="cta">ACTIVAR MI CUENTA</a>
             <p>Una vez que actives tu cuenta, tendrás acceso a:</p>
             <ul style="color: #cccccc;">
               <li>Cursos diseñados para hispanohablantes</li>

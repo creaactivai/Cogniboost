@@ -39,6 +39,67 @@ export async function registerRoutes(
   // Register object storage routes
   registerObjectStorageRoutes(app);
 
+  // Account activation endpoint for manually added students
+  app.post("/api/auth/activate", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token de activación requerido" });
+      }
+
+      // Get current authenticated user
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Debes iniciar sesión primero" });
+      }
+
+      // Find user by invitation token
+      const allUsers = await storage.getAllUsers();
+      const invitedUser = allUsers.find(u => u.invitationToken === token);
+
+      if (!invitedUser) {
+        return res.status(404).json({ error: "Token de invitación inválido o expirado" });
+      }
+
+      // Verify the email matches (case insensitive)
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      // If the logged-in user is different from the invited user, merge the accounts
+      if (invitedUser.id !== userId) {
+        // Transfer the invitation data to the current user
+        await storage.updateUser(userId, {
+          onboardingCompleted: invitedUser.skipOnboarding || currentUser.onboardingCompleted,
+          status: 'active',
+          updatedAt: new Date(),
+        });
+        
+        // Mark the invitation as used by clearing the token
+        await storage.updateUser(invitedUser.id, {
+          invitationToken: null,
+          status: 'inactive',
+          updatedAt: new Date(),
+        } as any);
+      } else {
+        // Same user, just activate
+        await storage.updateUser(userId, {
+          invitationToken: null,
+          onboardingCompleted: invitedUser.skipOnboarding || true,
+          status: 'active',
+          updatedAt: new Date(),
+        } as any);
+      }
+
+      res.json({ success: true, message: "Cuenta activada exitosamente" });
+    } catch (error) {
+      console.error("Error activating account:", error);
+      res.status(500).json({ error: "Error al activar la cuenta" });
+    }
+  });
+
   // API Routes
 
   // Get all courses

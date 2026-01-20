@@ -195,6 +195,7 @@ export interface IStorage {
     placementLevel: string;
     placementConfidence: string;
     placementAttemptId: string;
+    invitationToken: string | null;
     updatedAt: Date;
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
@@ -874,6 +875,10 @@ export class DatabaseStorage implements IStorage {
     onboardingCompleted: boolean;
     welcomeEmailSent: boolean;
     onboardingReminderSent: boolean;
+    placementLevel: string;
+    placementConfidence: string;
+    placementAttemptId: string;
+    invitationToken: string | null;
     updatedAt: Date;
   }>): Promise<User | undefined> {
     const [updated] = await db.update(users)
