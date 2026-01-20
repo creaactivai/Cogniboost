@@ -47,6 +47,9 @@ integrations = ["javascript_object_storage:2.0.0", "javascript_log_in_with_repli
 VITE_STRIPE_PRICE_FLEX = "price_1Sr85DDk76WSkPokDMlz6Xmg"
 VITE_STRIPE_PRICE_STANDARD = "price_1Sr85EDk76WSkPokx98rmUD2"
 VITE_STRIPE_PRICE_PREMIUM = "price_1Sr85EDk76WSkPok3UxxTEKY"
+STRIPE_PRICE_FLEX = "price_1Sr85DDk76WSkPokDMlz6Xmg"
+STRIPE_PRICE_STANDARD = "price_1Sr85EDk76WSkPokx98rmUD2"
+STRIPE_PRICE_PREMIUM = "price_1Sr85EDk76WSkPok3UxxTEKY"
 [[deployment.rewrites]]
 from = "/*"
 to = "/index.html"
