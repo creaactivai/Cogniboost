@@ -2246,6 +2246,117 @@ Important:
     }
   });
 
+  // Admin: Soft delete student (moves to "eliminados" list)
+  app.delete("/api/admin/students/:id", requireAdmin, async (req, res) => {
+    try {
+      const adminUser = req.user as any;
+      const student = await storage.getUser(req.params.id);
+      
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      
+      // Prevent deleting admins
+      if (student.isAdmin) {
+        return res.status(403).json({ error: "No se puede eliminar a un administrador" });
+      }
+      
+      // Soft delete: set deletedAt timestamp and deletedBy
+      const updated = await storage.softDeleteUser(req.params.id, adminUser?.id);
+      
+      res.json({ 
+        message: "Estudiante eliminado exitosamente",
+        student: updated 
+      });
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      res.status(500).json({ error: "Failed to delete student" });
+    }
+  });
+
+  // Admin: Get deleted students
+  app.get("/api/admin/students/deleted", requireAdmin, async (req, res) => {
+    try {
+      const deletedStudents = await storage.getDeletedStudents();
+      res.json(deletedStudents);
+    } catch (error) {
+      console.error("Error fetching deleted students:", error);
+      res.status(500).json({ error: "Failed to fetch deleted students" });
+    }
+  });
+
+  // Admin: Export students as CSV
+  app.get("/api/admin/students/export", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      let students;
+      
+      if (status === 'deleted') {
+        students = await storage.getDeletedStudents();
+      } else if (status && ['active', 'hold', 'inactive'].includes(status as string)) {
+        students = await storage.getStudentsByStatus(status as string);
+      } else {
+        students = await storage.getAllStudents();
+      }
+      
+      const headers = [
+        'ID',
+        'Email',
+        'First Name',
+        'Last Name',
+        'Status',
+        'Subscription Tier',
+        'Is Locked',
+        'Added Manually',
+        'Onboarding Completed',
+        'English Level',
+        'Placement Level',
+        'Stripe Customer ID',
+        'Created At',
+        'Updated At',
+        'Deleted At'
+      ];
+      
+      const escapeCSV = (value: any): string => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      
+      const rows = students.map(student => [
+        escapeCSV(student.id),
+        escapeCSV(student.email),
+        escapeCSV(student.firstName),
+        escapeCSV(student.lastName),
+        escapeCSV(student.status),
+        escapeCSV(student.subscriptionTier),
+        escapeCSV(student.isLocked ? 'Yes' : 'No'),
+        escapeCSV(student.addedManually ? 'Yes' : 'No'),
+        escapeCSV(student.onboardingCompleted ? 'Yes' : 'No'),
+        escapeCSV(student.englishLevel),
+        escapeCSV(student.placementLevel),
+        escapeCSV(student.stripeCustomerId),
+        escapeCSV(student.createdAt ? new Date(student.createdAt).toISOString() : ''),
+        escapeCSV(student.updatedAt ? new Date(student.updatedAt).toISOString() : ''),
+        escapeCSV(student.deletedAt ? new Date(student.deletedAt).toISOString() : '')
+      ].join(','));
+      
+      const csv = [headers.join(','), ...rows].join('\n');
+      const statusLabel = status || 'todos';
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="students_${statusLabel}_${timestamp}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting students:", error);
+      res.status(500).json({ error: "Failed to export students" });
+    }
+  });
+
   // Admin: Add student manually (superadmin only)
   const addManualStudentSchema = z.object({
     email: z.string().email("Invalid email"),

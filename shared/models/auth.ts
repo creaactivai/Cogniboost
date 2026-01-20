@@ -44,6 +44,8 @@ export const users = pgTable("users", {
   isLocked: boolean("is_locked").notNull().default(false),
   lockedAt: timestamp("locked_at"),
   lockedReason: text("locked_reason"),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   lastActiveAt: timestamp("last_active_at"),

@@ -65,7 +65,7 @@ import {
   type InsertAdminInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, count, and } from "drizzle-orm";
+import { eq, desc, sql, count, and, isNull, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Course Categories
@@ -205,6 +205,10 @@ export interface IStorage {
   }>): Promise<User | undefined>;
   lockUser(userId: string, reason?: string): Promise<User | undefined>;
   unlockUser(userId: string): Promise<User | undefined>;
+  softDeleteUser(userId: string, deletedBy?: string): Promise<User | undefined>;
+  getDeletedStudents(): Promise<User[]>;
+  getAllStudents(): Promise<User[]>;
+  getStudentsByStatus(status: string): Promise<User[]>;
   createManualStudent(data: {
     id: string;
     email: string;
@@ -940,6 +944,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async softDeleteUser(userId: string, deletedBy?: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ 
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        status: 'inactive',
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getDeletedStudents(): Promise<User[]> {
+    return db.select().from(users)
+      .where(and(
+        eq(users.isAdmin, false),
+        isNotNull(users.deletedAt)
+      ))
+      .orderBy(desc(users.deletedAt));
+  }
+
+  async getAllStudents(): Promise<User[]> {
+    return db.select().from(users)
+      .where(and(
+        eq(users.isAdmin, false),
+        isNull(users.deletedAt)
+      ))
+      .orderBy(desc(users.createdAt));
+  }
+
+  async getStudentsByStatus(status: string): Promise<User[]> {
+    return db.select().from(users)
+      .where(and(
+        eq(users.isAdmin, false),
+        eq(users.status, status as any),
+        isNull(users.deletedAt)
+      ))
+      .orderBy(desc(users.createdAt));
   }
 
   async createManualStudent(data: {

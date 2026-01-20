@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle, UserPlus } from "lucide-react";
+import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle, UserPlus, Trash2, Download } from "lucide-react";
 import { useState } from "react";
 import type { UserStats, Enrollment } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -37,6 +37,8 @@ interface User {
   lockedReason: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  deletedAt: string | null;
+  deletedBy: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -51,18 +53,20 @@ interface StudentMetrics {
   churnedThisMonth: number;
 }
 
-type StatusTab = 'all' | 'active' | 'hold' | 'inactive';
+type StatusTab = 'all' | 'active' | 'hold' | 'inactive' | 'deleted';
 
 const statusLabels: Record<string, string> = {
   active: "Activo",
   hold: "En espera",
   inactive: "Inactivo",
+  deleted: "Eliminado",
 };
 
 const statusColors: Record<string, string> = {
   active: "#10B981",
   hold: "#F59E0B",
   inactive: "#EF4444",
+  deleted: "#6B7280",
 };
 
 export default function AdminStudents() {
@@ -72,6 +76,9 @@ export default function AdminStudents() {
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const [lockReason, setLockReason] = useState("");
   const [addStudentDialogOpen, setAddStudentDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [newStudentForm, setNewStudentForm] = useState({
     email: "",
     firstName: "",
@@ -87,13 +94,27 @@ export default function AdminStudents() {
   });
 
   const { data: students, isLoading: studentsLoading } = useQuery<User[]>({
-    queryKey: ["/api/admin/students", activeTab === 'all' ? undefined : activeTab],
+    queryKey: ["/api/admin/students", activeTab],
     queryFn: async () => {
-      const url = activeTab === 'all' 
-        ? '/api/admin/students' 
-        : `/api/admin/students?status=${activeTab}`;
+      let url: string;
+      if (activeTab === 'all') {
+        url = '/api/admin/students';
+      } else if (activeTab === 'deleted') {
+        url = '/api/admin/students/deleted';
+      } else {
+        url = `/api/admin/students?status=${activeTab}`;
+      }
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch students");
+      return res.json();
+    }
+  });
+
+  const { data: deletedStudents } = useQuery<User[]>({
+    queryKey: ["/api/admin/students/deleted"],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/students/deleted', { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch deleted students");
       return res.json();
     }
   });
@@ -164,6 +185,64 @@ export default function AdminStudents() {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest('DELETE', `/api/admin/students/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students/deleted"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students/metrics"] });
+      toast({ title: "Estudiante eliminado", description: "El estudiante ha sido movido a eliminados." });
+      setDeleteConfirmDialogOpen(false);
+      setDeleteDialogOpen(false);
+      setSelectedStudent(null);
+      setDeleteConfirmText("");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "No se pudo eliminar al estudiante.", variant: "destructive" });
+    }
+  });
+
+  const handleDeleteClick = (student: User) => {
+    setSelectedStudent(student);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleFirstDeleteConfirm = () => {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmDialogOpen(true);
+  };
+
+  const handleFinalDeleteConfirm = () => {
+    if (deleteConfirmText === "ELIMINAR" && selectedStudent) {
+      deleteMutation.mutate(selectedStudent.id);
+    }
+  };
+
+  const exportStudentsCSV = async (statusFilter?: string) => {
+    try {
+      let url = '/api/admin/students/export';
+      if (statusFilter) {
+        url += `?status=${statusFilter}`;
+      }
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to export");
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `estudiantes_${statusFilter || 'todos'}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      toast({ title: "Exportación completada", description: "El archivo CSV se ha descargado." });
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo exportar los estudiantes.", variant: "destructive" });
+    }
+  };
+
   const calculateAge = (birthDate: string) => {
     const today = new Date();
     const birth = new Date(birthDate);
@@ -229,6 +308,7 @@ export default function AdminStudents() {
     { key: 'active', label: 'Activos', count: metrics?.activeStudents || 0 },
     { key: 'hold', label: 'En Espera', count: metrics?.holdStudents || 0 },
     { key: 'inactive', label: 'Inactivos', count: metrics?.inactiveStudents || 0 },
+    { key: 'deleted', label: 'Eliminados', count: deletedStudents?.length || 0 },
   ];
 
   return (
@@ -367,6 +447,15 @@ export default function AdminStudents() {
             <UserPlus className="w-4 h-4" />
             Agregar Estudiante
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => exportStudentsCSV(activeTab === 'all' ? undefined : activeTab)}
+            className="gap-2"
+            data-testid="button-export-students"
+          >
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </Button>
         </div>
 
         <Card className="p-4">
@@ -461,25 +550,42 @@ export default function AdminStudents() {
                         {statusLabels[student.status]}
                       </Badge>
 
-                      {student.isLocked ? (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => unlockMutation.mutate(student.id)}
-                          disabled={unlockMutation.isPending}
-                          data-testid={`button-unlock-${student.id}`}
-                        >
-                          <Unlock className="w-4 h-4 text-green-500" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleLockClick(student)}
-                          data-testid={`button-lock-${student.id}`}
-                        >
-                          <Lock className="w-4 h-4 text-destructive" />
-                        </Button>
+                      {activeTab !== 'deleted' && (
+                        <>
+                          {student.isLocked ? (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => unlockMutation.mutate(student.id)}
+                              disabled={unlockMutation.isPending}
+                              data-testid={`button-unlock-${student.id}`}
+                            >
+                              <Unlock className="w-4 h-4 text-green-500" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleLockClick(student)}
+                              data-testid={`button-lock-${student.id}`}
+                            >
+                              <Lock className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteClick(student)}
+                            data-testid={`button-delete-${student.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </>
+                      )}
+                      {activeTab === 'deleted' && student.deletedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          Eliminado: {new Date(student.deletedAt).toLocaleDateString('es-LA')}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -646,6 +752,90 @@ export default function AdminStudents() {
               data-testid="button-confirm-add-student"
             >
               {addStudentMutation.isPending ? "Agregando..." : "Agregar Estudiante"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+              Eliminar Estudiante
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar a{' '}
+              <strong>
+                {selectedStudent?.firstName 
+                  ? `${selectedStudent.firstName} ${selectedStudent.lastName || ''}`
+                  : selectedStudent?.email || selectedStudent?.id}
+              </strong>
+              ? Esta acción moverá al estudiante a la lista de eliminados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setSelectedStudent(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleFirstDeleteConfirm}
+              data-testid="button-first-delete-confirm"
+            >
+              Continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+              Confirmar Eliminación
+            </DialogTitle>
+            <DialogDescription>
+              Para confirmar la eliminación de{' '}
+              <strong>
+                {selectedStudent?.firstName 
+                  ? `${selectedStudent.firstName} ${selectedStudent.lastName || ''}`
+                  : selectedStudent?.email || selectedStudent?.id}
+              </strong>
+              , escribe <strong>ELIMINAR</strong> en el campo de abajo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Escribe ELIMINAR para confirmar"
+              data-testid="input-delete-confirm"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleteConfirmDialogOpen(false);
+                setSelectedStudent(null);
+                setDeleteConfirmText("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleFinalDeleteConfirm}
+              disabled={deleteConfirmText !== "ELIMINAR" || deleteMutation.isPending}
+              data-testid="button-final-delete-confirm"
+            >
+              {deleteMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
             </Button>
           </DialogFooter>
         </DialogContent>
