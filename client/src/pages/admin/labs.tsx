@@ -140,10 +140,25 @@ export default function AdminLabs() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (!formData.title.trim()) {
+      toast({ title: "El título es requerido", variant: "destructive" });
+      return;
+    }
+    if (!formData.instructorId) {
+      toast({ title: "Debe seleccionar un instructor", variant: "destructive" });
+      return;
+    }
+    if (!formData.scheduledAt) {
+      toast({ title: "Debe seleccionar fecha y hora", variant: "destructive" });
+      return;
+    }
     if (formData.groups.length === 0) {
       toast({ title: "Debe agregar al menos un grupo", variant: "destructive" });
       return;
     }
+    
     if (editingLab) {
       updateMutation.mutate({ id: editingLab.id, data: formData });
     } else {
