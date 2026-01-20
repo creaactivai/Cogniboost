@@ -124,12 +124,17 @@ export function AdminSidebar() {
       </SidebarContent>
       
       <SidebarFooter className="p-4 border-t border-border">
-        <Link href="/">
-          <Button variant="ghost" className="w-full justify-start gap-2" data-testid="button-back-to-site">
-            <ChevronLeft className="w-4 h-4" />
-            <span className="font-mono">Volver al Sitio</span>
-          </Button>
-        </Link>
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start gap-2" 
+          data-testid="button-logout"
+          onClick={() => {
+            window.location.href = "/__replit/auth/logout";
+          }}
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span className="font-mono">Cerrar Sesión</span>
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );
