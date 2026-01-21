@@ -189,7 +189,7 @@ export function DashboardOverview() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display uppercase mb-2">
-            Bienvenido/a, <span className="text-primary">{user?.firstName || "Estudiante"}</span>
+            Bienvenido/a, <span className="text-primary">{user?.firstName || user?.email?.split('@')[0] || "Estudiante"}</span>
           </h1>
           <p className="font-mono text-muted-foreground">
             Continúa tu camino hacia la fluidez en inglés
