@@ -734,16 +734,27 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { customerId, subscriptionId } = req.body;
+      const { customerId, subscriptionId, planName } = req.body;
       
       if (!customerId) {
         return res.status(400).json({ error: "Customer ID is required" });
       }
 
-      // Update user with Stripe customer ID
+      // Map plan name to subscription tier
+      let subscriptionTier: "flex" | "basic" | "premium" = "basic";
+      if (planName) {
+        const lowerPlan = planName.toLowerCase();
+        if (lowerPlan.includes("flex")) subscriptionTier = "flex";
+        else if (lowerPlan.includes("premium")) subscriptionTier = "premium";
+        else if (lowerPlan.includes("basic") || lowerPlan.includes("estándar") || lowerPlan.includes("standard")) subscriptionTier = "basic";
+      }
+
+      // Update user with Stripe customer ID, subscription tier, and mark onboarding as complete
       await storage.updateUser(userId, { 
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId || undefined,
+        subscriptionTier,
+        onboardingCompleted: true,
         status: 'active',
       });
 

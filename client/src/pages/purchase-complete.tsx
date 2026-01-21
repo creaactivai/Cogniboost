@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle, Loader2 } from "lucide-react";
 import logoImage from "@assets/Frame_2_1768763364518.png";
@@ -20,12 +19,21 @@ export default function PurchaseComplete() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("Procesando tu compra...");
+  const hasRedirectedToLogin = useRef(false);
+  const hasLinkedCustomer = useRef(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get("session_id");
 
     if (!sessionId) {
+      const pendingData = localStorage.getItem("pending_stripe_customer");
+      if (pendingData) {
+        setSessionData(JSON.parse(pendingData));
+        setIsLoading(false);
+        return;
+      }
       setError("No se encontró información de la compra");
       setIsLoading(false);
       return;
@@ -50,8 +58,23 @@ export default function PurchaseComplete() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && user && sessionData && !isLinking) {
+    if (isLoading || authLoading) return;
+    
+    if (!isAuthenticated && sessionData && !hasRedirectedToLogin.current) {
+      hasRedirectedToLogin.current = true;
+      setStatus("Redirigiendo para crear tu cuenta...");
+      setTimeout(() => {
+        window.location.href = "/api/login?returnTo=/purchase-complete";
+      }, 1500);
+    }
+  }, [isLoading, authLoading, isAuthenticated, sessionData]);
+
+  useEffect(() => {
+    if (isAuthenticated && user && sessionData && !isLinking && !hasLinkedCustomer.current) {
+      hasLinkedCustomer.current = true;
       setIsLinking(true);
+      setStatus("Vinculando tu suscripción...");
+      
       fetch("/api/stripe/link-customer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,13 +82,17 @@ export default function PurchaseComplete() {
         body: JSON.stringify({
           customerId: sessionData.customerId,
           subscriptionId: sessionData.subscriptionId,
+          planName: sessionData.planName,
         }),
       })
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
             localStorage.removeItem("pending_stripe_customer");
-            setLocation("/dashboard?payment=success");
+            setStatus("¡Listo! Entrando a tu cuenta...");
+            setTimeout(() => {
+              window.location.href = "/dashboard?payment=success";
+            }, 1000);
           } else {
             setError("Error al vincular la suscripción");
           }
@@ -76,38 +103,15 @@ export default function PurchaseComplete() {
         })
         .finally(() => setIsLinking(false));
     }
-  }, [isAuthenticated, user, sessionData, isLinking, setLocation]);
-
-  const handleLogin = () => {
-    window.location.href = "/api/auth/login";
-  };
-
-  if (isLoading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  }, [isAuthenticated, user, sessionData, isLinking]);
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <Card className="max-w-md w-full p-8 text-center">
           <p className="text-destructive mb-4">{error}</p>
-          <Button onClick={() => setLocation("/")}>Volver al Inicio</Button>
+          <a href="/" className="text-primary hover:underline">Volver al Inicio</a>
         </Card>
-      </div>
-    );
-  }
-
-  if (isLinking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Vinculando tu suscripción...</p>
-        </div>
       </div>
     );
   }
@@ -127,35 +131,14 @@ export default function PurchaseComplete() {
           ¡Compra Exitosa!
         </h1>
 
-        <p className="text-muted-foreground mb-6">
+        <p className="text-muted-foreground mb-4">
           Tu suscripción al plan <strong className="text-foreground">{sessionData?.planName || "Premium"}</strong> ha sido procesada correctamente.
         </p>
 
-        {sessionData?.customerEmail && (
-          <p className="text-sm text-muted-foreground mb-6">
-            Confirmación enviada a: <strong>{sessionData.customerEmail}</strong>
-          </p>
-        )}
-
-        <div className="bg-muted p-4 rounded mb-6">
-          <p className="text-sm font-medium mb-2">Próximo paso:</p>
-          <p className="text-sm text-muted-foreground">
-            Crea tu cuenta o inicia sesión para acceder a tu suscripción y comenzar a aprender.
-          </p>
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <p className="text-muted-foreground">{status}</p>
         </div>
-
-        <Button 
-          size="lg" 
-          className="w-full" 
-          onClick={handleLogin}
-          data-testid="button-create-account"
-        >
-          Crear Cuenta / Iniciar Sesión
-        </Button>
-
-        <p className="text-xs text-muted-foreground mt-4">
-          Tu prueba gratuita de 7 días comienza hoy. Puedes cancelar en cualquier momento.
-        </p>
       </Card>
     </div>
   );
