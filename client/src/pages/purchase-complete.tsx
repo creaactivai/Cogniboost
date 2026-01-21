@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, Loader2, GraduationCap, LayoutDashboard } from "lucide-react";
 import logoImage from "@assets/Frame_2_1768763364518.png";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -20,6 +21,7 @@ export default function PurchaseComplete() {
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("Procesando tu compra...");
+  const [showOptions, setShowOptions] = useState(false);
   const hasRedirectedToLogin = useRef(false);
   const hasLinkedCustomer = useRef(false);
 
@@ -89,10 +91,8 @@ export default function PurchaseComplete() {
         .then((data) => {
           if (data.success) {
             localStorage.removeItem("pending_stripe_customer");
-            setStatus("¡Listo! Entrando a tu cuenta...");
-            setTimeout(() => {
-              window.location.href = "/dashboard?payment=success";
-            }, 1000);
+            setStatus("¡Suscripción vinculada!");
+            setShowOptions(true);
           } else {
             setError("Error al vincular la suscripción");
           }
@@ -135,10 +135,45 @@ export default function PurchaseComplete() {
           Tu suscripción al plan <strong className="text-foreground">{sessionData?.planName || "Premium"}</strong> ha sido procesada correctamente.
         </p>
 
-        <div className="flex items-center justify-center gap-3 mt-6">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <p className="text-muted-foreground">{status}</p>
-        </div>
+        {showOptions ? (
+          <div className="space-y-4 mt-6">
+            <p className="text-sm text-muted-foreground mb-4">
+              ¿Cómo te gustaría comenzar?
+            </p>
+            
+            <div className="grid gap-3">
+              <Button 
+                size="lg" 
+                className="w-full"
+                onClick={() => setLocation("/onboarding")}
+                data-testid="button-start-tutorial"
+              >
+                <GraduationCap className="w-5 h-5 mr-2" />
+                Comenzar Tutorial de Bienvenida
+              </Button>
+              
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="w-full"
+                onClick={() => setLocation("/dashboard")}
+                data-testid="button-go-dashboard"
+              >
+                <LayoutDashboard className="w-5 h-5 mr-2" />
+                Ir Directo al Dashboard
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Tu prueba gratuita de 7 días comienza hoy. Puedes cancelar en cualquier momento.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            <p className="text-muted-foreground">{status}</p>
+          </div>
+        )}
       </Card>
     </div>
   );
