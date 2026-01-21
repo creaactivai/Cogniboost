@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useBooking } from "@/contexts/booking-context";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -110,14 +109,15 @@ const plans = [
   },
 ];
 
-function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0]; openBooking: (type?: 'class' | 'demo') => void; onCheckout: (priceId: string, planName: string) => void }) {
+function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: (priceId: string, planName: string) => void }) {
   const IconComponent = plan.icon;
 
   const handleClick = () => {
     if (plan.stripePriceId) {
       onCheckout(plan.stripePriceId, plan.name);
     } else {
-      openBooking();
+      // Free plan - redirect to signup
+      window.location.href = "/api/login";
     }
   };
   
@@ -190,7 +190,6 @@ function PricingCard({ plan, openBooking, onCheckout }: { plan: typeof plans[0];
 }
 
 export function Pricing() {
-  const { openBooking } = useBooking();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
@@ -368,7 +367,7 @@ export function Pricing() {
               <CarouselContent className="-ml-4 pt-6 pb-2">
                 {plans.map((plan) => (
                   <CarouselItem key={plan.name} className="pl-4 basis-[85%]">
-                    <PricingCard plan={plan} openBooking={openBooking} onCheckout={handleCheckout} />
+                    <PricingCard plan={plan} onCheckout={handleCheckout} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
@@ -377,7 +376,7 @@ export function Pricing() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="pricing-grid">
             {plans.map((plan) => (
-              <PricingCard key={plan.name} plan={plan} openBooking={openBooking} onCheckout={handleCheckout} />
+              <PricingCard key={plan.name} plan={plan} onCheckout={handleCheckout} />
             ))}
           </div>
         )}
