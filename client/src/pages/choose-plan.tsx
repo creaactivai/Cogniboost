@@ -16,7 +16,7 @@ const plans = [
     id: "flex",
     name: "Flex",
     price: 14.99,
-    priceId: "price_flex",
+    priceId: "price_1SrrJiBe5iAM2felXxQFAzwZ",
     description: "Para aprendizaje a tu ritmo",
     icon: Zap,
     features: [
@@ -33,7 +33,7 @@ const plans = [
     id: "basic",
     name: "Básico",
     price: 49.99,
-    priceId: "price_basic",
+    priceId: "price_1SrrdGBe5iAM2felxVv0eF4H",
     description: "La opción más popular",
     icon: Star,
     features: [
@@ -50,7 +50,7 @@ const plans = [
     id: "premium",
     name: "Premium",
     price: 99.99,
-    priceId: "price_premium",
+    priceId: "price_1SrrgOBe5iAM2fel0N4oRbWS",
     description: "Para resultados acelerados",
     icon: Crown,
     features: [
@@ -100,8 +100,17 @@ export default function ChoosePlan() {
   }, [authLoading, user, setLocation]);
 
   const checkoutMutation = useMutation({
-    mutationFn: async (tier: string) => {
-      const response = await apiRequest("POST", "/api/stripe/checkout", { tier });
+    mutationFn: async ({ priceId, planName }: { priceId: string; planName: string }) => {
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId, planName }),
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al procesar");
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -124,7 +133,6 @@ export default function ChoosePlan() {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate subscription cache and navigate to dashboard
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setLocation("/dashboard");
@@ -139,8 +147,10 @@ export default function ChoosePlan() {
   });
 
   const handleSelectPlan = (planId: string) => {
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return;
     setSelectedPlan(planId);
-    checkoutMutation.mutate(planId);
+    checkoutMutation.mutate({ priceId: plan.priceId, planName: plan.name });
   };
 
   const handleSelectFree = () => {
