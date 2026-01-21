@@ -44,12 +44,12 @@ integrations = ["javascript_object_storage:2.0.0", "javascript_log_in_with_repli
 [userenv]
 
 [userenv.shared]
-VITE_STRIPE_PRICE_FLEX = "price_1Sr85DDk76WSkPokDMlz6Xmg"
-VITE_STRIPE_PRICE_STANDARD = "price_1Sr85EDk76WSkPokx98rmUD2"
-VITE_STRIPE_PRICE_PREMIUM = "price_1Sr85EDk76WSkPok3UxxTEKY"
-STRIPE_PRICE_FLEX = "price_1Sr85DDk76WSkPokDMlz6Xmg"
-STRIPE_PRICE_STANDARD = "price_1Sr85EDk76WSkPokx98rmUD2"
-STRIPE_PRICE_PREMIUM = "price_1Sr85EDk76WSkPok3UxxTEKY"
+VITE_STRIPE_PRICE_FLEX = "price_1SrrJiBe5iAM2felXxQFAzwZ"
+VITE_STRIPE_PRICE_STANDARD = "price_1SrrdGBe5iAM2felxVv0eF4H"
+VITE_STRIPE_PRICE_PREMIUM = "price_1SrrgOBe5iAM2fel0N4oRbWS"
+STRIPE_PRICE_FLEX = "price_1SrrJiBe5iAM2felXxQFAzwZ"
+STRIPE_PRICE_STANDARD = "price_1SrrdGBe5iAM2felxVv0eF4H"
+STRIPE_PRICE_PREMIUM = "price_1SrrgOBe5iAM2fel0N4oRbWS"
 [[deployment.rewrites]]
 from = "/*"
 to = "/index.html"

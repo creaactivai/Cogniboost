@@ -1,8 +1,27 @@
 import Stripe from 'stripe';
 
 let connectionSettings: any;
+let cachedCredentials: { publishableKey: string; secretKey: string } | null = null;
 
 async function getCredentials() {
+  // Return cached credentials if available
+  if (cachedCredentials) {
+    return cachedCredentials;
+  }
+
+  // Priority 1: Use STRIPE_SECRET_KEY_BOOST for CogniBoost account
+  const boostSecretKey = process.env.STRIPE_SECRET_KEY_BOOST;
+  const boostPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY_BOOST;
+  
+  if (boostSecretKey) {
+    cachedCredentials = {
+      publishableKey: boostPublishableKey || '',
+      secretKey: boostSecretKey,
+    };
+    return cachedCredentials;
+  }
+
+  // Priority 2: Fall back to Replit connector
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -38,10 +57,12 @@ async function getCredentials() {
     throw new Error(`Stripe ${targetEnvironment} connection not found`);
   }
 
-  return {
+  cachedCredentials = {
     publishableKey: connectionSettings.settings.publishable,
     secretKey: connectionSettings.settings.secret,
   };
+  
+  return cachedCredentials;
 }
 
 export async function getUncachableStripeClient() {
