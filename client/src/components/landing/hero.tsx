@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Calendar, TrendingUp, Users, BookOpen, Award } from "lucide-react";
+import { Calendar, TrendingUp, Users, BookOpen, Award, Sparkles } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useEffect, useState } from "react";
 import { AnimatedSection } from "@/hooks/use-scroll-animation";
@@ -79,6 +79,16 @@ export function Hero() {
                   Evaluar Mi Nivel
                 </Button>
               </Link>
+              <a href="#pricing" className="contents">
+                <Button
+                  size="lg"
+                  className="w-[200px] justify-center bg-[#4ed0c3] hover:bg-[#3dbfb2] text-white border-[#4ed0c3]"
+                  data-testid="button-buy-now"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Comprar Ahora
+                </Button>
+              </a>
               <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="contents">
                 <Button 
                   size="lg"
