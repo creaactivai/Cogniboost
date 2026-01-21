@@ -137,7 +137,8 @@ export default function Onboarding() {
         title: "¡Perfil completado!",
         description: "Tu experiencia de aprendizaje ha sido personalizada.",
       });
-      setLocation("/dashboard");
+      // Use window.location.href for reliable navigation after state changes
+      window.location.href = "/dashboard";
     },
     onError: () => {
       toast({
