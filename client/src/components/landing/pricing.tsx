@@ -53,7 +53,7 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
-    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_FLEX || null,
+    stripePriceId: "price_1SrrJiBe5iAM2felXxQFAzwZ",
   },
   {
     name: "Básico",
@@ -77,7 +77,7 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
-    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_STANDARD || null,
+    stripePriceId: "price_1SrrdGBe5iAM2felxVv0eF4H",
   },
   {
     name: "Premium",
@@ -102,7 +102,7 @@ const plans = [
     ],
     cta: "Prueba 7 Días Gratis",
     variant: "default" as const,
-    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_PREMIUM || null,
+    stripePriceId: "price_1SrrgOBe5iAM2fel0N4oRbWS",
   },
 ];
 
