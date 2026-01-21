@@ -175,7 +175,7 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
 
       {/* CTA */}
       <Button 
-        className={`w-full ${plan.name === "Gratis" ? "bg-[#4ed0c3] text-foreground hover:bg-[#4ed0c3]/90" : ""}`}
+        className={`w-full ${plan.name === "Gratis" ? "bg-[#4ed0c3] text-foreground" : ""}`}
         variant={plan.variant}
         onClick={handleClick}
         data-testid={`button-plan-${plan.name.toLowerCase()}`}
