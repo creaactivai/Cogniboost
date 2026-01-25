@@ -74,6 +74,7 @@ export const lessons = pgTable("lessons", {
   description: text("description"),
   videoUrl: text("video_url"),
   vimeoId: text("vimeo_id"), // Vimeo video ID for embedding
+  htmlContent: text("html_content"), // HTML slide content for lessons
   duration: integer("duration").notNull().default(0), // in minutes
   orderIndex: integer("order_index").notNull(),
   pdfMaterials: text("pdf_materials").array(), // URLs to PDF files in object storage
