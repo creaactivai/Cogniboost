@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft,
@@ -70,12 +71,21 @@ interface CourseProgress {
   userSubscriptionTier: string;
 }
 
-export function CourseViewer() {
+interface CourseViewerProps {
+  isAdminPreview?: boolean;
+}
+
+export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewerProps = {}) {
   const params = useParams<{ courseId: string; lessonId?: string }>();
   const { courseId, lessonId } = params;
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const hasSubmittedRef = useRef(false);
+  
+  // Check for admin preview mode via prop or URL parameter (legacy support)
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isAdminPreview = isAdminPreviewProp || (user?.isAdmin && searchParams?.get('preview') === 'admin');
   
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(lessonId || null);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -230,13 +240,38 @@ export function CourseViewer() {
   }
 
   const userTier = courseProgress?.userSubscriptionTier || 'free';
-  const isFreeUser = userTier === 'free';
-  const lockedLessonsCount = courseProgress?.lessons.filter(l => l.isLockedBySubscription).length || 0;
+  const isFreeUser = userTier === 'free' && !isAdminPreview;
+  const lockedLessonsCount = isAdminPreview ? 0 : (courseProgress?.lessons.filter(l => l.isLockedBySubscription).length || 0);
 
   return (
     <div className="space-y-6">
+      {/* Admin Preview Banner */}
+      {isAdminPreview && (
+        <Card className="p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/10 border-purple-500/30" data-testid="admin-preview-banner">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500/20 flex items-center justify-center">
+                <Play className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Modo Vista Previa Admin</p>
+                <p className="text-xs text-muted-foreground">
+                  Viendo el curso como un estudiante. Todas las lecciones están desbloqueadas.
+                </p>
+              </div>
+            </div>
+            <Link href="/admin/courses">
+              <Button size="sm" variant="outline" data-testid="button-back-to-admin">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Volver al Admin
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
+      
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/courses">
+        <Link href={isAdminPreview ? "/admin/courses" : "/dashboard/courses"}>
           <Button variant="ghost" size="icon" data-testid="button-back-courses">
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -286,14 +321,20 @@ export function CourseViewer() {
           )}
           {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
             const progress = lessonProgressMap.get(lesson.id);
+            // Admin preview mode unlocks all lessons for viewing
             // Use strict server-side unlock status only - never fallback to client-side logic
             // Default to locked if progress data is missing to prevent bypass
-            const isUnlocked = isLoadingProgress 
-              ? false // While loading, treat all lessons as locked to prevent bypass
-              : (progress?.isUnlocked ?? false); // Default to locked when no progress data
+            const isUnlocked = isAdminPreview 
+              ? true // Admin preview mode unlocks all lessons
+              : (isLoadingProgress 
+                ? false // While loading, treat all lessons as locked to prevent bypass
+                : (progress?.isUnlocked ?? false)); // Default to locked when no progress data
             const isCompleted = progress?.isCompleted ?? false;
             // Default to locked by subscription when no progress data (secure by default)
-            const isLockedBySubscription = progress?.isLockedBySubscription ?? (index >= 3);
+            // Admin preview mode bypasses subscription locks
+            const isLockedBySubscription = isAdminPreview 
+              ? false 
+              : (progress?.isLockedBySubscription ?? (index >= 3));
             
             return (
               <Card

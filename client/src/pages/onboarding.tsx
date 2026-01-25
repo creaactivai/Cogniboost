@@ -83,6 +83,13 @@ export default function Onboarding() {
 
   const claimAttemptedRef = useRef(false);
   
+  // Redirect admins to admin dashboard - they don't need student onboarding
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.isAdmin) {
+      setLocation("/admin");
+    }
+  }, [isLoading, isAuthenticated, user, setLocation]);
+  
   // Claim anonymous quiz results when user logs in
   useEffect(() => {
     const claimAnonymousQuiz = async () => {

@@ -70,7 +70,7 @@ function LessonCard({ lesson, courseId, onEdit, onDelete, onTogglePublish }: Les
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => window.open(`/dashboard/courses/${courseId}/lessons/${lesson.id}`, '_blank')}
+            onClick={() => window.open(`/admin/preview/courses/${courseId}`, '_blank')}
             data-testid={`button-preview-lesson-${lesson.id}`}
             title="Vista previa como estudiante"
           >

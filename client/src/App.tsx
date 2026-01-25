@@ -82,6 +82,29 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Lazy import for admin preview to avoid circular dependencies
+import { CourseViewer } from "@/components/dashboard/course-viewer";
+
+// Admin Preview Page - bypasses dashboard redirects for admin course preview
+function AdminPreviewPage() {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!user) {
+    window.location.href = "/api/login";
+    return <LoadingSpinner />;
+  }
+
+  if (!user.isAdmin) {
+    return <Redirect to="/dashboard" />;
+  }
+
+  return <CourseViewer isAdminPreview={true} />;
+}
+
 function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [location] = useLocation();
@@ -126,6 +149,9 @@ function Router() {
         <ProtectedRoute>
           <ChoosePlan />
         </ProtectedRoute>
+      </Route>
+      <Route path="/admin/preview/courses/:courseId">
+        <AdminPreviewPage />
       </Route>
       <Route path="/dashboard/*?">
         <ProtectedRoute>

@@ -91,20 +91,28 @@ export default function Dashboard() {
     }
   }, [user, queryClient]);
 
+  // Capture admin preview mode from URL on initial mount (before any redirects)
+  const isAdminPreviewRef = useRef(
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === 'admin'
+  );
+  
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       window.location.href = "/api/login";
       return;
     }
     
-    // Redirect admins to admin panel
-    if (!isLoading && isAuthenticated && user?.isAdmin) {
+    // Check if this is admin preview mode (URL param captured on mount + admin user)
+    const isAdminPreview = user?.isAdmin && isAdminPreviewRef.current;
+    
+    // Redirect admins to admin panel (unless they're in preview mode for courses)
+    if (!isLoading && isAuthenticated && user?.isAdmin && !isAdminPreview) {
       setLocation("/admin");
       return;
     }
     
-    // Redirect users who haven't completed onboarding
-    if (!isLoading && isAuthenticated && user && !user.onboardingCompleted) {
+    // Redirect users who haven't completed onboarding (skip for admin preview)
+    if (!isLoading && isAuthenticated && user && !user.onboardingCompleted && !isAdminPreview) {
       setLocation("/onboarding");
       return;
     }
