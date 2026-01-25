@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A1 W1L1 - The English Alphabet & Pronunciation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --color-teal: #0F4C75;
+            --color-blue: #1B6DA8;
+            --color-coral: #FF6B6B;
+            --color-orange: #FFB347;
+            --color-green: #10B981;
+            --color-dark: #1A1A2E;
+            --color-gray: #495057;
+            --color-light-gray: #F8F9FA;
+            --color-white: #FFFFFF;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--color-light-gray);
+            overflow-x: hidden;
+        }
+        
+        .slides-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .slide {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            padding: 60px;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            page-break-after: always;
+        }
+        
+        .slide-header {
+            background: linear-gradient(135deg, var(--color-teal) 0%, var(--color-blue) 100%);
+            color: white;
+            padding: 80px 60px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        
+        .slide-number {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--color-dark);
+            line-height: 1.2;
+        }
+        
+        .slide-header h1 {
+            color: white;
+        }
+        
+        h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: var(--color-teal);
+        }
+        
+        h3 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--color-blue);
+        }
+        
+        p {
+            font-size: 20px;
+            line-height: 1.6;
+            color: var(--color-dark);
+            margin-bottom: 15px;
+        }
+        
+        .subtitle {
+            font-size: 24px;
+            color: white;
+            opacity: 0.9;
+        }
+        
+        .objectives-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .objectives-list li {
+            font-size: 22px;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--color-light-gray);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .objectives-list li::before {
+            content: "✓";
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: var(--color-green);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .alphabet-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        
+        .letter-card {
+            background: var(--color-light-gray);
+            border: 2px solid var(--color-blue);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .letter-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(27, 109, 168, 0.3);
+        }
+        
+        .letter-big {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--color-teal);
+            margin-bottom: 5px;
+        }
+        
+        .letter-sound {
+            font-size: 16px;
+            color: var(--color-gray);
+            font-family: 'Courier New', monospace;
+        }
+        
+        .example-box {
+            background: var(--color-light-gray);
+            border-left: 4px solid var(--color-coral);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .example-box h4 {
+            color: var(--color-coral);
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .tip-box {
+            background: #FFF4E6;
+            border-left: 4px solid var(--color-orange);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .tip-box h4 {
+            color: var(--color-orange);
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .warning-box {
+            background: #FEE2E2;
+            border-left: 4px solid var(--color-coral);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .warning-box h4 {
+            color: var(--color-coral);
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .practice-box {
+            background: #D1FAE5;
+            border-left: 4px solid var(--color-green);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .practice-box h4 {
+            color: var(--color-green);
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        
+        .pronunciation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .pronunciation-table th {
+            background: var(--color-teal);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-size: 18px;
+        }
+        
+        .pronunciation-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--color-light-gray);
+            font-size: 18px;
+        }
+        
+        .pronunciation-table tr:hover {
+            background: var(--color-light-gray);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-teal);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid var(--color-light-gray);
+            color: var(--color-gray);
+            font-size: 14px;
+        }
+        
+        .btn-download {
+            background: var(--color-coral);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-download:hover {
+            background: #FF5252;
+            transform: translateY(-2px);
+        }
+        
+        @media print {
+            .slide {
+                page-break-after: always;
+                box-shadow: none;
+                margin-bottom: 0;
+            }
+            
+            .btn-download {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .slide {
+                padding: 30px 20px;
+                min-height: auto;
+            }
+            
+            h1 {
+                font-size: 32px;
+            }
+            
+            h2 {
+                font-size: 28px;
+            }
+            
+            .alphabet-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="slides-container">
+        
+        <!-- SLIDE 1: Title Slide -->
+        <div class="slide slide-header">
+            <div class="logo">
+                <div class="logo-text">CogniMight</div>
+            </div>
+            <div class="slide-number">A1 | Week 1 | Lesson 1</div>
+            <h1>The English Alphabet & Pronunciation</h1>
+            <p class="subtitle">Master the foundation of English</p>
+            <p class="subtitle" style="margin-top: 20px; font-size: 18px;">Duration: 15 minutes</p>
+        </div>
+        
+        <!-- SLIDE 2: Learning Objectives -->
+        <div class="slide">
+            <h2>📚 Learning Objectives</h2>
+            <p style="margin-bottom: 30px;">By the end of this lesson, you will be able to:</p>
+            <ul class="objectives-list">
+                <li>Recognize all 26 letters of the English alphabet</li>
+                <li>Pronounce each letter correctly</li>
+                <li>Spell your name in English</li>
+                <li>Understand the difference between Spanish and English pronunciation</li>
+                <li>Use the alphabet in real situations (email, phone numbers)</li>
+            </ul>
+        </div>
+        
+        <!-- SLIDE 3: Why the Alphabet Matters -->
+        <div class="slide">
+            <h2>🎯 Why the Alphabet is Important</h2>
+            <div class="two-column">
+                <div>
+                    <h3>You'll use it to:</h3>
+                    <ul style="font-size: 20px; line-height: 1.8; margin-left: 25px;">
+                        <li>Spell your name</li>
+                        <li>Give your email address</li>
+                        <li>Spell addresses</li>
+                        <li>Understand spelling in conversations</li>
+                        <li>Look up words in dictionaries</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="example-box">
+                        <h4>Example:</h4>
+                        <p><strong>"What's your email?"</strong></p>
+                        <p>"It's john.smith@gmail.com"</p>
+                        <p>"That's J-O-H-N dot S-M-I-T-H at gmail dot com"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SLIDE 4: The 5 Vowels -->
+        <div class="slide">
+            <h2>🅰️ The 5 Vowels</h2>
+            <p style="margin-bottom: 30px;">These are the MOST IMPORTANT letters in English:</p>
+            <div class="alphabet-grid" style="grid-template-columns: repeat(5, 1fr); max-width: 800px; margin: 0 auto;">
+                <div class="letter-card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%); border: none;">
+                    <div class="letter-big" style="color: white;">A</div>
+                    <div class="letter-sound" style="color: white;">/eɪ/</div>
+                    <div style="color: white; margin-top: 10px; font-size: 14px;">as in Apple</div>
+                </div>
+                <div class="letter-card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%); border: none;">
+                    <div class="letter-big" style="color: white;">E</div>
+                    <div class="letter-sound" style="color: white;">/iː/</div>
+                    <div style="color: white; margin-top: 10px; font-size: 14px;">as in Email</div>
+                </div>
+                <div class="letter-card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%); border: none;">
+                    <div class="letter-big" style="color: white;">I</div>
+                    <div class="letter-sound" style="color: white;">/aɪ/</div>
+                    <div style="color: white; margin-top: 10px; font-size: 14px;">as in Ice</div>
+                </div>
+                <div class="letter-card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%); border: none;">
+                    <div class="letter-big" style="color: white;">O</div>
+                    <div class="letter-sound" style="color: white;">/oʊ/</div>
+                    <div style="color: white; margin-top: 10px; font-size: 14px;">as in Open</div>
+                </div>
+                <div class="letter-card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FFB347 100%); border: none;">
+                    <div class="letter-big" style="color: white;">U</div>
+                    <div class="letter-sound" style="color: white;">/juː/</div>
+                    <div style="color: white; margin-top: 10px; font-size: 14px;">as in University</div>
+                </div>
+            </div>
+            <div class="tip-box" style="margin-top: 40px;">
+                <h4>💡 Pro Tip:</h4>
+                <p>Practice these 5 letters every day - they appear in almost EVERY English word!</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 5: Complete Alphabet Part 1 (A-M) -->
+        <div class="slide">
+            <h2>🔤 The Complete Alphabet (A-M)</h2>
+            <div class="alphabet-grid">
+                <div class="letter-card"><div class="letter-big">A</div><div class="letter-sound">/eɪ/</div></div>
+                <div class="letter-card"><div class="letter-big">B</div><div class="letter-sound">/biː/</div></div>
+                <div class="letter-card"><div class="letter-big">C</div><div class="letter-sound">/siː/</div></div>
+                <div class="letter-card"><div class="letter-big">D</div><div class="letter-sound">/diː/</div></div>
+                <div class="letter-card"><div class="letter-big">E</div><div class="letter-sound">/iː/</div></div>
+                <div class="letter-card"><div class="letter-big">F</div><div class="letter-sound">/ɛf/</div></div>
+                <div class="letter-card"><div class="letter-big">G</div><div class="letter-sound">/dʒiː/</div></div>
+                <div class="letter-card"><div class="letter-big">H</div><div class="letter-sound">/eɪtʃ/</div></div>
+                <div class="letter-card"><div class="letter-big">I</div><div class="letter-sound">/aɪ/</div></div>
+                <div class="letter-card"><div class="letter-big">J</div><div class="letter-sound">/dʒeɪ/</div></div>
+                <div class="letter-card"><div class="letter-big">K</div><div class="letter-sound">/keɪ/</div></div>
+                <div class="letter-card"><div class="letter-big">L</div><div class="letter-sound">/ɛl/</div></div>
+                <div class="letter-card"><div class="letter-big">M</div><div class="letter-sound">/ɛm/</div></div>
+            </div>
+        </div>
+        
+        <!-- SLIDE 6: Complete Alphabet Part 2 (N-Z) -->
+        <div class="slide">
+            <h2>🔤 The Complete Alphabet (N-Z)</h2>
+            <div class="alphabet-grid">
+                <div class="letter-card"><div class="letter-big">N</div><div class="letter-sound">/ɛn/</div></div>
+                <div class="letter-card"><div class="letter-big">O</div><div class="letter-sound">/oʊ/</div></div>
+                <div class="letter-card"><div class="letter-big">P</div><div class="letter-sound">/piː/</div></div>
+                <div class="letter-card"><div class="letter-big">Q</div><div class="letter-sound">/kjuː/</div></div>
+                <div class="letter-card"><div class="letter-big">R</div><div class="letter-sound">/ɑr/</div></div>
+                <div class="letter-card"><div class="letter-big">S</div><div class="letter-sound">/ɛs/</div></div>
+                <div class="letter-card"><div class="letter-big">T</div><div class="letter-sound">/tiː/</div></div>
+                <div class="letter-card"><div class="letter-big">U</div><div class="letter-sound">/juː/</div></div>
+                <div class="letter-card"><div class="letter-big">V</div><div class="letter-sound">/viː/</div></div>
+                <div class="letter-card"><div class="letter-big">W</div><div class="letter-sound">/ˈdʌbəljuː/</div></div>
+                <div class="letter-card"><div class="letter-big">X</div><div class="letter-sound">/ɛks/</div></div>
+                <div class="letter-card"><div class="letter-big">Y</div><div class="letter-sound">/waɪ/</div></div>
+                <div class="letter-card"><div class="letter-big">Z</div><div class="letter-sound">/ziː/</div></div>
+            </div>
+            <div class="tip-box" style="margin-top: 30px;">
+                <h4>🇺🇸 American vs British:</h4>
+                <p>Z = "zee" /ziː/ (American) | "zed" /zɛd/ (British)</p>
+                <p><strong>We use American pronunciation in this course!</strong></p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 7: Tricky Letters for Spanish Speakers -->
+        <div class="slide">
+            <h2>⚠️ Tricky Letters for Spanish Speakers</h2>
+            <table class="pronunciation-table">
+                <thead>
+                    <tr>
+                        <th>Letter</th>
+                        <th>English Sound</th>
+                        <th>Spanish Mistake</th>
+                        <th>Correct Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>G</strong></td>
+                        <td>/dʒiː/ "jee"</td>
+                        <td>❌ "heh" (like Spanish)</td>
+                        <td>✅ George = "JORJ"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>H</strong></td>
+                        <td>/eɪtʃ/ "aitch"</td>
+                        <td>❌ silent (like Spanish)</td>
+                        <td>✅ Hello = "HEL-lo"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>J</strong></td>
+                        <td>/dʒeɪ/ "jay"</td>
+                        <td>❌ "hota"</td>
+                        <td>✅ John = "JON"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>R</strong></td>
+                        <td>/ɑr/ "are"</td>
+                        <td>❌ rolled R</td>
+                        <td>✅ Red = "RED" (soft R)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Y</strong></td>
+                        <td>/waɪ/ "why"</td>
+                        <td>❌ "ee griega"</td>
+                        <td>✅ Yes = "YES"</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- SLIDE 8: The Alphabet Song -->
+        <div class="slide">
+            <h2>🎵 The Alphabet Song</h2>
+            <div style="background: linear-gradient(135deg, var(--color-teal) 0%, var(--color-blue) 100%); color: white; padding: 40px; border-radius: 12px; text-align: center;">
+                <p style="font-size: 32px; line-height: 1.8; color: white; margin: 0;">
+                    A - B - C - D - E - F - G<br>
+                    H - I - J - K - L - M - N - O - P<br>
+                    Q - R - S - T - U - V<br>
+                    W - X - Y and Z<br><br>
+                    Now I know my ABCs<br>
+                    Next time won't you sing with me!
+                </p>
+            </div>
+            <div class="practice-box" style="margin-top: 30px;">
+                <h4>🎯 Practice Activity:</h4>
+                <p>Sing this song 3 times right now! It will help you memorize the order.</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 9: Spelling in Real Life -->
+        <div class="slide">
+            <h2>✉️ Spelling in Real Life</h2>
+            <h3>Common Situations:</h3>
+            
+            <div class="example-box">
+                <h4>📧 Email Addresses:</h4>
+                <p><strong>maria.rodriguez@gmail.com</strong></p>
+                <p>"That's M-A-R-I-A dot R-O-D-R-I-G-U-E-Z at gmail dot com"</p>
+            </div>
+            
+            <div class="example-box">
+                <h4>📞 Phone Numbers:</h4>
+                <p><strong>555-0123</strong></p>
+                <p>"Five-five-five, zero-one-two-three"</p>
+            </div>
+            
+            <div class="example-box">
+                <h4>🏨 Hotel Reservations:</h4>
+                <p><strong>"My name is Carlos Martinez"</strong></p>
+                <p>"That's C-A-R-L-O-S M-A-R-T-I-N-E-Z"</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 10: Practice Exercise -->
+        <div class="slide">
+            <h2>✍️ Practice: Spell These Words</h2>
+            <p style="margin-bottom: 30px;">Say each letter out loud:</p>
+            
+            <div style="background: var(--color-light-gray); padding: 30px; border-radius: 12px; font-size: 24px; text-align: center; margin: 20px 0;">
+                <p style="margin: 20px 0;"><strong>1. HELLO</strong></p>
+                <p style="margin: 20px 0;"><strong>2. NAME</strong></p>
+                <p style="margin: 20px 0;"><strong>3. WORK</strong></p>
+                <p style="margin: 20px 0;"><strong>4. EMAIL</strong></p>
+                <p style="margin: 20px 0;"><strong>5. PHONE</strong></p>
+            </div>
+            
+            <div class="practice-box" style="margin-top: 30px;">
+                <h4>🎯 Your Turn:</h4>
+                <p>Now spell YOUR NAME out loud in English!</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 11: Homework -->
+        <div class="slide">
+            <h2>📝 Homework Assignment</h2>
+            <div class="objectives-list">
+                <li>Practice spelling your full name 10 times out loud</li>
+                <li>Spell 5 common words you use every day</li>
+                <li>Download and complete the alphabet worksheet</li>
+                <li>Record yourself saying A-Z (use your phone!)</li>
+                <li>Practice the alphabet song 5 times</li>
+            </div>
+            
+            <div class="tip-box" style="margin-top: 30px;">
+                <h4>💡 Study Tip:</h4>
+                <p>Create flashcards with each letter on one side and the pronunciation on the other. Review them daily for one week!</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 12: Key Takeaways -->
+        <div class="slide">
+            <h2>🎯 Key Takeaways</h2>
+            <div style="background: var(--color-light-gray); padding: 30px; border-radius: 12px; margin: 20px 0;">
+                <h3 style="color: var(--color-teal); margin-bottom: 20px;">Remember:</h3>
+                <ul style="font-size: 22px; line-height: 2; margin-left: 25px;">
+                    <li>There are <strong>26 letters</strong> in English</li>
+                    <li><strong>5 vowels</strong> (A, E, I, O, U)</li>
+                    <li><strong>21 consonants</strong></li>
+                    <li>Many letters sound <strong>different from Spanish</strong></li>
+                    <li>Practice makes perfect!</li>
+                </ul>
+            </div>
+            
+            <div class="warning-box">
+                <h4>⚠️ Common Mistake to Avoid:</h4>
+                <p>Don't pronounce letters like Spanish! Practice the English sounds every day.</p>
+            </div>
+        </div>
+        
+        <!-- SLIDE 13: Next Lesson Preview -->
+        <div class="slide">
+            <h2>🔜 Next Lesson Preview</h2>
+            <div style="background: linear-gradient(135deg, var(--color-coral) 0%, var(--color-orange) 100%); color: white; padding: 40px; border-radius: 12px; text-align: center;">
+                <h3 style="color: white; margin-bottom: 20px;">Lesson 1.2: Numbers 0-100</h3>
+                <p style="font-size: 22px; color: white; margin-bottom: 30px;">
+                    Learn to count in English and use numbers in real situations!
+                </p>
+                <ul style="font-size: 20px; color: white; text-align: left; max-width: 600px; margin: 0 auto; line-height: 1.8;">
+                    <li>Count from 0 to 100</li>
+                    <li>Say phone numbers</li>
+                    <li>Express your age</li>
+                    <li>Talk about prices</li>
+                    <li>Tell time</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- SLIDE 14: Closing -->
+        <div class="slide" style="background: linear-gradient(135deg, var(--color-teal) 0%, var(--color-blue) 100%); color: white;">
+            <div style="text-align: center;">
+                <div class="logo" style="margin-bottom: 30px;">
+                    <div class="logo-text" style="color: white; font-size: 48px;">CogniMight</div>
+                </div>
+                <h2 style="color: white; margin-bottom: 20px;">Great Job! 🎉</h2>
+                <p style="font-size: 24px; color: white; margin-bottom: 30px;">
+                    You've completed Lesson 1: The English Alphabet
+                </p>
+                <p style="font-size: 20px; color: white; opacity: 0.9;">
+                    Keep practicing and see you in the next lesson!
+                </p>
+                <div style="margin-top: 50px; padding-top: 30px; border-top: 2px solid rgba(255,255,255,0.3);">
+                    <p style="font-size: 16px; color: white; opacity: 0.8;">
+                        A1 Week 1 Lesson 1 | CogniMight © 2026
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div class
