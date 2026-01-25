@@ -1546,6 +1546,217 @@ Guidelines:
     }
   });
 
+  // Admin: Upload HTML lesson content with auto-parsing
+  app.post("/api/admin/lessons/upload-html", requireAdmin, async (req, res) => {
+    try {
+      const { htmlContent, filename, courseId, moduleId } = req.body;
+      
+      if (!htmlContent || !courseId) {
+        return res.status(400).json({ error: "HTML content and courseId are required" });
+      }
+      
+      // Validate HTML content size (max 5MB)
+      if (htmlContent.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "HTML content too large (max 5MB)" });
+      }
+      
+      // Verify course exists
+      const course = await storage.getCourseById(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Verify module exists if provided
+      if (moduleId) {
+        const modules = await storage.getModulesByCourseId(courseId);
+        if (!modules.find(m => m.id === moduleId)) {
+          return res.status(404).json({ error: "Module not found" });
+        }
+      }
+      
+      // Parse metadata from HTML content
+      let title = "Untitled Lesson";
+      let description = "";
+      let duration = 15; // default 15 minutes
+      let level = "A1";
+      let week = 1;
+      let lessonNum = 1;
+      
+      // Try to extract title from <title> tag or h1
+      const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch) {
+        title = titleMatch[1].trim();
+      }
+      
+      // Try to extract from h1
+      const h1Match = htmlContent.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+      if (h1Match) {
+        title = h1Match[1].trim();
+      }
+      
+      // Parse filename for level, week, lesson (e.g., a1w1l1-slides.html)
+      if (filename) {
+        const filePattern = /([abc][12])w(\d+)l(\d+)/i;
+        const fileMatch = filename.match(filePattern);
+        if (fileMatch) {
+          level = fileMatch[1].toUpperCase();
+          week = parseInt(fileMatch[2]);
+          lessonNum = parseInt(fileMatch[3]);
+        }
+      }
+      
+      // Try to extract duration from content
+      const durationMatch = htmlContent.match(/Duration:\s*(\d+)\s*minutes/i);
+      if (durationMatch) {
+        duration = parseInt(durationMatch[1]);
+      }
+      
+      // Get existing lessons to determine order index
+      const existingLessons = await storage.getLessonsByCourseId(courseId);
+      const moduleFilteredLessons = moduleId 
+        ? existingLessons.filter(l => l.moduleId === moduleId)
+        : existingLessons;
+      const orderIndex = moduleFilteredLessons.length + 1;
+      
+      // Create the lesson with HTML content
+      const lesson = await storage.createLesson({
+        courseId,
+        moduleId: moduleId || null,
+        title,
+        description: `${level} Week ${week} Lesson ${lessonNum}`,
+        htmlContent,
+        duration,
+        orderIndex,
+        isPreview: true, // Make first lessons available to free users
+        isPublished: true,
+      });
+      
+      res.status(201).json({
+        lesson,
+        parsed: { title, level, week, lessonNum, duration }
+      });
+    } catch (error) {
+      console.error("Error uploading HTML lesson:", error);
+      res.status(500).json({ error: "Failed to upload lesson" });
+    }
+  });
+
+  // Admin: Bulk upload HTML lessons
+  app.post("/api/admin/lessons/bulk-upload-html", requireAdmin, async (req, res) => {
+    try {
+      const { files, courseId, moduleId } = req.body;
+      
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ error: "Files array is required" });
+      }
+      
+      if (!courseId) {
+        return res.status(400).json({ error: "courseId is required" });
+      }
+      
+      // Verify course exists
+      const course = await storage.getCourseById(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Verify module exists if provided
+      if (moduleId) {
+        const modules = await storage.getModulesByCourseId(courseId);
+        if (!modules.find(m => m.id === moduleId)) {
+          return res.status(404).json({ error: "Module not found" });
+        }
+      }
+      
+      // Get existing lessons count once for order index calculation
+      const existingLessons = await storage.getLessonsByCourseId(courseId);
+      const baseOrderIndex = moduleId 
+        ? existingLessons.filter(l => l.moduleId === moduleId).length
+        : existingLessons.length;
+      
+      const results: any[] = [];
+      const errors: any[] = [];
+      
+      for (const file of files) {
+        try {
+          const { htmlContent, filename } = file;
+          
+          // Validate htmlContent exists and is not too large
+          if (!htmlContent) {
+            errors.push({ filename, error: "Missing HTML content" });
+            continue;
+          }
+          
+          if (htmlContent.length > 5 * 1024 * 1024) {
+            errors.push({ filename, error: "File too large (max 5MB)" });
+            continue;
+          }
+          
+          // Parse metadata from HTML content
+          let title = "Untitled Lesson";
+          let duration = 15;
+          let level = "A1";
+          let week = 1;
+          let lessonNum = 1;
+          
+          // Extract title
+          const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if (titleMatch) title = titleMatch[1].trim();
+          
+          const h1Match = htmlContent.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+          if (h1Match) title = h1Match[1].trim();
+          
+          // Parse filename
+          if (filename) {
+            const filePattern = /([abc][12])w(\d+)l(\d+)/i;
+            const fileMatch = filename.match(filePattern);
+            if (fileMatch) {
+              level = fileMatch[1].toUpperCase();
+              week = parseInt(fileMatch[2]);
+              lessonNum = parseInt(fileMatch[3]);
+            }
+          }
+          
+          // Extract duration
+          const durationMatch = htmlContent.match(/Duration:\s*(\d+)\s*minutes/i);
+          if (durationMatch) {
+            const parsedDuration = parseInt(durationMatch[1]);
+            if (!isNaN(parsedDuration)) duration = parsedDuration;
+          }
+          
+          // Calculate order index based on baseOrderIndex and current results
+          const orderIndex = baseOrderIndex + results.length + 1;
+          
+          const lesson = await storage.createLesson({
+            courseId,
+            moduleId: moduleId || null,
+            title,
+            description: `${level} Week ${week} Lesson ${lessonNum}`,
+            htmlContent,
+            duration,
+            orderIndex,
+            isPreview: orderIndex <= 3, // First 3 lessons are preview
+            isPublished: true,
+          });
+          
+          results.push({ filename, lesson, parsed: { title, level, week, lessonNum, duration } });
+        } catch (err: any) {
+          errors.push({ filename: file.filename, error: err.message });
+        }
+      }
+      
+      res.json({ 
+        success: results.length,
+        failed: errors.length,
+        results,
+        errors
+      });
+    } catch (error) {
+      console.error("Error bulk uploading lessons:", error);
+      res.status(500).json({ error: "Failed to bulk upload lessons" });
+    }
+  });
+
   // Upload PDF file (protected, for lesson materials)
   app.post("/api/upload/pdf", requireAdmin, upload.single('file'), async (req, res) => {
     try {

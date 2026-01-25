@@ -10,7 +10,8 @@ import {
   Mail,
   Target,
   UsersRound,
-  GraduationCap
+  GraduationCap,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,11 @@ const menuItems = [
     title: "Cursos",
     url: "/admin/courses",
     icon: BookOpen,
+  },
+  {
+    title: "Subir Lecciones",
+    url: "/admin/lesson-upload",
+    icon: Upload,
   },
   {
     title: "Estudiantes",

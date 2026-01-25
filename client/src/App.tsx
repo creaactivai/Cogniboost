@@ -14,6 +14,7 @@ import AdminOverview from "@/pages/admin/overview";
 import AdminCourses from "@/pages/admin/courses";
 import AdminCourseLessons from "@/pages/admin/course-lessons";
 import AdminLessonQuiz from "@/pages/admin/lesson-quiz";
+import AdminLessonUpload from "@/pages/admin/lesson-upload";
 import AdminStudents from "@/pages/admin/students";
 import AdminFinancials from "@/pages/admin/financials";
 import AdminLabs from "@/pages/admin/labs";
@@ -139,6 +140,9 @@ function Router() {
       </Route>
       <Route path="/admin/courses">
         <AdminRoute><AdminCourses /></AdminRoute>
+      </Route>
+      <Route path="/admin/lesson-upload">
+        <AdminRoute><AdminLessonUpload /></AdminRoute>
       </Route>
       <Route path="/admin/students">
         <AdminRoute><AdminStudents /></AdminRoute>

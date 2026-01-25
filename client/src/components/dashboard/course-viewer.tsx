@@ -387,6 +387,21 @@ export function CourseViewer() {
                       </div>
                     )}
 
+                    {selectedLesson.htmlContent && (
+                      <div 
+                        className="lesson-html-content mb-6"
+                        data-testid="lesson-html-content"
+                      >
+                        <iframe
+                          srcDoc={selectedLesson.htmlContent}
+                          className="w-full border-0 rounded-lg bg-white"
+                          style={{ minHeight: "800px", height: "auto" }}
+                          title={selectedLesson.title}
+                          sandbox="allow-scripts"
+                        />
+                      </div>
+                    )}
+
                     {selectedLesson.pdfMaterials && selectedLesson.pdfMaterials.length > 0 && (
                       <div className="space-y-2">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider text-muted-foreground">

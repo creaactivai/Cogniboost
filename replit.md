@@ -71,6 +71,15 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
   - 7-day invitation expiry with ability to resend or revoke
   - Accept invitation endpoint validates token, email match, and assigns role
   - Admin UI in "Equipo" tab with status tracking (Pendiente/Aceptada/Revocada/Expirada)
+- **HTML Lesson Upload System**: Admins can upload HTML slide decks as lesson content via `/admin/lesson-upload`. Features include:
+  - Drag-and-drop file upload for single or bulk lessons
+  - Auto-parsing of metadata from filenames (e.g., `a1w1l1-slides.html` extracts level A1, week 1, lesson 1)
+  - Title extraction from HTML `<title>` or `<h1>` tags
+  - Duration extraction from "Duration: X minutes" pattern in content
+  - 5MB file size limit with validation
+  - Course and module existence verification
+  - Secure iframe rendering with `sandbox="allow-scripts"` (no same-origin access)
+  - First 3 lessons in Module 1 automatically set as preview for free users
 
 ### Core Files & Directories
 - `client/src/components/landing/`: Landing page components
