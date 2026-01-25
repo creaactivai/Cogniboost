@@ -80,6 +80,7 @@ CogniBoost (cogniboost.co) is a professional development platform for Spanish-sp
   - Course and module existence verification
   - Secure iframe rendering with `sandbox="allow-scripts"` (no same-origin access)
   - First 3 lessons in Module 1 automatically set as preview for free users
+- **Admin Preview Mode**: Admins can preview courses as students via dedicated route `/admin/preview/courses/:courseId`. Shows purple "Modo Vista Previa Admin" banner and unlocks all lessons for viewing.
 
 ### Core Files & Directories
 - `client/src/components/landing/`: Landing page components
