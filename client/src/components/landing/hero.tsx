@@ -57,11 +57,11 @@ export function Hero() {
               Clases diseñadas para la vida real y el mundo profesional.
             </p>
 
-            {/* CTA Buttons - Purple primary per brand guidelines */}
-            <div className="flex flex-row gap-4 flex-wrap items-stretch">
-              <Button 
-                size="lg" 
-                className="w-[200px] justify-center"
+            {/* CTA Buttons - Mobile-optimized: full-width on mobile, auto-width on desktop */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:flex-wrap">
+              <Button
+                size="lg"
+                className="w-full sm:w-[200px] justify-center"
                 onClick={() => openBooking('class')}
                 data-testid="button-free-class"
               >
@@ -72,7 +72,7 @@ export function Hero() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-[200px] justify-center"
+                  className="w-full sm:w-[200px] justify-center"
                   data-testid="button-placement-quiz"
                 >
                   <TrendingUp className="mr-2 h-5 w-5" />
@@ -82,7 +82,7 @@ export function Hero() {
               <a href="#pricing" className="contents">
                 <Button
                   size="lg"
-                  className="w-[200px] justify-center bg-[#4ed0c3] hover:bg-[#3dbfb2] text-white border-[#4ed0c3]"
+                  className="w-full sm:w-[200px] justify-center bg-[#4ed0c3] hover:bg-[#3dbfb2] text-white border-[#4ed0c3]"
                   data-testid="button-buy-now"
                 >
                   <Sparkles className="mr-2 h-5 w-5" />
@@ -90,10 +90,10 @@ export function Hero() {
                 </Button>
               </a>
               <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="contents">
-                <Button 
+                <Button
                   size="lg"
                   variant="outline"
-                  className="w-[200px] justify-center"
+                  className="w-full sm:w-[200px] justify-center"
                   data-testid="button-whatsapp"
                 >
                   <SiWhatsapp className="mr-2 h-5 w-5" />
@@ -111,33 +111,33 @@ export function Hero() {
           </div>
 
           {/* Right content - Stats cards with hover effects and slide-in animations */}
-          <div className="relative" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="relative mt-12 lg:mt-0" style={{ transform: `translateY(${scrollY * -0.05}px)` }}>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <AnimatedSection animation="fade-left" delay={100} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
-                  <BookOpen className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-3xl font-bold">250+</p>
+                <div className="p-4 sm:p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
+                  <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary mb-2 sm:mb-3" />
+                  <p className="text-2xl sm:text-3xl font-bold">250+</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Lecciones</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={200} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
-                  <Users className="w-8 h-8 text-[hsl(174_58%_56%)] mb-3" />
-                  <p className="text-3xl font-bold">500+</p>
+                <div className="p-4 sm:p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
+                  <Users className="w-6 h-6 sm:w-8 sm:h-8 text-[hsl(174_58%_56%)] mb-2 sm:mb-3" />
+                  <p className="text-2xl sm:text-3xl font-bold">500+</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Profesionales Activos</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={300} className="h-full">
-                <div className="p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
-                  <Award className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-3xl font-bold">95%</p>
+                <div className="p-4 sm:p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
+                  <Award className="w-6 h-6 sm:w-8 sm:h-8 text-primary mb-2 sm:mb-3" />
+                  <p className="text-2xl sm:text-3xl font-bold">95%</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Tasa de Satisfacción</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={400} className="h-full">
-                <div className="p-6 bg-primary text-primary-foreground hover-elevate rounded transition-colors duration-300 h-full">
-                  <TrendingUp className="w-8 h-8 mb-3" />
-                  <p className="text-3xl font-bold">3x</p>
+                <div className="p-4 sm:p-6 bg-primary text-primary-foreground hover-elevate rounded transition-colors duration-300 h-full">
+                  <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3" />
+                  <p className="text-2xl sm:text-3xl font-bold">3x</p>
                   <p className="text-xs uppercase tracking-wider opacity-80">Más Rápido</p>
                 </div>
               </AnimatedSection>

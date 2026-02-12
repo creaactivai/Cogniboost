@@ -6,10 +6,22 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
+import { registerOAuthRoutes } from "./auth/oauthRoutes";
 import { storage } from "./storage";
 import { sendEmail, type EmailTemplate } from "./resendClient";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { selectQuizQuestions, placementQuestions, calculatePlacementLevel, type PlacementQuestion as StaticPlacementQuestion } from "@shared/placementQuestions";
+import {
+  validateRequest,
+  createCourseSchema,
+  updateCourseSchema,
+  createModuleSchema,
+  updateModuleSchema,
+  createLessonSchema,
+  updateLessonSchema,
+  createInstructorSchema,
+  updateInstructorSchema,
+} from "./validation";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -35,9 +47,21 @@ export async function registerRoutes(
   // Setup authentication (must be before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
-  
+
+  // Register OAuth routes (Google + Apple)
+  registerOAuthRoutes(app);
+
   // Register object storage routes
   registerObjectStorageRoutes(app);
+
+  // Health check endpoint for Railway/monitoring
+  app.get("/health", (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  });
 
   // Account activation endpoint for manually added students
   const activationSchema = z.object({
@@ -60,9 +84,8 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Debes iniciar sesión primero" });
       }
 
-      // Find user by invitation token
-      const allUsers = await storage.getAllUsers();
-      const invitedUser = allUsers.find(u => u.invitationToken === token);
+      // Find user by invitation token (optimized single query)
+      const invitedUser = await storage.getUserByInvitationToken(token);
 
       if (!invitedUser) {
         return res.status(404).json({ error: "Token de invitación inválido" });
@@ -153,9 +176,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Token de verificación requerido" });
       }
 
-      // Find user by email verification token
-      const allUsers = await storage.getAllUsers();
-      const user = allUsers.find(u => u.emailVerificationToken === token);
+      // Find user by email verification token (optimized single query)
+      const user = await storage.getUserByVerificationToken(token);
 
       if (!user) {
         return res.status(404).json({ error: "Token de verificación inválido" });
@@ -445,32 +467,10 @@ export async function registerRoutes(
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-      const enrollments = await storage.getEnrollmentsByUserId(userId);
-      
-      // Get course details and calculate progress for each enrollment
-      const enrichedEnrollments = await Promise.all(
-        enrollments.map(async (enrollment) => {
-          const course = await storage.getCourseById(enrollment.courseId);
-          const lessons = await storage.getLessonsByCourseId(enrollment.courseId);
-          const lessonProgress = await storage.getLessonProgressByUserId(userId);
-          
-          // Calculate completion percentage
-          const courseLessonIds = lessons.map(l => l.id);
-          const completedLessons = lessonProgress.filter(
-            lp => courseLessonIds.includes(lp.lessonId) && lp.isCompleted
-          ).length;
-          const progress = lessons.length > 0 
-            ? Math.round((completedLessons / lessons.length) * 100) 
-            : 0;
-          
-          return {
-            ...enrollment,
-            course,
-            progress,
-          };
-        })
-      );
-      
+
+      // Use optimized method with JOIN queries instead of N+1 queries
+      const enrichedEnrollments = await storage.getEnrollmentsWithDetails(userId);
+
       res.json(enrichedEnrollments);
     } catch (error) {
       console.error("Error fetching enrollments with progress:", error);
@@ -1378,16 +1378,16 @@ Guidelines:
   });
 
   // Admin: Create course
-  app.post("/api/admin/courses", requireAdmin, async (req, res) => {
+  app.post("/api/admin/courses", requireAdmin, validateRequest(createCourseSchema), async (req, res) => {
     try {
       const { modulesCount = 1, ...courseData } = req.body;
       const course = await storage.createCourse({ ...courseData, modulesCount });
-      
+
       // Auto-create modules for the course
       if (modulesCount > 0) {
         await storage.createModulesForCourse(course.id, modulesCount);
       }
-      
+
       res.status(201).json(course);
     } catch (error) {
       console.error("Error creating course:", error);
@@ -1396,7 +1396,7 @@ Guidelines:
   });
 
   // Admin: Update course
-  app.patch("/api/admin/courses/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/courses/:id", requireAdmin, validateRequest(updateCourseSchema), async (req, res) => {
     try {
       const course = await storage.updateCourse(req.params.id, req.body);
       if (!course) {
@@ -1472,7 +1472,7 @@ Guidelines:
   });
 
   // Admin: Update a module
-  app.patch("/api/admin/modules/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/modules/:id", requireAdmin, validateRequest(updateModuleSchema), async (req, res) => {
     try {
       const module = await storage.updateModule(req.params.id, req.body);
       if (!module) {
@@ -1511,7 +1511,7 @@ Guidelines:
   });
 
   // Admin: Create lesson
-  app.post("/api/admin/lessons", requireAdmin, async (req, res) => {
+  app.post("/api/admin/lessons", requireAdmin, validateRequest(createLessonSchema), async (req, res) => {
     try {
       const lesson = await storage.createLesson(req.body);
       res.status(201).json(lesson);
@@ -1522,7 +1522,7 @@ Guidelines:
   });
 
   // Admin: Update lesson
-  app.patch("/api/admin/lessons/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/lessons/:id", requireAdmin, validateRequest(updateLessonSchema), async (req, res) => {
     try {
       const lesson = await storage.updateLesson(req.params.id, req.body);
       if (!lesson) {
@@ -1896,7 +1896,7 @@ Guidelines:
   });
 
   // Admin: Create instructor
-  app.post("/api/admin/instructors", requireAdmin, async (req, res) => {
+  app.post("/api/admin/instructors", requireAdmin, validateRequest(createInstructorSchema), async (req, res) => {
     try {
       const instructor = await storage.createInstructor(req.body);
       res.status(201).json(instructor);
@@ -1907,7 +1907,7 @@ Guidelines:
   });
 
   // Admin: Update instructor
-  app.patch("/api/admin/instructors/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/instructors/:id", requireAdmin, validateRequest(updateInstructorSchema), async (req, res) => {
     try {
       const instructor = await storage.updateInstructor(req.params.id, req.body);
       if (!instructor) {
@@ -4265,6 +4265,130 @@ Important:
     } catch (error) {
       console.error("Error fetching placement result:", error);
       res.status(500).json({ error: "Failed to fetch placement result" });
+    }
+  });
+
+  // Admin: Get detailed engagement analytics
+  app.get("/api/admin/analytics/engagement", requireAdmin, async (req, res) => {
+    try {
+      const { days = 30 } = req.query;
+      const daysNumber = parseInt(days as string);
+
+      // Get date range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysNumber);
+
+      // Get all users
+      const allUsers = await storage.getAllUsers();
+      const studentUsers = allUsers.filter(u => !u.isAdmin);
+
+      // Active users (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const activeUsers7Days = studentUsers.filter(u =>
+        u.lastActive && new Date(u.lastActive) > sevenDaysAgo
+      ).length;
+
+      // Active users (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const activeUsers30Days = studentUsers.filter(u =>
+        u.lastActive && new Date(u.lastActive) > thirtyDaysAgo
+      ).length;
+
+      // Get all enrollments
+      const allEnrollments = await storage.getAllEnrollments();
+
+      // Enrollments over time (grouped by date)
+      const enrollmentsByDate: Record<string, number> = {};
+      allEnrollments.forEach(enrollment => {
+        const date = new Date(enrollment.enrolledAt).toISOString().split('T')[0];
+        enrollmentsByDate[date] = (enrollmentsByDate[date] || 0) + 1;
+      });
+
+      // Convert to array format for charting
+      const enrollmentTrend = Object.entries(enrollmentsByDate)
+        .filter(([date]) => new Date(date) >= startDate)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, count]) => ({ date, enrollments: count }));
+
+      // Course completion rates
+      const allCourses = await storage.getAllCourses();
+      const courseCompletionRates = [];
+
+      for (const course of allCourses) {
+        const courseEnrollments = allEnrollments.filter(e => e.courseId === course.id);
+        if (courseEnrollments.length > 0) {
+          // Get lessons for this course
+          const lessons = await storage.getLessonsByCourse(course.id);
+          const totalLessons = lessons.length;
+
+          if (totalLessons > 0) {
+            let totalCompleted = 0;
+
+            for (const enrollment of courseEnrollments) {
+              // Get progress for this enrollment
+              const progress = await storage.getLessonProgress(enrollment.userId, course.id);
+              const completedLessons = progress.filter(p => p.isCompleted).length;
+              if (completedLessons === totalLessons) {
+                totalCompleted++;
+              }
+            }
+
+            const completionRate = (totalCompleted / courseEnrollments.length) * 100;
+            courseCompletionRates.push({
+              courseTitle: course.title,
+              enrollments: courseEnrollments.length,
+              completions: totalCompleted,
+              completionRate: Math.round(completionRate),
+            });
+          }
+        }
+      }
+
+      // Revenue metrics (already exists but including for completeness)
+      const allPayments = await storage.getAllPayments();
+      const completedPayments = allPayments.filter(p => p.status === "completed");
+      const totalRevenue = completedPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+      // Calculate MRR (Monthly Recurring Revenue from active subscriptions)
+      const PLAN_PRICES: Record<string, number> = {
+        free: 0,
+        flex: 14.99,
+        standard: 49.99,
+        premium: 99.99,
+      };
+
+      const allSubscriptions = await storage.getAllSubscriptions();
+      const activeSubscriptions = allSubscriptions.filter(s => !s.cancelAtPeriodEnd);
+      const mrr = activeSubscriptions.reduce((sum, sub) => {
+        return sum + (PLAN_PRICES[sub.tier] || 0);
+      }, 0);
+
+      // ARPU (Average Revenue Per User)
+      const arpu = studentUsers.length > 0 ? totalRevenue / studentUsers.length : 0;
+
+      res.json({
+        overview: {
+          totalStudents: studentUsers.length,
+          activeUsers7Days,
+          activeUsers30Days,
+          dau: activeUsers7Days, // Daily Active Users approximation
+          wau: activeUsers30Days, // Weekly Active Users approximation
+        },
+        enrollmentTrend,
+        coursePerformance: courseCompletionRates.sort((a, b) => b.enrollments - a.enrollments).slice(0, 10), // Top 10 courses
+        revenue: {
+          totalRevenue: totalRevenue.toFixed(2),
+          mrr: mrr.toFixed(2),
+          arpu: arpu.toFixed(2),
+          activeSubscriptions: activeSubscriptions.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching engagement analytics:", error);
+      res.status(500).json({ error: "Failed to fetch engagement analytics" });
     }
   });
 

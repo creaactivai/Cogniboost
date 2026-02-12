@@ -1,17 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Users, 
-  DollarSign, 
-  Calendar, 
+import {
+  LayoutDashboard,
+  BookOpen,
+  Users,
+  DollarSign,
+  Calendar,
   UserCheck,
   ChevronLeft,
   Mail,
   Target,
   UsersRound,
   GraduationCap,
-  Upload
+  Upload,
+  BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +53,11 @@ const menuItems = [
     title: "Finanzas",
     url: "/admin/financials",
     icon: DollarSign,
+  },
+  {
+    title: "Analytics",
+    url: "/admin/analytics",
+    icon: BarChart3,
   },
   {
     title: "Laboratorios",

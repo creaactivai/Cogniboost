@@ -5,8 +5,21 @@ import { createServer } from "http";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
+import { initializeMonitoring, errorHandler } from './monitoring';
+import { setupSecurityHeaders, setupRateLimiting } from './middleware/security';
+import { validateEnv } from './env';
+
+// Validate environment variables FIRST (fail fast if misconfigured)
+validateEnv();
 
 const app = express();
+
+// Initialize Sentry BEFORE any other middleware
+initializeMonitoring(app);
+
+// Setup security headers (Helmet)
+setupSecurityHeaders(app);
+
 const httpServer = createServer(app);
 
 declare module "http" {
@@ -100,6 +113,9 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Setup rate limiting BEFORE routes
+setupRateLimiting(app);
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -165,6 +181,9 @@ app.use((req, res, next) => {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
+
+  // Sentry error handler must be registered after all controllers
+  app.use(errorHandler());
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

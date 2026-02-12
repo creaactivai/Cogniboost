@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookingProvider } from "@/contexts/booking-context";
 import LandingPage from "@/pages/landing";
+import LoginPage from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Onboarding from "@/pages/onboarding";
 import PlacementQuiz from "@/pages/placement-quiz";
@@ -17,6 +18,7 @@ import AdminLessonQuiz from "@/pages/admin/lesson-quiz";
 import AdminLessonUpload from "@/pages/admin/lesson-upload";
 import AdminStudents from "@/pages/admin/students";
 import AdminFinancials from "@/pages/admin/financials";
+import AdminAnalytics from "@/pages/admin/analytics";
 import AdminLabs from "@/pages/admin/labs";
 import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
@@ -137,6 +139,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
+      <Route path="/login" component={LoginPage} />
       <Route path="/placement-quiz" component={PlacementQuiz} />
       <Route path="/purchase-complete" component={PurchaseComplete} />
       <Route path="/sobre-nosotros" component={SobreNosotros} />
@@ -175,6 +178,9 @@ function Router() {
       </Route>
       <Route path="/admin/financials">
         <AdminRoute><AdminFinancials /></AdminRoute>
+      </Route>
+      <Route path="/admin/analytics">
+        <AdminRoute><AdminAnalytics /></AdminRoute>
       </Route>
       <Route path="/admin/labs">
         <AdminRoute><AdminLabs /></AdminRoute>

@@ -58,16 +58,16 @@ export function Header() {
               </a>
             ) : (
               <div className="hidden md:flex items-center gap-3">
-                <a href="/api/login">
-                  <Button 
-                    variant="ghost" 
+                <a href="/login">
+                  <Button
+                    variant="ghost"
                     data-testid="button-login"
                   >
                     Iniciar Sesión
                   </Button>
                 </a>
-                <a href="/api/login?returnTo=/dashboard">
-                  <Button 
+                <a href="/login">
+                  <Button
                     data-testid="button-signup"
                   >
                     Crear cuenta gratis
@@ -106,12 +106,12 @@ export function Header() {
               {!isAuthenticated && (
                 <>
                   <hr className="border-border" />
-                  <a href="/api/login">
+                  <a href="/login">
                     <Button variant="outline" className="w-full">
                       Iniciar Sesión
                     </Button>
                   </a>
-                  <a href="/api/login?returnTo=/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <a href="/login" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full">
                       Crear cuenta gratis
                     </Button>

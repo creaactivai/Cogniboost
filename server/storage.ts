@@ -101,6 +101,7 @@ export interface IStorage {
   
   // Enrollments
   getEnrollmentsByUserId(userId: string): Promise<Enrollment[]>;
+  getEnrollmentsWithDetails(userId: string): Promise<Array<Enrollment & { course: Course; progress: number }>>;
   getAllEnrollments(): Promise<Enrollment[]>;
   getEnrollmentByUserAndCourse(userId: string, courseId: string): Promise<Enrollment | undefined>;
   createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
@@ -221,6 +222,9 @@ export interface IStorage {
   getDeletedStudents(): Promise<User[]>;
   getAllStudents(): Promise<User[]>;
   getStudentsByStatus(status: string): Promise<User[]>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByInvitationToken(token: string): Promise<User | undefined>;
+  getUserByVerificationToken(token: string): Promise<User | undefined>;
   createManualStudent(data: {
     id: string;
     email: string;
@@ -493,6 +497,58 @@ export class DatabaseStorage implements IStorage {
   // Enrollments
   async getEnrollmentsByUserId(userId: string): Promise<Enrollment[]> {
     return db.select().from(enrollments).where(eq(enrollments.userId, userId));
+  }
+
+  async getEnrollmentsWithDetails(userId: string): Promise<Array<Enrollment & { course: Course; progress: number }>> {
+    // Fetch all user enrollments with courses in a single JOIN query
+    const userEnrollments = await db
+      .select()
+      .from(enrollments)
+      .leftJoin(courses, eq(enrollments.courseId, courses.id))
+      .where(eq(enrollments.userId, userId));
+
+    // Fetch all lessons for enrolled courses in a single query
+    const courseIds = userEnrollments.map(e => e.enrollments.courseId);
+    const allLessons = courseIds.length > 0
+      ? await db.select().from(lessons).where(sql`${lessons.courseId} = ANY(${courseIds})`)
+      : [];
+
+    // Fetch all lesson progress for the user in a single query
+    const userProgress = await db
+      .select()
+      .from(lessonProgress)
+      .where(eq(lessonProgress.userId, userId));
+
+    // Calculate progress for each enrollment
+    return userEnrollments.map(({ enrollments: enrollment, courses: course }) => {
+      if (!course) {
+        return {
+          ...enrollment,
+          course: {} as Course,
+          progress: 0
+        };
+      }
+
+      // Get lessons for this course
+      const courseLessons = allLessons.filter(l => l.courseId === course.id);
+
+      // Get completed lessons for this course
+      const courseLessonIds = courseLessons.map(l => l.id);
+      const completedCount = userProgress.filter(
+        p => courseLessonIds.includes(p.lessonId) && p.isCompleted
+      ).length;
+
+      // Calculate progress percentage
+      const progress = courseLessons.length > 0
+        ? Math.round((completedCount / courseLessons.length) * 100)
+        : 0;
+
+      return {
+        ...enrollment,
+        course,
+        progress
+      };
+    });
   }
 
   async getAllEnrollments(): Promise<Enrollment[]> {
@@ -915,6 +971,21 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users).where(eq(users.isAdmin, false)).orderBy(desc(users.createdAt));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
+  }
+
+  async getUserByInvitationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.invitationToken, token)).limit(1);
+    return user;
+  }
+
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.emailVerificationToken, token)).limit(1);
+    return user;
   }
 
   async getUsersByStatus(status: 'active' | 'hold' | 'inactive'): Promise<User[]> {

@@ -246,24 +246,38 @@ export function CourseCatalog() {
     queryKey: ['/api/courses'],
   });
 
+  // Fetch user enrollments with progress
+  const { data: enrollments = [] } = useQuery<Array<{ courseId: string; progress: number }>>({
+    queryKey: ['/api/enrollments/with-progress'],
+    enabled: !!user, // Only fetch if user is logged in
+  });
+
+  // Create a map of courseId -> enrollment data for quick lookup
+  const enrollmentMap = new Map(
+    enrollments.map(e => [e.courseId, e])
+  );
+
   // Get user's level and unlocked levels
   const userLevel = user?.placementLevel || user?.englishLevel || 'A1';
   const userLevelIndex = levelOrder.indexOf(userLevel);
   const unlockedLevels = levelOrder.slice(0, userLevelIndex + 1);
 
-  // Map API courses to the card format
-  const coursesWithCardData: CourseCardProps[] = courses.map((course) => ({
-    id: course.id,
-    title: course.title,
-    description: course.description || "",
-    level: course.level,
-    topic: course.topic,
-    duration: parseInt(course.duration || "0") || 0,
-    lessonsCount: course.lessonsCount || 0,
-    progress: 0, // TODO: fetch user progress
-    isEnrolled: false, // TODO: fetch user enrollment status
-    isFree: course.isFree === true,
-  }));
+  // Map API courses to the card format with real progress data
+  const coursesWithCardData: CourseCardProps[] = courses.map((course) => {
+    const enrollment = enrollmentMap.get(course.id);
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description || "",
+      level: course.level,
+      topic: course.topic,
+      duration: parseInt(course.duration || "0") || 0,
+      lessonsCount: course.lessonsCount || 0,
+      progress: enrollment?.progress || 0, // Real progress from enrollment
+      isEnrolled: !!enrollment, // User is enrolled if enrollment exists
+      isFree: course.isFree === true,
+    };
+  });
 
   const filteredCourses = coursesWithCardData.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
