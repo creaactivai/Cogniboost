@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
-import { initializeMonitoring, errorHandler } from './monitoring';
+import { initializeMonitoring, errorHandler } from './monitoring.js';
 import { setupSecurityHeaders, setupRateLimiting } from './middleware/security';
 import { validateEnv } from './env';
 
