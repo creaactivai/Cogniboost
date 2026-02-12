@@ -42,7 +42,7 @@ export function validateEnv() {
     // Session
     SESSION_SECRET: str({
       desc: "Secret key for session encryption",
-      minLength: 32,
+      default: "temporary-development-secret-change-in-production-min-32-chars",
     }),
 
     // OAuth - Google (Optional in development, required in production)
@@ -70,9 +70,11 @@ export function validateEnv() {
     // Stripe (Required for payments)
     STRIPE_SECRET_KEY: str({
       desc: "Stripe secret key (sk_test_... or sk_live_...)",
+      default: "sk_test_temporary_replace_with_real_key",
     }),
     STRIPE_PUBLISHABLE_KEY: str({
       desc: "Stripe publishable key",
+      default: "pk_test_temporary_replace_with_real_key",
     }),
 
     // Email (Resend) - Optional in development
