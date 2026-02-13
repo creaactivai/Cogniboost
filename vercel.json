@@ -10,6 +10,10 @@
       "destination": "https://cogniboost-production.up.railway.app/api/:path*"
     },
     {
+      "source": "/auth/:path*",
+      "destination": "https://cogniboost-production.up.railway.app/auth/:path*"
+    },
+    {
       "source": "/health",
       "destination": "https://cogniboost-production.up.railway.app/health"
     },
