@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { runMigrations } from 'stripe-replit-sync';
+// Note: stripe-replit-sync is imported dynamically inside initStripe() to avoid crash on Railway
 import { getStripeSync } from './stripeClient';
 import { WebhookHandlers } from './webhookHandlers';
 import { initializeMonitoring, errorHandler } from './monitoring.js';
@@ -29,6 +29,7 @@ declare module "http" {
 }
 
 // Initialize Stripe schema and sync on startup
+// Uses dynamic import so stripe-replit-sync doesn't crash on Railway if not present
 async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -36,8 +37,17 @@ async function initStripe() {
     return;
   }
 
+  // Only run stripe-replit-sync in Replit environments
+  const isReplit = !!(process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL || process.env.REPLIT_DOMAINS);
+
+  if (!isReplit) {
+    console.log('Non-Replit environment detected, skipping stripe-replit-sync (using direct Stripe keys instead)');
+    return;
+  }
+
   try {
     console.log('Initializing Stripe schema...');
+    const { runMigrations } = await import('stripe-replit-sync');
     await runMigrations({ databaseUrl });
     console.log('Stripe schema ready');
 
@@ -47,7 +57,7 @@ async function initStripe() {
     // Set up managed webhook
     const domains = process.env.REPLIT_DOMAINS?.split(',') || [];
     const webhookBaseUrl = domains[0] ? `https://${domains[0]}` : null;
-    
+
     if (webhookBaseUrl) {
       console.log('Setting up managed webhook...');
       try {
@@ -73,6 +83,11 @@ async function initStripe() {
     console.error('Failed to initialize Stripe:', error);
   }
 }
+
+// Health check endpoint - MUST respond quickly for Railway / load balancers
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Register Stripe webhook route BEFORE express.json() - CRITICAL for webhooks
 app.post(

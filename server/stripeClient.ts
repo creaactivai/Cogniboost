@@ -21,7 +21,19 @@ async function getCredentials() {
     return cachedCredentials;
   }
 
-  // Priority 2: Fall back to Replit connector
+  // Priority 2: Fall back to standard STRIPE_SECRET_KEY env vars (for Railway / any non-Replit host)
+  const standardSecretKey = process.env.STRIPE_SECRET_KEY;
+  const standardPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+  if (standardSecretKey && !standardSecretKey.startsWith('sk_test_temporary')) {
+    cachedCredentials = {
+      publishableKey: standardPublishableKey || '',
+      secretKey: standardSecretKey,
+    };
+    return cachedCredentials;
+  }
+
+  // Priority 3: Try Replit connector (only when running on Replit)
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -29,8 +41,8 @@ async function getCredentials() {
       ? 'depl ' + process.env.WEB_REPL_RENEWAL
       : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!xReplitToken || !hostname) {
+    throw new Error('No Stripe credentials configured. Set STRIPE_SECRET_KEY_BOOST or STRIPE_SECRET_KEY environment variable.');
   }
 
   const connectorName = 'stripe';
@@ -50,7 +62,7 @@ async function getCredentials() {
   });
 
   const data = await response.json();
-  
+
   connectionSettings = data.items?.[0];
 
   if (!connectionSettings || (!connectionSettings.settings.publishable || !connectionSettings.settings.secret)) {
@@ -61,7 +73,7 @@ async function getCredentials() {
     publishableKey: connectionSettings.settings.publishable,
     secretKey: connectionSettings.settings.secret,
   };
-  
+
   return cachedCredentials;
 }
 
