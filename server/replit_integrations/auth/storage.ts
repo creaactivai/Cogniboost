@@ -10,6 +10,11 @@ const SUPER_ADMIN_EMAILS = [
   'acreaactiva@gmail.com',
 ];
 
+// Test accounts that automatically get premium subscription on first login
+const PREMIUM_TEST_EMAILS = [
+  'corallozanoc@gmail.com',
+];
+
 // Generate a secure random token for email verification
 function generateVerificationToken(): string {
   return randomBytes(32).toString('hex');
@@ -62,16 +67,22 @@ class AuthStorage implements IAuthStorage {
     const shouldBeAdmin = isSuperAdmin || isInvited;
     const userDataWithAdmin = shouldBeAdmin ? { ...userData, isAdmin: true } : userData;
 
+    // Auto-grant premium subscription to test student emails
+    const isPremiumTest = userDataWithAdmin.email && PREMIUM_TEST_EMAILS.includes(userDataWithAdmin.email.toLowerCase());
+    const userDataWithPremium = isPremiumTest
+      ? { ...userDataWithAdmin, subscriptionTier: 'premium', onboardingCompleted: true, skipOnboarding: true }
+      : userDataWithAdmin;
+
     // For new self-registered users (not manually added), generate email verification token
     // Skip verification for OAuth users whose email is already verified by the provider
-    let finalUserData = userDataWithAdmin;
-    const isOAuthVerified = userDataWithAdmin.emailVerified === true;
-    
+    let finalUserData = userDataWithPremium;
+    const isOAuthVerified = userDataWithPremium.emailVerified === true;
+
     if (isNewUser && !existingUserByEmail?.addedManually && !isOAuthVerified) {
       const verificationToken = generateVerificationToken();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       finalUserData = {
-        ...userDataWithAdmin,
+        ...userDataWithPremium,
         emailVerificationToken: verificationToken,
         emailVerificationExpiresAt: expiresAt,
         emailVerified: false,
@@ -79,7 +90,7 @@ class AuthStorage implements IAuthStorage {
     } else if (isOAuthVerified) {
       // OAuth user with verified email - mark as verified, no token needed
       finalUserData = {
-        ...userDataWithAdmin,
+        ...userDataWithPremium,
         emailVerified: true,
         emailVerificationToken: null,
         emailVerificationExpiresAt: null,
