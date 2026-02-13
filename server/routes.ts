@@ -78,6 +78,29 @@ export async function registerRoutes(
     });
   });
 
+  // Auth user endpoint - returns current session user or 401
+  app.get("/api/auth/user", async (req: any, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    try {
+      // If user has claims.sub (Replit-style), look up by that
+      // Otherwise, use passport session user directly
+      const userId = req.user.claims?.sub || req.user.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching auth user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Account activation endpoint for manually added students
   const activationSchema = z.object({
     token: z.string().min(1, "Token requerido"),
