@@ -3,9 +3,18 @@
 
 import { Resend } from 'resend';
 
-let connectionSettings: any;
+const DEFAULT_FROM_EMAIL = 'info@inscripciones.cogniboost.co';
 
-async function getCredentials() {
+async function getCredentials(): Promise<{ apiKey: string; fromEmail: string }> {
+  // Priority 1: Direct RESEND_API_KEY env var (Railway / any non-Replit host)
+  if (process.env.RESEND_API_KEY) {
+    return {
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL,
+    };
+  }
+
+  // Priority 2: Replit Connectors API (only on Replit)
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -13,11 +22,11 @@ async function getCredentials() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!xReplitToken || !hostname) {
+    throw new Error('No email credentials configured. Set RESEND_API_KEY environment variable.');
   }
 
-  connectionSettings = await fetch(
+  const connectionSettings = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend',
     {
       headers: {
@@ -28,19 +37,16 @@ async function getCredentials() {
   ).then(res => res.json()).then(data => data.items?.[0]);
 
   if (!connectionSettings || (!connectionSettings.settings.api_key)) {
-    throw new Error('Resend not connected');
+    throw new Error('Resend not connected via Replit connector');
   }
-  return { apiKey: connectionSettings.settings.api_key, fromEmail: connectionSettings.settings.from_email };
+  return { apiKey: connectionSettings.settings.api_key, fromEmail: connectionSettings.settings.from_email || DEFAULT_FROM_EMAIL };
 }
 
-// WARNING: Never cache this client.
-// Access tokens expire, so a new client must be created each time.
-// Always call this function again to get a fresh client.
 export async function getResendClient() {
   const { apiKey, fromEmail } = await getCredentials();
   return {
     client: new Resend(apiKey),
-    fromEmail: fromEmail || 'info@inscripciones.cogniboost.co'
+    fromEmail,
   };
 }
 

@@ -15,7 +15,7 @@ export function setupAppleAuth() {
         teamID: process.env.APPLE_TEAM_ID,
         keyID: process.env.APPLE_KEY_ID,
         privateKeyString: process.env.APPLE_PRIVATE_KEY,
-        callbackURL: "/auth/apple/callback",
+        callbackURL: process.env.APPLE_CALLBACK_URL || "https://cogniboost.co/auth/apple/callback",
         scope: ["name", "email"],
         passReqToCallback: false,
       },
