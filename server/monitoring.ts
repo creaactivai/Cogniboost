@@ -1,5 +1,4 @@
 import * as Sentry from "@sentry/node";
-import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import type { Express } from "express";
 
 export function initializeMonitoring(app: Express) {
@@ -9,51 +8,44 @@ export function initializeMonitoring(app: Express) {
     return;
   }
 
+  // Try to load profiling integration (has native bindings that may fail)
+  let profilingIntegration: any = null;
+  try {
+    const profiling = require("@sentry/profiling-node");
+    profilingIntegration = profiling.nodeProfilingIntegration();
+  } catch (e) {
+    console.log("⚠️ Sentry profiling not available (native module), skipping");
+  }
+
+  const integrations: any[] = [
+    Sentry.httpIntegration(),
+    Sentry.postgresIntegration(),
+  ];
+  if (profilingIntegration) {
+    integrations.push(profilingIntegration);
+  }
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
-
-    // Set sample rate for performance monitoring
-    // 1.0 = 100% of transactions, 0.1 = 10% (recommended for production)
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
-
-    // Set sample rate for profiling
-    // This is relative to tracesSampleRate
     profilesSampleRate: 1.0,
-
-    integrations: [
-      // Profiling integration for performance insights
-      nodeProfilingIntegration(),
-
-      // HTTP integration for Express
-      Sentry.httpIntegration(),
-
-      // PostgreSQL integration (if available)
-      Sentry.postgresIntegration(),
-    ],
-
-    // Add custom tags
+    integrations,
     initialScope: {
       tags: {
         "runtime": "node",
         "platform": "cogniboost-lms",
       },
     },
-
-    // Filter out sensitive data
     beforeSend(event, hint) {
-      // Remove sensitive request data
       if (event.request) {
         delete event.request.cookies;
         delete event.request.headers?.['authorization'];
         delete event.request.headers?.['cookie'];
       }
-
       return event;
     },
   });
-
-  // In Sentry v8+, Handlers API was removed. Sentry auto-instruments via init().
 
   console.log("✅ Sentry error tracking initialized");
 }
