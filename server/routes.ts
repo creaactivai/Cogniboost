@@ -4,7 +4,6 @@ import { createHash } from "crypto";
 import multer from "multer";
 import OpenAI from "openai";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { registerOAuthRoutes } from "./auth/oauthRoutes";
 import { storage } from "./storage";
@@ -44,32 +43,25 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication
-  const isReplit = !!(process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL || process.env.REPL_ID);
-  if (isReplit) {
-    await setupAuth(app);
-    registerAuthRoutes(app);
-  } else {
-    // On non-Replit (Railway), set up session + passport without Replit OIDC
-    const session = await import("express-session");
-    const passport = await import("passport");
-    app.set("trust proxy", 1);
-    app.use(session.default({
-      secret: process.env.SESSION_SECRET || "temporary-development-secret-change-in-production-min-32-chars",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
-    }));
-    app.use(passport.default.initialize());
-    app.use(passport.default.session());
-    passport.default.serializeUser((user: any, cb: any) => cb(null, user));
-    passport.default.deserializeUser((user: any, cb: any) => cb(null, user));
-    console.log('Non-Replit environment: session + passport initialized, using OAuth routes only');
-  }
+  // Setup authentication (session + passport for OAuth)
+  const session = await import("express-session");
+  const passport = await import("passport");
+  app.set("trust proxy", 1);
+  app.use(session.default({
+    secret: process.env.SESSION_SECRET || "temporary-development-secret-change-in-production-min-32-chars",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  }));
+  app.use(passport.default.initialize());
+  app.use(passport.default.session());
+  passport.default.serializeUser((user: any, cb: any) => cb(null, user));
+  passport.default.deserializeUser((user: any, cb: any) => cb(null, user));
+  console.log('Session + passport initialized for OAuth');
 
   // Register OAuth routes (Google + Apple)
   registerOAuthRoutes(app);
