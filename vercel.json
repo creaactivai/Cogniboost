@@ -1,9 +1,18 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npx vite build",
   "outputDirectory": "dist/public",
-  "framework": "vite",
+  "framework": null,
+  "installCommand": "npm ci",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://cogniboost-production.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://cogniboost-production.up.railway.app/health"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
@@ -19,9 +28,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "VITE_API_URL": "@api_url",
-    "VITE_SENTRY_DSN": "@sentry_dsn_client"
-  }
+  ]
 }
