@@ -165,7 +165,7 @@ export default function Onboarding() {
   }
 
   if (!isAuthenticated) {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
     return null;
   }
 

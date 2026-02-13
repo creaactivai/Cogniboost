@@ -324,7 +324,7 @@ export default function PlacementQuiz() {
                         className="w-full"
                         onClick={() => {
                           localStorage.setItem("cogniboost_quiz_result", JSON.stringify(quizResult));
-                          window.location.href = "/api/login?returnTo=/onboarding";
+                          window.location.href = "/signup";
                         }}
                         data-testid="button-signup-after-quiz"
                       >

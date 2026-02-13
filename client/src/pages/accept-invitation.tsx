@@ -55,7 +55,7 @@ export default function AcceptInvitation() {
 
   const handleLogin = () => {
     const currentUrl = window.location.href;
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(currentUrl)}`;
+    window.location.href = `/login`;
   };
 
   const handleGoToDashboard = () => {

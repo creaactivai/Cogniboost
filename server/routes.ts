@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { registerOAuthRoutes } from "./auth/oauthRoutes";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { storage } from "./storage";
 import { sendEmail, type EmailTemplate } from "./resendClient";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
@@ -43,25 +44,12 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication (session + passport for OAuth)
-  const session = await import("express-session");
-  const passport = await import("passport");
-  app.set("trust proxy", 1);
-  app.use(session.default({
-    secret: process.env.SESSION_SECRET || "temporary-development-secret-change-in-production-min-32-chars",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
-  }));
-  app.use(passport.default.initialize());
-  app.use(passport.default.session());
-  passport.default.serializeUser((user: any, cb: any) => cb(null, user));
-  passport.default.deserializeUser((user: any, cb: any) => cb(null, user));
-  console.log('Session + passport initialized for OAuth');
+  // Setup authentication (session + passport + local strategy)
+  await setupAuth(app);
+  console.log('Session + passport initialized');
+
+  // Register auth routes (signup, login, logout, forgot/reset password)
+  registerAuthRoutes(app);
 
   // Register OAuth routes (Google + Apple)
   registerOAuthRoutes(app);
@@ -76,29 +64,6 @@ export async function registerRoutes(
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
-  });
-
-  // Auth user endpoint - returns current session user or 401
-  app.get("/api/auth/user", async (req: any, res) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    try {
-      // If user has claims.sub (Replit-style), look up by that
-      // Otherwise, use passport session user directly
-      const userId = req.user.claims?.sub || req.user.id;
-      if (!userId) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching auth user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
   });
 
   // Account activation endpoint for manually added students
@@ -252,7 +217,7 @@ export async function registerRoutes(
   // Resend verification email endpoint
   app.post("/api/auth/resend-verification", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Debes iniciar sesión primero" });
       }
@@ -325,7 +290,7 @@ export async function registerRoutes(
       const courses = await storage.getCourses();
       
       // If user is authenticated, filter courses by their level and below
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (userId) {
         const user = await storage.getUser(userId);
         if (user) {
@@ -356,7 +321,7 @@ export async function registerRoutes(
       }
       
       // Check level-based access for authenticated users
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (userId) {
         const user = await storage.getUser(userId);
         if (user && !user.isAdmin && !canAccessCourseLevel(user, course.level)) {
@@ -378,7 +343,7 @@ export async function registerRoutes(
   // Get lessons for a course (with content gating for free/unauthenticated users)
   app.get("/api/courses/:courseId/lessons", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       const { courseId } = req.params;
       
       // Check course exists and verify level access
@@ -486,7 +451,7 @@ export async function registerRoutes(
   // Get user enrollments
   app.get("/api/enrollments", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -501,7 +466,7 @@ export async function registerRoutes(
   // Get user enrollments with course info and progress
   app.get("/api/enrollments/with-progress", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -519,7 +484,7 @@ export async function registerRoutes(
   // Enroll in a course
   app.post("/api/enrollments", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -538,7 +503,7 @@ export async function registerRoutes(
   // Get user's lab bookings
   app.get("/api/lab-bookings", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -553,7 +518,7 @@ export async function registerRoutes(
   // Book a lab
   app.post("/api/lab-bookings", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -572,7 +537,7 @@ export async function registerRoutes(
   // Get user stats (basic stats for all users, detailed stats for premium)
   app.get("/api/user-stats", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -615,7 +580,7 @@ export async function registerRoutes(
   // Get user subscription
   app.get("/api/subscription", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -630,7 +595,7 @@ export async function registerRoutes(
   // Select free plan - marks user as having explicitly chosen free tier
   app.post("/api/subscription/select-free", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -672,7 +637,7 @@ export async function registerRoutes(
   // Create checkout session for subscription (supports both logged-in and guest checkout)
   app.post("/api/stripe/create-checkout-session", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       const { priceId, planName } = req.body;
       
       if (!priceId) {
@@ -767,7 +732,7 @@ export async function registerRoutes(
   // Link a Stripe customer to a user account (after guest checkout + login)
   app.post("/api/stripe/link-customer", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -806,7 +771,7 @@ export async function registerRoutes(
   // Create customer portal session for subscription management
   app.post("/api/stripe/create-portal-session", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -847,7 +812,7 @@ export async function registerRoutes(
   // Get user's progress for a course with unlock status for each lesson
   app.get("/api/courses/:courseId/progress", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -912,7 +877,7 @@ export async function registerRoutes(
   // Mark a lesson as completed
   app.post("/api/lessons/:lessonId/complete", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -936,7 +901,7 @@ export async function registerRoutes(
   // Update lesson progress (watched time)
   app.post("/api/lessons/:lessonId/progress", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -964,7 +929,7 @@ export async function registerRoutes(
   // Premium feature - free users get limited data
   app.get("/api/courses/:courseId/scores", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1077,7 +1042,7 @@ export async function registerRoutes(
   // Premium feature - free users get basic data only
   app.get("/api/student/scores", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1177,7 +1142,7 @@ export async function registerRoutes(
 
   app.post("/api/onboarding", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1209,7 +1174,7 @@ export async function registerRoutes(
   // Get onboarding status
   app.get("/api/onboarding/status", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -1237,7 +1202,7 @@ export async function registerRoutes(
 
   // Auth middleware - check if user is authenticated
   const requireAuth = async (req: any, res: any, next: any) => {
-    const userId = req.user?.claims?.sub;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized - Login required" });
     }
@@ -1257,7 +1222,7 @@ export async function registerRoutes(
   // AI Tutor chat endpoint
   app.post("/api/ai-tutor/chat", async (req, res) => {
     try {
-      const userId = (req as any).user?.claims?.sub;
+      const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Debes iniciar sesión para usar el tutor" });
       }
@@ -1350,7 +1315,7 @@ Guidelines:
 
   // Admin middleware - check if user is authenticated and is an admin
   const requireAdmin = async (req: any, res: any, next: any) => {
-    const userId = req.user?.claims?.sub;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized - Login required" });
     }
@@ -1987,7 +1952,7 @@ Guidelines:
     try {
       const { isAdmin } = req.body;
       const userId = req.params.id;
-      const currentUserId = (req.user as any)?.claims?.sub;
+      const currentUserId = (req.user as any)?.id;
       
       // Prevent self-demotion
       if (userId === currentUserId && !isAdmin) {
@@ -2020,7 +1985,7 @@ Guidelines:
   app.post("/api/admin/team/invitations", requireAdmin, async (req, res) => {
     try {
       const { email, firstName, lastName, department } = req.body;
-      const invitedBy = (req.user as any)?.claims?.sub;
+      const invitedBy = (req.user as any)?.id;
       
       if (!email) {
         return res.status(400).json({ error: "El email es requerido" });
@@ -2087,7 +2052,7 @@ Guidelines:
       }
       
       const { email, role, firstName, lastName, department } = validation.data;
-      const invitedBy = (req.user as any)?.claims?.sub;
+      const invitedBy = (req.user as any)?.id;
       
       // Check if there's already a pending invitation for this email
       const existingInvitation = await storage.getStaffInvitationByEmail(email);
@@ -2148,7 +2113,7 @@ Guidelines:
   // Revoke staff invitation
   app.delete("/api/admin/staff-invitations/:id", requireAdmin, async (req, res) => {
     try {
-      const revokedBy = (req.user as any)?.claims?.sub;
+      const revokedBy = (req.user as any)?.id;
       await storage.revokeStaffInvitation(req.params.id, revokedBy);
       res.status(204).send();
     } catch (error) {
@@ -2160,7 +2125,7 @@ Guidelines:
   // Resend staff invitation email
   app.post("/api/admin/staff-invitations/:id/resend", requireAdmin, async (req, res) => {
     try {
-      const invitedBy = (req.user as any)?.claims?.sub;
+      const invitedBy = (req.user as any)?.id;
       
       // Get the invitation
       const invitations = await storage.getStaffInvitations();
@@ -2223,7 +2188,7 @@ Guidelines:
   app.post("/api/accept-invitation", requireAuth, async (req, res) => {
     try {
       const { token } = req.body;
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       
       if (!token) {
         return res.status(400).json({ error: "Token es requerido" });
@@ -2298,7 +2263,7 @@ Guidelines:
   // Get all live sessions with their rooms (filters by user level for authenticated students)
   app.get("/api/live-sessions", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       let userLevel: string | null = null;
       let isAdmin = false;
       
@@ -2340,7 +2305,7 @@ Guidelines:
   // Get live session by ID with rooms (filters by user level for authenticated students)
   app.get("/api/live-sessions/:id", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       let userLevel: string | null = null;
       let isAdmin = false;
       
@@ -2374,7 +2339,7 @@ Guidelines:
   // Get rooms for a session (filters by user level for authenticated students)
   app.get("/api/live-sessions/:id/rooms", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       let userLevel: string | null = null;
       let isAdmin = false;
       
@@ -2464,7 +2429,7 @@ Guidelines:
   // Book a room (authenticated user)
   app.post("/api/room-bookings", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -2627,7 +2592,7 @@ Guidelines:
   // Get user's room bookings
   app.get("/api/room-bookings", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -3103,7 +3068,7 @@ Important:
   // Student: Get quiz for a lesson
   app.get("/api/lessons/:lessonId/quiz", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -3139,7 +3104,7 @@ Important:
   // Student: Submit quiz attempt
   app.post("/api/quizzes/:quizId/attempt", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -3212,7 +3177,7 @@ Important:
   // Student: Get quiz attempts
   app.get("/api/quiz-attempts", async (req, res) => {
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -3879,7 +3844,7 @@ Important:
   app.post("/api/placement/start", async (req, res) => {
     try {
       // Get user ID if authenticated, otherwise use leadId
-      const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+      const userId = req.isAuthenticated() ? (req.user as any)?.id : null;
       const { leadId } = req.body;
       
       // Require either authenticated user or leadId for quiz
@@ -3960,7 +3925,7 @@ Important:
 
   // Submit an answer and get next question (NO AUTH REQUIRED - supports anonymous users)
   app.post("/api/placement/answer", async (req, res) => {
-    const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+    const userId = req.isAuthenticated() ? (req.user as any)?.id : null;
     const { attemptId, answer, anonymousId } = req.body;
     
     if (!attemptId || answer === undefined) {
@@ -4137,7 +4102,7 @@ Important:
     }
     
     try {
-      const userId = (req.user as any)?.claims?.sub;
+      const userId = (req.user as any)?.id;
       const attempts = await storage.getPlacementQuizAttemptsByUserId(userId);
       res.json(attempts);
     } catch (error) {
@@ -4148,7 +4113,7 @@ Important:
 
   // Get current attempt status (for resuming) - supports anonymous users via query param
   app.get("/api/placement/current", async (req, res) => {
-    const userId = req.isAuthenticated() ? (req.user as any)?.claims?.sub : null;
+    const userId = req.isAuthenticated() ? (req.user as any)?.id : null;
     const anonymousId = req.query.anonymousId as string | undefined;
     
     if (!userId && !anonymousId) {
@@ -4208,7 +4173,7 @@ Important:
       return res.status(401).json({ error: "Authentication required" });
     }
     
-    const userId = (req.user as any)?.claims?.sub;
+    const userId = (req.user as any)?.id;
     const { anonymousId } = req.body;
     
     if (!anonymousId) {

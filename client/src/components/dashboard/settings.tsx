@@ -106,7 +106,7 @@ export function Settings() {
                 data-testid="input-email"
               />
               <p className="text-xs font-mono text-muted-foreground">
-                El correo se administra desde tu cuenta de Replit
+                El correo asociado a tu cuenta
               </p>
             </div>
             <Button className="font-mono uppercase tracking-wider" data-testid="button-save-profile">

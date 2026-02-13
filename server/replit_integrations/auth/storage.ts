@@ -30,16 +30,48 @@ async function isInvitedAdmin(email: string): Promise<boolean> {
 }
 
 // Interface for auth storage operations
-// (IMPORTANT) These user operations are mandatory for Replit Auth.
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updatePassword(userId: string, passwordHash: string): Promise<void>;
+  setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getUserByResetToken(token: string): Promise<User | undefined>;
+  clearPasswordResetToken(userId: string): Promise<void>;
 }
 
 class AuthStorage implements IAuthStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return user;
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await db.update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.update(users)
+      .set({ passwordResetToken: token, passwordResetExpiresAt: expiresAt, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.passwordResetToken, token));
+    return user;
+  }
+
+  async clearPasswordResetToken(userId: string): Promise<void> {
+    await db.update(users)
+      .set({ passwordResetToken: null, passwordResetExpiresAt: null, updatedAt: new Date() })
+      .where(eq(users.id, userId));
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
@@ -135,7 +167,7 @@ class AuthStorage implements IAuthStorage {
     try {
       await sendEmail(user.email, 'welcome', {
         firstName: user.firstName || 'estudiante',
-        onboardingUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/onboarding`,
+        onboardingUrl: `${process.env.APP_BASE_URL || 'https://cogniboost.co'}/onboarding`,
       });
       
       // Mark welcome email as sent
@@ -153,7 +185,7 @@ class AuthStorage implements IAuthStorage {
     if (!user.email || !user.emailVerificationToken) return;
     
     try {
-      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+      const baseUrl = process.env.APP_BASE_URL || 'https://cogniboost.co';
       const verificationUrl = `${baseUrl}/verify-email?token=${user.emailVerificationToken}`;
       
       await sendEmail(user.email, 'email_verification', {

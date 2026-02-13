@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookingProvider } from "@/contexts/booking-context";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
+import SignupPage from "@/pages/signup";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import Onboarding from "@/pages/onboarding";
 import PlacementQuiz from "@/pages/placement-quiz";
@@ -52,7 +55,7 @@ function ProtectedRoute({ children, requireOnboarding = true }: { children: Reac
 
   // Redirect unauthenticated users to login (uses full page redirect for OAuth)
   if (!user) {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
     return <LoadingSpinner />;
   }
 
@@ -73,7 +76,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
     return <LoadingSpinner />;
   }
 
@@ -96,7 +99,7 @@ function AdminPreviewPage() {
   }
 
   if (!user) {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
     return <LoadingSpinner />;
   }
 
@@ -140,6 +143,9 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/login" component={LoginPage} />
+      <Route path="/signup" component={SignupPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/placement-quiz" component={PlacementQuiz} />
       <Route path="/purchase-complete" component={PurchaseComplete} />
       <Route path="/sobre-nosotros" component={SobreNosotros} />

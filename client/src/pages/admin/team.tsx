@@ -703,7 +703,7 @@ export default function AdminTeam() {
                             data-testid="input-invite-email"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Este email debe coincidir con la cuenta de Replit del usuario
+                            Este email será usado para la invitación del usuario
                           </p>
                         </div>
                         <div className="grid grid-cols-2 gap-4">

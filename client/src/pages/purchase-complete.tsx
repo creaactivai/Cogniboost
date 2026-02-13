@@ -66,7 +66,7 @@ export default function PurchaseComplete() {
       hasRedirectedToLogin.current = true;
       setStatus("Redirigiendo para crear tu cuenta...");
       setTimeout(() => {
-        window.location.href = "/api/login?returnTo=/purchase-complete";
+        window.location.href = "/login";
       }, 1500);
     }
   }, [isLoading, authLoading, isAuthenticated, sessionData]);

@@ -114,7 +114,7 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
       onCheckout(plan.stripePriceId, plan.name);
     } else {
       // Free plan - redirect to signup
-      window.location.href = "/api/login";
+      window.location.href = "/signup";
     }
   };
   

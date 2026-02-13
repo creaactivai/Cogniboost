@@ -19,9 +19,22 @@ import { WebhookHandlers } from './webhookHandlers';
 import { initializeMonitoring, errorHandler } from './monitoring.js';
 import { setupSecurityHeaders, setupRateLimiting } from './middleware/security';
 import { validateEnv } from './env';
+import { pool } from './db';
 
 // Validate environment variables FIRST (fail fast if misconfigured)
 validateEnv();
+
+// Run pending database migrations (idempotent — safe to run on every boot)
+async function runStartupMigrations() {
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash varchar`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token varchar`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at timestamp`);
+    console.log('Startup migrations: password columns verified');
+  } catch (err) {
+    console.error('Startup migration error (non-fatal):', err);
+  }
+}
 
 const app = express();
 
@@ -180,9 +193,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run DB migrations before anything else (idempotent)
+  await runStartupMigrations();
+
   // Initialize Stripe on startup
   await initStripe();
-  
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

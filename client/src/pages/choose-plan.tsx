@@ -81,7 +81,7 @@ export default function ChoosePlan() {
   // Redirect unauthenticated users to login
   useEffect(() => {
     if (!authLoading && !user) {
-      window.location.href = "/api/login";
+      window.location.href = "/login";
     }
   }, [authLoading, user]);
 

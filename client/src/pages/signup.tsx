@@ -10,11 +10,14 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import logoImage from "@assets/Frame_2_1768763364518.png";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -29,24 +32,34 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, firstName, lastName }),
         credentials: "include",
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Error al iniciar sesión");
+        setError(data.message || "Error al crear la cuenta");
         return;
       }
 
-      // Refresh the page to reload user state
+      // Redirect to dashboard after successful signup
       window.location.href = "/dashboard";
     } catch (err) {
       setError("Error de conexión. Intenta de nuevo.");
@@ -76,16 +89,42 @@ export default function LoginPage() {
             />
           </a>
           <h1 className="text-3xl font-bold tracking-tight">
-            Iniciar Sesión
+            Crear Cuenta
           </h1>
           <p className="text-muted-foreground mt-2">
-            Continúa tu camino de aprendizaje
+            Empieza tu viaje de aprendizaje hoy
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Signup Form */}
         <Card className="p-6 space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="Tu nombre"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  autoComplete="given-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Tu apellido"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  autoComplete="family-name"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
               <Input
@@ -98,25 +137,19 @@ export default function LoginPage() {
                 autoComplete="email"
               />
             </div>
+
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Contraseña</Label>
-                <a
-                  href="/forgot-password"
-                  className="text-xs text-primary hover:underline"
-                >
-                  ¿Olvidaste tu contraseña?
-                </a>
-              </div>
+              <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Tu contraseña"
+                  placeholder="Mínimo 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
+                  minLength={8}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -127,6 +160,20 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+              <Input
+                id="confirmPassword"
+                type={showPassword ? "text" : "password"}
+                placeholder="Repite tu contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
             </div>
 
             {error && (
@@ -142,7 +189,7 @@ export default function LoginPage() {
               {submitting ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : null}
-              Iniciar Sesión
+              Crear Cuenta
             </Button>
           </form>
 
@@ -153,7 +200,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                O continuar con
+                O registrarte con
               </span>
             </div>
           </div>
@@ -165,7 +212,6 @@ export default function LoginPage() {
                 variant="outline"
                 size="lg"
                 className="w-full justify-center gap-3"
-                data-testid="button-google-signin"
               >
                 <FcGoogle className="w-5 h-5" />
                 <span>Continuar con Google</span>
@@ -177,7 +223,6 @@ export default function LoginPage() {
                 variant="outline"
                 size="lg"
                 className="w-full justify-center gap-3"
-                data-testid="button-apple-signin"
               >
                 <FaApple className="w-5 h-5" />
                 <span>Continuar con Apple</span>
@@ -186,14 +231,14 @@ export default function LoginPage() {
           </div>
         </Card>
 
-        {/* Sign Up Link */}
+        {/* Login Link */}
         <p className="text-center text-sm text-muted-foreground">
-          ¿No tienes cuenta?{" "}
+          ¿Ya tienes cuenta?{" "}
           <a
-            href="/signup"
+            href="/login"
             className="font-medium text-primary hover:underline"
           >
-            Crear cuenta gratis
+            Iniciar sesión
           </a>
         </p>
 

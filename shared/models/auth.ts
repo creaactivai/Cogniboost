@@ -4,8 +4,7 @@ import { index, jsonb, pgTable, timestamp, varchar, boolean, text, pgEnum } from
 // User status enum: active (paying/using), hold (pending payment), inactive (churned/locked)
 export const userStatusEnum = pgEnum("user_status", ["active", "hold", "inactive"]);
 
-// Session storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Session storage table for express-session (connect-pg-simple).
 export const sessions = pgTable(
   "sessions",
   {
@@ -20,7 +19,6 @@ export const sessions = pgTable(
 export const placementQuizStatusEnum = pgEnum("placement_quiz_status", ["in_progress", "completed", "expired"]);
 
 // User storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -39,6 +37,10 @@ export const users = pgTable("users", {
   emailVerificationToken: varchar("email_verification_token"),
   emailVerificationExpiresAt: timestamp("email_verification_expires_at"),
   emailVerified: boolean("email_verified").notNull().default(false),
+  // Password auth fields (null for OAuth-only users)
+  passwordHash: varchar("password_hash"),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpiresAt: timestamp("password_reset_expires_at"),
   subscriptionTier: text("subscription_tier").notNull().default("free"), // free, flex, standard, premium
   status: userStatusEnum("status").notNull().default("active"),
   isLocked: boolean("is_locked").notNull().default(false),

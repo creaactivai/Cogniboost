@@ -9,7 +9,7 @@ export function registerOAuthRoutes(app: Express) {
   const appleEnabled = setupAppleAuth();
 
   if (!googleEnabled && !appleEnabled) {
-    console.warn("⚠️ No OAuth providers configured - users will need to use Replit Auth");
+    console.warn("⚠️ No OAuth providers configured - users can still use email/password login");
     return;
   }
 
@@ -46,16 +46,6 @@ export function registerOAuthRoutes(app: Express) {
       })
     );
   }
-
-  // Logout route (works for all auth methods)
-  app.get("/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error("Logout error:", err);
-      }
-      res.redirect("/");
-    });
-  });
 
   console.log("✅ OAuth routes registered");
 }

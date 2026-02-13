@@ -133,7 +133,7 @@ export default function ActivatePage() {
             <Button 
               className="w-full" 
               size="lg"
-              onClick={() => window.location.href = `/api/login?returnTo=/activate?token=${token}`}
+              onClick={() => window.location.href = `/login`}
               data-testid="button-login-activate"
             >
               Iniciar sesión para activar
