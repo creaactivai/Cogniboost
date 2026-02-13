@@ -24,7 +24,7 @@ import {
 } from "./validation";
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 'sk-placeholder-not-configured',
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
@@ -44,9 +44,32 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication (must be before other routes)
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Setup authentication
+  const isReplit = !!(process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL || process.env.REPL_ID);
+  if (isReplit) {
+    await setupAuth(app);
+    registerAuthRoutes(app);
+  } else {
+    // On non-Replit (Railway), set up session + passport without Replit OIDC
+    const session = await import("express-session");
+    const passport = await import("passport");
+    app.set("trust proxy", 1);
+    app.use(session.default({
+      secret: process.env.SESSION_SECRET || "temporary-development-secret-change-in-production-min-32-chars",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      },
+    }));
+    app.use(passport.default.initialize());
+    app.use(passport.default.session());
+    passport.default.serializeUser((user: any, cb: any) => cb(null, user));
+    passport.default.deserializeUser((user: any, cb: any) => cb(null, user));
+    console.log('Non-Replit environment: session + passport initialized, using OAuth routes only');
+  }
 
   // Register OAuth routes (Google + Apple)
   registerOAuthRoutes(app);

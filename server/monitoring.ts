@@ -53,23 +53,26 @@ export function initializeMonitoring(app: Express) {
     },
   });
 
-  // Request handler must be the first middleware
-  app.use(Sentry.Handlers.requestHandler());
-
-  // TracingHandler creates a trace for every incoming request
-  app.use(Sentry.Handlers.tracingHandler());
+  // In Sentry v8+, Handlers API was removed. Sentry auto-instruments via init().
 
   console.log("✅ Sentry error tracking initialized");
 }
 
 // Error handler must be registered after all controllers but before other error middleware
 export function errorHandler() {
-  return Sentry.Handlers.errorHandler({
-    shouldHandleError(error) {
-      // Capture all errors
-      return true;
-    },
-  });
+  // In Sentry v8+, Handlers.errorHandler was removed.
+  // Use Sentry.setupExpressErrorHandler if Sentry is initialized, else return a no-op middleware.
+  if (process.env.SENTRY_DSN && typeof Sentry.setupExpressErrorHandler === 'function') {
+    // Return a middleware that captures errors via Sentry
+    return (err: any, req: any, res: any, next: any) => {
+      Sentry.captureException(err);
+      next(err);
+    };
+  }
+  // No-op error middleware when Sentry is not configured
+  return (err: any, _req: any, _res: any, next: any) => {
+    next(err);
+  };
 }
 
 // Manually capture errors with context

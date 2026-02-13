@@ -45,26 +45,32 @@ export function validateEnv() {
       default: "temporary-development-secret-change-in-production-min-32-chars",
     }),
 
-    // OAuth - Google (Optional in development, required in production)
+    // OAuth - Google (Optional)
     GOOGLE_CLIENT_ID: optionalStr({
       desc: "Google OAuth Client ID",
+      default: undefined,
     }),
     GOOGLE_CLIENT_SECRET: optionalStr({
       desc: "Google OAuth Client Secret",
+      default: undefined,
     }),
 
-    // OAuth - Apple (Optional in development, required in production)
+    // OAuth - Apple (Optional)
     APPLE_CLIENT_ID: optionalStr({
       desc: "Apple Sign-In Client ID (Service ID)",
+      default: undefined,
     }),
     APPLE_TEAM_ID: optionalStr({
       desc: "Apple Developer Team ID",
+      default: undefined,
     }),
     APPLE_KEY_ID: optionalStr({
       desc: "Apple Sign-In Key ID",
+      default: undefined,
     }),
     APPLE_PRIVATE_KEY: optionalStr({
       desc: "Apple Sign-In Private Key (base64 or raw PEM)",
+      default: undefined,
     }),
 
     // Stripe (Required for payments)
@@ -77,27 +83,32 @@ export function validateEnv() {
       default: "pk_test_temporary_replace_with_real_key",
     }),
 
-    // Email (Resend) - Optional in development
+    // Email (Resend) - Optional
     RESEND_API_KEY: optionalStr({
       desc: "Resend API key for sending emails",
+      default: undefined,
     }),
 
     // AI/OpenAI - Optional
     AI_INTEGRATIONS_OPENAI_API_KEY: optionalStr({
       desc: "OpenAI API key for AI features",
+      default: undefined,
     }),
     AI_INTEGRATIONS_OPENAI_BASE_URL: optionalUrl({
       desc: "OpenAI API base URL (optional custom endpoint)",
+      default: undefined,
     }),
 
-    // Sentry (Error tracking) - Optional but recommended
+    // Sentry (Error tracking) - Optional
     SENTRY_DSN: optionalUrl({
       desc: "Sentry DSN for error tracking",
+      default: undefined,
     }),
 
     // Deployment (Railway/Replit)
     REPLIT_DOMAINS: optionalStr({
       desc: "Comma-separated list of Replit domains for webhooks",
+      default: undefined,
     }),
   });
 
