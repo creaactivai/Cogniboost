@@ -42,7 +42,14 @@ async function getCredentials() {
       : null;
 
   if (!xReplitToken || !hostname) {
-    throw new Error('No Stripe credentials configured. Set STRIPE_SECRET_KEY_BOOST or STRIPE_SECRET_KEY environment variable.');
+    // Fall back to default temporary keys (allows app to start, but payments won't work)
+    console.warn('⚠️ No Stripe credentials configured! Using temporary keys. Payments are DISABLED.');
+    console.warn('   Set STRIPE_SECRET_KEY_BOOST or STRIPE_SECRET_KEY to enable payments.');
+    cachedCredentials = {
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_temporary_replace_with_real_key',
+      secretKey: process.env.STRIPE_SECRET_KEY || 'sk_test_temporary_replace_with_real_key',
+    };
+    return cachedCredentials;
   }
 
   const connectorName = 'stripe';
