@@ -91,14 +91,33 @@ export class WebhookHandlers {
 
       // Send subscription activated email for logged-in users
       if (user.email) {
+        const displayPlan = planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1);
+        const planPrices: Record<string, string> = { flex: '14.99', basic: '49.99', premium: '99.99' };
+
         sendEmail(user.email, 'subscription_activated', {
           firstName: user.firstName || 'Estudiante',
-          planName: planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1),
+          planName: displayPlan,
           dashboardUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/dashboard`,
         }).then(() => {
           console.log(`[Webhook] Subscription activated email sent to ${user.email}`);
         }).catch(err => {
           console.error(`[Webhook] Failed to send subscription activated email to ${user.email}:`, err);
+        });
+
+        // Notify admin about new subscription
+        const academyEmail = 'cognimight@gmail.com';
+        sendEmail(academyEmail, 'admin_subscription_notification', {
+          studentName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'No proporcionado',
+          studentEmail: user.email,
+          planName: displayPlan,
+          tier: subscriptionTier,
+          amount: planPrices[subscriptionTier] || '0',
+          timestamp: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
+          adminUrl: `${process.env.APP_URL || 'https://cogniboost-production.up.railway.app'}/admin/financials`,
+        }).then(() => {
+          console.log(`[Webhook] Admin notification sent for new subscription: ${user.email} → ${displayPlan}`);
+        }).catch(err => {
+          console.error(`[Webhook] Failed to send admin subscription notification:`, err);
         });
       }
     } else {

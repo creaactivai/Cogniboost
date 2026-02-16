@@ -41,18 +41,22 @@ interface StudentMetrics {
 export default function AdminFinancials() {
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+    refetchInterval: 30000,
   });
 
   const { data: metrics, isLoading: metricsLoading } = useQuery<StudentMetrics>({
     queryKey: ["/api/admin/students/metrics"],
+    refetchInterval: 30000,
   });
 
   const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
     queryKey: ["/api/admin/payments"],
+    refetchInterval: 30000,
   });
 
   const { data: subscriptions } = useQuery<Subscription[]>({
     queryKey: ["/api/admin/subscriptions"],
+    refetchInterval: 30000,
   });
 
   const tierCounts = subscriptions?.reduce(

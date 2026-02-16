@@ -3,8 +3,8 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Users, BookOpen, Calendar, DollarSign } from "lucide-react";
-import type { Course } from "@shared/schema";
+import { Users, BookOpen, Calendar, DollarSign, CreditCard, ArrowUpRight } from "lucide-react";
+import type { Course, Payment } from "@shared/schema";
 
 interface AdminStats {
   totalStudents: number;
@@ -14,13 +14,27 @@ interface AdminStats {
   activeSubscriptions: number;
 }
 
+const tierLabels: Record<string, string> = {
+  free: "Gratis",
+  flex: "Flex",
+  basic: "Básico",
+  standard: "Estándar",
+  premium: "Prémium",
+};
+
 export default function AdminOverview() {
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+    refetchInterval: 30000,
   });
 
   const { data: courses, isLoading: coursesLoading } = useQuery<Course[]>({
     queryKey: ["/api/admin/courses"],
+  });
+
+  const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
+    queryKey: ["/api/admin/payments"],
+    refetchInterval: 30000,
   });
 
   const statCards = [
@@ -65,8 +79,8 @@ export default function AdminOverview() {
                   <stat.icon className={`w-5 h-5 ${stat.textColor}`} />
                 </div>
               </div>
-              <p 
-                className="text-2xl font-display uppercase tracking-tight mb-1" 
+              <p
+                className="text-2xl font-display uppercase tracking-tight mb-1"
                 data-testid={`text-stat-value-${index}`}
               >
                 {statsLoading ? "..." : stat.value}
@@ -95,8 +109,8 @@ export default function AdminOverview() {
                   </p>
                 ) : (
                   courses?.slice(0, 5).map((course) => (
-                    <div 
-                      key={course.id} 
+                    <div
+                      key={course.id}
                       className="flex items-center justify-between p-3 bg-muted/50 hover-elevate"
                       data-testid={`course-item-${course.id}`}
                     >
@@ -163,6 +177,59 @@ export default function AdminOverview() {
                   Ver calendario completo en Labs
                 </p>
               </div>
+            </Card>
+
+            <Card className="p-4 mt-4">
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
+                Actividad Reciente
+              </h2>
+              {paymentsLoading ? (
+                <p className="font-mono text-muted-foreground text-sm">
+                  Cargando...
+                </p>
+              ) : !payments || payments.length === 0 ? (
+                <div className="text-center py-4">
+                  <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-mono text-muted-foreground">
+                    Sin transacciones aún
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {payments.slice(0, 5).map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                      data-testid={`activity-${payment.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-success flex items-center justify-center rounded">
+                          <ArrowUpRight className="w-3.5 h-3.5 text-success-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-mono text-xs font-medium truncate max-w-[120px]">
+                            {payment.userId.substring(0, 8)}...
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {tierLabels[payment.tier] || payment.tier}
+                        </Badge>
+                        <span className="font-mono font-bold text-xs">
+                          ${Number(payment.amount).toFixed(0)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground text-center mt-2">
+                    Se actualiza cada 30 segundos
+                  </p>
+                </div>
+              )}
             </Card>
           </div>
         </div>

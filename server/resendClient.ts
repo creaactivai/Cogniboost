@@ -51,7 +51,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification';
 
 // Send email using template
 export async function sendEmail(
@@ -1305,6 +1305,101 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
           </div>
         </body></html>
+      `
+    },
+
+    // ===== ADMIN NOTIFICATION: New Subscription Purchase =====
+    admin_subscription_notification: {
+      subject: `🎉 Nueva suscripción: Plan ${data.planName || 'Nuevo'}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #1a1a40; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #667EEA; }
+            .logo { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: bold; color: #667EEA; }
+            .badge { background: #48BB78; color: #ffffff; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-top: 10px; }
+            h1 { color: #1a1a40; margin: 0; font-size: 22px; }
+            p { line-height: 1.6; color: #4a4a4a; }
+            .info-section { margin: 20px 0; }
+            .info-section h3 { color: #667EEA; margin: 0 0 15px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+            .info-row { display: flex; margin: 10px 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+            .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+            .info-label { color: #888888; width: 140px; font-size: 14px; }
+            .info-value { color: #1a1a40; font-weight: 500; }
+            .highlight { background: linear-gradient(135deg, #667EEA 0%, #48BB78 100%); padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+            .highlight h2 { color: #ffffff; margin: 0; font-size: 24px; }
+            .highlight p { color: #ffffff; margin: 5px 0 0 0; }
+            .footer { text-align: center; margin-top: 30px; color: #888888; font-size: 12px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CogniBoost Admin</div>
+              <div class="badge">NUEVA SUSCRIPCIÓN</div>
+            </div>
+            <h1>Se ha registrado una nueva suscripción</h1>
+
+            <div class="highlight">
+              <h2>PLAN ${(data.planName || 'NUEVO').toUpperCase()}</h2>
+              <p>$${data.amount || '0'}/mes</p>
+            </div>
+
+            <div class="info-section">
+              <h3>Información del Estudiante</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Nombre:</span>
+                  <span class="info-value">${data.studentName || 'No proporcionado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email:</span>
+                  <span class="info-value">${data.studentEmail || 'No proporcionado'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3>Detalles de la Suscripción</h3>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Plan:</span>
+                  <span class="info-value">${data.planName || 'No especificado'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Nivel de acceso:</span>
+                  <span class="info-value">${data.tier || 'basic'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Prueba gratuita:</span>
+                  <span class="info-value">7 días</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Monto mensual:</span>
+                  <span class="info-value">$${data.amount || '0'} USD</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Fecha:</span>
+                  <span class="info-value">${data.timestamp || new Date().toLocaleString('es-ES')}</span>
+                </div>
+              </div>
+            </div>
+
+            <p style="text-align: center;">
+              <a href="${data.adminUrl || 'https://cogniboost-production.up.railway.app/admin/financials'}" style="display: inline-block; background: #667EEA; color: #ffffff; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 6px;">VER EN DASHBOARD</a>
+            </p>
+
+            <div class="footer">
+              <p>Este es un correo automático del sistema CogniBoost</p>
+              <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `
     }
   };
