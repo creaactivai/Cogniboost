@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { X, Cookie, ChevronDown, ChevronUp } from "lucide-react";
+import { updateConsentState } from "@/lib/analytics";
 
 interface CookiePreferences {
   essential: boolean;
@@ -42,6 +43,8 @@ export function CookieConsent() {
   const savePreferences = (prefs: CookiePreferences) => {
     localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(prefs));
     setIsVisible(false);
+    // Immediately update GA4 consent state
+    updateConsentState();
   };
 
   const acceptAll = () => {

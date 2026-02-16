@@ -5,6 +5,7 @@ import { SiWhatsapp } from "react-icons/si";
 import { useEffect, useState } from "react";
 import { AnimatedSection } from "@/hooks/use-scroll-animation";
 import { useBooking } from "@/contexts/booking-context";
+import { trackCTAClicked, trackBookingOpened, trackWhatsAppClicked } from "@/lib/analytics";
 
 const WHATSAPP_LINK = "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ";
 
@@ -62,7 +63,7 @@ export function Hero() {
               <Button
                 size="lg"
                 className="w-full sm:w-[200px] justify-center"
-                onClick={() => openBooking('class')}
+                onClick={() => { trackCTAClicked("Clase Gratis", "hero"); trackBookingOpened("class"); openBooking('class'); }}
                 data-testid="button-free-class"
               >
                 <Calendar className="mr-2 h-5 w-5" />
@@ -74,6 +75,7 @@ export function Hero() {
                   variant="outline"
                   className="w-full sm:w-[200px] justify-center"
                   data-testid="button-placement-quiz"
+                  onClick={() => trackCTAClicked("Evaluar Mi Nivel", "hero")}
                 >
                   <TrendingUp className="mr-2 h-5 w-5" />
                   Evaluar Mi Nivel
@@ -84,6 +86,7 @@ export function Hero() {
                   size="lg"
                   className="w-full sm:w-[200px] justify-center bg-[#4ed0c3] hover:bg-[#3dbfb2] text-white border-[#4ed0c3]"
                   data-testid="button-buy-now"
+                  onClick={() => trackCTAClicked("Comprar Ahora", "hero")}
                 >
                   <Sparkles className="mr-2 h-5 w-5" />
                   Comprar Ahora
@@ -95,6 +98,7 @@ export function Hero() {
                   variant="outline"
                   className="w-full sm:w-[200px] justify-center"
                   data-testid="button-whatsapp"
+                  onClick={() => trackWhatsAppClicked("hero")}
                 >
                   <SiWhatsapp className="mr-2 h-5 w-5" />
                   Asistencia

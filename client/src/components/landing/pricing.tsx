@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { trackPricingViewed, trackPlanSelected, trackCheckoutStarted, trackCTAClicked } from "@/lib/analytics";
 import {
   Carousel,
   CarouselContent,
@@ -114,6 +115,8 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
       onCheckout(plan.stripePriceId, plan.name);
     } else {
       // Free plan - redirect to signup
+      trackCTAClicked("Comenzar Gratis", "pricing");
+      trackPlanSelected("Gratis", "$0", "forever");
       window.location.href = "/signup";
     }
   };
@@ -192,12 +195,28 @@ export function Pricing() {
   const [current, setCurrent] = useState(2);
   const [isMobile, setIsMobile] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasTrackedView = useRef(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Track when pricing section enters viewport
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !hasTrackedView.current) {
+        hasTrackedView.current = true;
+        trackPricingViewed("scroll");
+      }
+    }, { threshold: 0.3 });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   const proceedToStripeCheckout = async (priceId: string, planName: string) => {
@@ -229,6 +248,10 @@ export function Pricing() {
   };
 
   const handleCheckout = async (priceId: string, planName: string) => {
+    // Track plan selection and checkout start
+    const plan = plans.find(p => p.stripePriceId === priceId);
+    trackPlanSelected(planName, plan?.price || "0", "monthly");
+    trackCheckoutStarted(planName, parseFloat((plan?.price || "0").replace("$", "")));
     // Go directly to Stripe checkout - Stripe will collect email
     await proceedToStripeCheckout(priceId, planName);
   };
@@ -249,7 +272,7 @@ export function Pricing() {
   };
 
   return (
-    <section className="py-32 bg-background relative overflow-hidden" id="pricing">
+    <section ref={sectionRef} className="py-32 bg-background relative overflow-hidden" id="pricing">
       {/* Floating decorative elements */}
       <div className="absolute top-16 left-20 w-24 h-24 border-4 border-primary/30 rounded float-animation" style={{ animationDelay: "1s" }} />
       <div className="absolute bottom-24 right-10 w-20 h-20 border-4 border-[hsl(174_58%_56%/0.4)] rounded float-animation" style={{ animationDelay: "3s" }} />

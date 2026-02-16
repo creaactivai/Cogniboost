@@ -6,6 +6,48 @@
       localStorage.setItem('theme', 'light');
       document.documentElement.classList.remove('dark');
     </script>
+
+    <!-- Google Analytics 4 — Consent Mode v2 (default deny, updated on cookie accept) -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+
+      // Default: deny all until user consents via cookie banner
+      gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        wait_for_update: 500
+      });
+
+      // If user already consented in a previous session, upgrade immediately
+      (function() {
+        try {
+          var stored = localStorage.getItem('cb_cookie_consent');
+          if (stored) {
+            var prefs = JSON.parse(stored);
+            gtag('consent', 'update', {
+              analytics_storage: prefs.analytics ? 'granted' : 'denied',
+              ad_storage: prefs.marketing ? 'granted' : 'denied',
+              ad_user_data: prefs.marketing ? 'granted' : 'denied',
+              ad_personalization: prefs.marketing ? 'granted' : 'denied'
+            });
+          }
+        } catch(e) {}
+      })();
+
+      gtag('js', new Date());
+    </script>
+    <!-- GA4 tag — loads async, measurement ID set via env or placeholder -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      // Configure GA4 — replace G-XXXXXXXXXX with your real Measurement ID
+      gtag('config', 'G-XXXXXXXXXX', {
+        send_page_view: true,
+        cookie_flags: 'SameSite=None;Secure'
+      });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Loader2, GraduationCap, LayoutDashboard } from "lucide-react";
 import logoImage from "@assets/Frame_2_1768763364518.png";
 import { useAuth } from "@/hooks/use-auth";
+import { trackPurchaseCompleted } from "@/lib/analytics";
 
 interface SessionData {
   customerEmail: string;
@@ -93,6 +94,13 @@ export default function PurchaseComplete() {
             localStorage.removeItem("pending_stripe_customer");
             setStatus("¡Suscripción vinculada!");
             setShowOptions(true);
+            // Track successful purchase conversion
+            const planPrices: Record<string, number> = { Flex: 14.99, "Básico": 49.99, Premium: 99.99 };
+            trackPurchaseCompleted(
+              sessionData.planName || "unknown",
+              planPrices[sessionData.planName] || 0,
+              sessionData.subscriptionId
+            );
           } else {
             setError("Error al vincular la suscripción");
           }

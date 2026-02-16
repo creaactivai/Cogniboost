@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Clock, ArrowRight, Trophy, Target, BookOpen, CheckCircle, Mail } from "lucide-react";
+import { trackPlacementQuizStarted, trackPlacementQuizCompleted } from "@/lib/analytics";
 
 interface PlacementQuestion {
   text: string;
@@ -123,6 +124,7 @@ export default function PlacementQuiz() {
       return response.json();
     },
     onSuccess: (data) => {
+      trackPlacementQuizStarted();
       setQuizState({
         attemptId: data.attemptId,
         currentStep: data.currentStep,
@@ -152,6 +154,7 @@ export default function PlacementQuiz() {
     },
     onSuccess: (data: AnswerResult) => {
       if (data.completed) {
+        trackPlacementQuizCompleted(data.computedLevel!, data.confidence!);
         setQuizResult({
           level: data.computedLevel!,
           confidence: data.confidence!,

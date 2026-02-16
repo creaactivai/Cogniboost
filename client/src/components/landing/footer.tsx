@@ -1,5 +1,6 @@
 import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok, SiWhatsapp } from "react-icons/si";
 import logoImage from "@assets/Frame_2_1768763364518.png";
+import { trackSocialClicked } from "@/lib/analytics";
 
 const footerLinks = {
   product: [
@@ -52,6 +53,7 @@ export function Footer() {
                   className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted transition-colors rounded"
                   aria-label={social.label}
                   data-testid={`link-social-${social.label.toLowerCase()}`}
+                  onClick={() => trackSocialClicked(social.label)}
                 >
                   <social.icon className="w-4 h-4" />
                 </a>

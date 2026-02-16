@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { trackFAQExpanded, trackFAQQuestionOpened } from "@/lib/analytics";
 import {
   Accordion,
   AccordionContent,
@@ -59,7 +60,7 @@ export function FAQ() {
           </p>
         </div>
 
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (open) trackFAQExpanded(); }}>
           <CollapsibleTrigger 
             className="w-full flex items-center justify-center gap-4 group cursor-pointer py-4"
             data-testid="faq-main-trigger"
@@ -75,7 +76,7 @@ export function FAQ() {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="mt-12 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <Accordion type="single" collapsible className="space-y-3">
+            <Accordion type="single" collapsible className="space-y-3" onValueChange={(val) => { if (val) { const idx = parseInt(val.replace("item-", "")); trackFAQQuestionOpened(faqs[idx]?.question || "", idx); } }}>
               {faqs.map((faq, index) => (
                 <AccordionItem
                   key={index}

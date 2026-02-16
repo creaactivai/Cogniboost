@@ -36,6 +36,8 @@ import ActivatePage from "@/pages/activate";
 import VerifyEmailPage from "@/pages/verify-email";
 import { CookieConsent } from "@/components/cookie-consent";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { initAnalytics, trackPageView, setUserId, setUserProperties } from "@/lib/analytics";
 
 function LoadingSpinner() {
   return (
@@ -211,11 +213,44 @@ function Router() {
   );
 }
 
+/** Track SPA page views on route changes */
+function AnalyticsTracker() {
+  const [location] = useLocation();
+  const { user } = useAuth();
+
+  // Initialize analytics once on mount
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  // Track page views on route change
+  useEffect(() => {
+    trackPageView(location);
+  }, [location]);
+
+  // Set user identity when authenticated
+  useEffect(() => {
+    if (user) {
+      setUserId(user.id?.toString() || null);
+      setUserProperties({
+        user_type: user.subscriptionTier || "free",
+        plan_type: user.subscriptionTier || "free",
+        is_admin: user.isAdmin || false,
+        english_level: user.placementLevel || "unknown",
+        onboarding_completed: user.onboardingCompleted || false,
+      });
+    }
+  }, [user]);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BookingProvider>
+          <AnalyticsTracker />
           <Toaster />
           <Router />
           <CookieConsent />

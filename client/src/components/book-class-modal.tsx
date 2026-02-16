@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { trackBookingSubmitted } from "@/lib/analytics";
 import { useAuth } from "@/hooks/use-auth";
 import type { LiveSession, SessionRoom } from "@shared/schema";
 
@@ -93,9 +94,10 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
       }
     },
     onSuccess: () => {
+      trackBookingSubmitted(bookingType);
       toast({
         title: bookingType === 'demo' ? "Demo Reservado" : "Clase Reservada",
-        description: bookingType === 'demo' 
+        description: bookingType === 'demo'
           ? "Tu demo de 15 minutos ha sido reservado. Revisa tu correo para la confirmación."
           : "Tu clase ha sido reservada exitosamente. Revisa tu correo para la confirmación.",
       });

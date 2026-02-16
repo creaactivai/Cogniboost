@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import logoImage from "@assets/Frame_2_1768763364518.png";
+import { trackLogin } from "@/lib/analytics";
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,6 +47,7 @@ export default function LoginPage() {
         return;
       }
 
+      trackLogin("email");
       // Refresh the page to reload user state
       window.location.href = "/dashboard";
     } catch (err) {

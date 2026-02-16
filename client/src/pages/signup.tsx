@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import logoImage from "@assets/Frame_2_1768763364518.png";
+import { trackSignupStarted, trackSignupCompleted } from "@/lib/analytics";
 
 export default function SignupPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +44,7 @@ export default function SignupPage() {
     }
 
     setSubmitting(true);
+    trackSignupStarted("email");
 
     try {
       const res = await fetch("/api/auth/signup", {
@@ -59,6 +61,7 @@ export default function SignupPage() {
         return;
       }
 
+      trackSignupCompleted("email");
       // Redirect to dashboard after successful signup
       window.location.href = "/dashboard";
     } catch (err) {
