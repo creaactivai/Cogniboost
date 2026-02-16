@@ -3024,38 +3024,63 @@ Guidelines:
         return res.status(404).json({ error: "Quiz not found" });
       }
 
-      const prompt = `Generate ${numberOfQuestions} multiple choice quiz questions in Spanish for an English learning lesson.
+      // Fetch lesson content to make questions strictly relevant to the material
+      let lessonContent = "";
+      if (quiz.lessonId) {
+        const lesson = await storage.getLessonById(quiz.lessonId);
+        if (lesson?.htmlContent) {
+          // Strip HTML tags to get plain text, limit to ~3000 chars to fit in context
+          lessonContent = lesson.htmlContent
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 3000);
+        }
+      }
+
+      const lessonContextSection = lessonContent
+        ? `\n\nLesson Content (use ONLY this material to create questions):\n${lessonContent}`
+        : "";
+
+      const prompt = `Generate ${numberOfQuestions} multiple choice quiz questions IN ENGLISH for an English learning course.
 
 Lesson Title: ${lessonTitle}
 Lesson Description: ${lessonDescription || "N/A"}
-Level: ${courseLevel} (CEFR level)
+Level: ${courseLevel} (CEFR level)${lessonContextSection}
 
-Generate questions that test the student's understanding of English concepts taught in this lesson.
-Each question should have exactly 4 options, with one correct answer.
+CRITICAL RULES:
+- ALL questions, options, and explanations must be written entirely in ENGLISH
+- Questions must ONLY test concepts, vocabulary, or grammar that appear in the lesson content above
+- Do NOT generate questions about topics not covered in the lesson material
+- If lesson content is provided, base every question directly on that specific material
+- Each question must have exactly 4 options, with one correct answer
 
 Return a JSON array with this exact format:
 [
   {
-    "question": "¿Cuál es la traducción correcta de 'hello'?",
-    "options": ["Hola", "Adiós", "Gracias", "Por favor"],
+    "question": "What is the correct meaning of 'schedule' as used in the lesson?",
+    "options": ["A plan of events", "A type of food", "A musical instrument", "A piece of furniture"],
     "correctOptionIndex": 0,
-    "explanation": "La palabra 'hello' significa 'hola' en español, utilizada como saludo."
+    "explanation": "In the lesson, 'schedule' refers to a plan that lists events and the times at which they will take place."
   }
 ]
 
 Important:
-- Questions must be in Spanish
-- Test English vocabulary, grammar, or concepts relevant to the lesson
+- Everything must be in ENGLISH (questions, options, explanations)
+- Test vocabulary, grammar, reading comprehension, or concepts from the lesson
 - Each question must have exactly 4 options
 - correctOptionIndex is 0-based (0 for first option, 1 for second, etc.)
-- Include a brief explanation in Spanish for the correct answer`;
+- Include a brief explanation in English for the correct answer
+- Questions should match the ${courseLevel} CEFR difficulty level`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are an expert English teacher creating quiz questions for Spanish-speaking students learning English. Always respond with valid JSON only."
+            content: "You are an expert English teacher creating quiz questions for students learning English. All output must be in English. Generate questions that are strictly based on the lesson content provided. Always respond with valid JSON only."
           },
           {
             role: "user",
