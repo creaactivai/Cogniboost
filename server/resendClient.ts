@@ -388,7 +388,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
       `
     },
     lead_day1_followup: {
-      subject: '📚 Cursos recomendados para tu nivel ${data.level || ""}',
+      subject: `📚 Cursos recomendados para tu nivel ${data.level || ""}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -1191,7 +1191,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
     },
     // ===== EMAIL SEQUENCE: Re-engagement (30 days inactive) =====
     reengagement: {
-      subject: '${data.firstName || "Hola"}, te echamos de menos',
+      subject: `${data.firstName || "Hola"}, te echamos de menos`,
       html: `
         <!DOCTYPE html><html><head><style>
           body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
@@ -1258,7 +1258,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
     },
     // ===== EMAIL SEQUENCE: Weekly Progress Summary =====
     weekly_progress: {
-      subject: '📊 Tu resumen semanal de inglés — ${data.lessonsCompleted || "0"} lecciones completadas',
+      subject: `📊 Tu resumen semanal de inglés — ${data.lessonsCompleted || "0"} lecciones completadas`,
       html: `
         <!DOCTYPE html><html><head><style>
           body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
