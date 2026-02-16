@@ -1,7 +1,7 @@
-import { getStripeSync } from './stripeClient';
+import { getUncachableStripeClient } from './stripeClient';
 import { db } from './db';
 import { users } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { sendEmail } from './resendClient';
 
 export class WebhookHandlers {
@@ -15,8 +15,33 @@ export class WebhookHandlers {
       );
     }
 
-    const sync = await getStripeSync();
-    await sync.processWebhook(payload, signature);
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      throw new Error('STRIPE_WEBHOOK_SECRET not configured');
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+
+    console.log(`Stripe webhook received: ${event.type}`);
+
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+        await WebhookHandlers.handleSubscriptionUpdate(event.data.object);
+        break;
+      case 'charge.failed':
+      case 'payment_intent.payment_failed':
+        await WebhookHandlers.handlePaymentFailed(event.data.object);
+        break;
+      case 'charge.succeeded':
+      case 'payment_intent.succeeded':
+        await WebhookHandlers.handlePaymentSucceeded(event.data.object);
+        break;
+      default:
+        console.log(`Unhandled webhook event: ${event.type}`);
+    }
   }
 
   static async handleSubscriptionUpdate(subscription: any) {
@@ -29,7 +54,7 @@ export class WebhookHandlers {
 
     const previousStatus = user.status;
     let userStatus: 'active' | 'hold' | 'inactive' = 'active';
-    
+
     if (status === 'active' || status === 'trialing') {
       userStatus = 'active';
     } else if (status === 'past_due' || status === 'unpaid') {
@@ -44,11 +69,11 @@ export class WebhookHandlers {
       // Priority 1: Check metadata (set during checkout)
       if (subscription.metadata?.planName) {
         planName = subscription.metadata.planName;
-      } 
+      }
       // Priority 2: Check price nickname (set in Stripe dashboard)
       else if (subscription.items?.data?.[0]?.price?.nickname) {
         planName = subscription.items.data[0].price.nickname;
-      } 
+      }
       // Priority 3: Map price IDs to plan names using server-side env vars only
       else if (subscription.items?.data?.[0]?.price?.id) {
         const priceId = subscription.items.data[0].price.id;
@@ -65,11 +90,9 @@ export class WebhookHandlers {
     }
 
     // Map plan name to subscription tier
-    // For inactive/hold statuses, set tier to 'free' to prevent feature access during payment issues
     let subscriptionTier: 'free' | 'flex' | 'basic' | 'premium' = 'free';
-    
+
     if (status === 'canceled' || status === 'incomplete_expired' || status === 'past_due' || status === 'unpaid') {
-      // Revoke paid tier access during payment issues or cancellation
       subscriptionTier = 'free';
     } else if (planName) {
       const lowerPlan = planName.toLowerCase();
@@ -81,7 +104,6 @@ export class WebhookHandlers {
         subscriptionTier = 'premium';
       }
     }
-    // If no plan name found and status is active/trialing, log warning but keep existing tier
     if (!planName && (status === 'active' || status === 'trialing')) {
       console.warn(`Warning: Could not determine plan for subscription ${subscriptionId}, keeping tier as: ${subscriptionTier}`);
     }
@@ -97,7 +119,6 @@ export class WebhookHandlers {
 
     // Send activation email when subscription becomes active (new or reactivated)
     if (userStatus === 'active' && previousStatus !== 'active' && user.email) {
-      // Send subscription activated email asynchronously
       sendEmail(user.email, 'subscription_activated', {
         firstName: user.firstName || 'Estudiante',
         planName: planName,
@@ -110,7 +131,7 @@ export class WebhookHandlers {
 
   static async handlePaymentFailed(paymentIntent: any) {
     const customerId = paymentIntent.customer;
-    
+
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
     if (!user) return;
 
@@ -122,7 +143,7 @@ export class WebhookHandlers {
 
   static async handlePaymentSucceeded(paymentIntent: any) {
     const customerId = paymentIntent.customer;
-    
+
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
     if (!user) return;
 

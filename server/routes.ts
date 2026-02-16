@@ -248,7 +248,7 @@ export async function registerRoutes(
 
       // Send verification email
       const { sendEmail } = await import("./resendClient");
-      const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+      const baseUrl = process.env.APP_URL || 'https://cogniboost.co';
       const verificationUrl = `${baseUrl}/verify-email?token=${newToken}`;
 
       await sendEmail(user.email, 'email_verification', {
@@ -645,10 +645,8 @@ export async function registerRoutes(
       }
 
       const stripe = await getUncachableStripeClient();
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : "http://localhost:5000";
-      
+      const baseUrl = process.env.APP_URL || "https://cogniboost.co";
+
       let sessionConfig: any = {
         payment_method_types: ["card"],
         line_items: [
@@ -786,7 +784,7 @@ export async function registerRoutes(
       
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000"}/dashboard/settings`,
+        return_url: `${process.env.APP_URL || "https://cogniboost.co"}/dashboard/settings`,
       });
 
       res.json({ url: session.url });
@@ -2086,11 +2084,9 @@ Guidelines:
       const inviterName = inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Un administrador' : 'Un administrador';
       
       // Build invitation URL
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : "https://cogniboost.co";
+      const baseUrl = process.env.APP_URL || "https://cogniboost.co";
       const invitationUrl = `${baseUrl}/accept-invitation?token=${token}`;
-      
+
       // Send email
       const { sendEmail } = await import("./resendClient");
       await sendEmail(email, 'staff_invitation', {
@@ -2163,11 +2159,9 @@ Guidelines:
       const inviterName = inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Un administrador' : 'Un administrador';
       
       // Build invitation URL
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : "https://cogniboost.co";
+      const baseUrl = process.env.APP_URL || "https://cogniboost.co";
       const invitationUrl = `${baseUrl}/accept-invitation?token=${token}`;
-      
+
       // Send email
       const { sendEmail } = await import("./resendClient");
       await sendEmail(invitation.email, 'staff_invitation', {
@@ -3488,7 +3482,7 @@ Important:
       // Send invitation email
       try {
         const { sendEmail } = await import("./resendClient");
-        const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co';
+        const baseUrl = process.env.APP_URL || 'https://cogniboost.co';
         const activationUrl = `${baseUrl}/activate?token=${invitationToken}`;
 
         await sendEmail(email, 'student_invitation', {
@@ -3563,8 +3557,8 @@ Important:
       
       const result = await sendEmail(user.email, template as EmailTemplate, {
         firstName: user.firstName || 'estudiante',
-        onboardingUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/onboarding`,
-        dashboardUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/dashboard`,
+        onboardingUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/onboarding`,
+        dashboardUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/dashboard`,
       });
       
       res.json(result);

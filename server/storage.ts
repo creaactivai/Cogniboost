@@ -1304,7 +1304,7 @@ export class DatabaseStorage implements IStorage {
       try {
         await sendEmail(user.email, 'onboarding_reminder', {
           firstName: user.firstName || 'estudiante',
-          onboardingUrl: `${process.env.REPLIT_DEPLOYMENT_URL || 'https://cogniboost.co'}/onboarding`,
+          onboardingUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/onboarding`,
         });
         
         // Mark reminder as sent
