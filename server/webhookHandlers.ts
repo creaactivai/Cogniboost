@@ -66,8 +66,23 @@ export class WebhookHandlers {
       return;
     }
 
-    // Try to find the user by stripeCustomerId (logged-in checkout)
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    // Try to find the user by stripeCustomerId first, then fall back to email
+    let [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+
+    // Fallback: if no user found by stripeCustomerId, try matching by email
+    // This handles the case where a user signs up AFTER purchasing (guest checkout)
+    if (!user && customerEmail) {
+      const [userByEmail] = await db.select().from(users).where(eq(users.email, customerEmail.toLowerCase()));
+      if (userByEmail && !userByEmail.stripeCustomerId) {
+        // Link the Stripe customer to this user
+        await db.update(users).set({
+          stripeCustomerId: customerId,
+          updatedAt: new Date(),
+        }).where(eq(users.id, userByEmail.id));
+        user = { ...userByEmail, stripeCustomerId: customerId };
+        console.log(`[Webhook] checkout.session.completed: Auto-linked customer ${customerId} to user ${userByEmail.id} by email ${customerEmail}`);
+      }
+    }
 
     if (user) {
       // Logged-in user: update their subscription info and send email

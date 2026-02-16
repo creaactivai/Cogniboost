@@ -48,8 +48,13 @@ export default function LoginPage() {
       }
 
       trackLogin("email");
-      // Refresh the page to reload user state
-      window.location.href = "/dashboard";
+      // If there's a pending Stripe purchase, redirect to complete linking
+      const pendingStripe = localStorage.getItem("pending_stripe_customer");
+      if (pendingStripe) {
+        window.location.href = "/purchase-complete";
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {

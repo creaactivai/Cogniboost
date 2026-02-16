@@ -62,8 +62,13 @@ export default function SignupPage() {
       }
 
       trackSignupCompleted("email");
-      // Redirect to dashboard after successful signup
-      window.location.href = "/dashboard";
+      // If there's a pending Stripe purchase, redirect to complete linking
+      const pendingStripe = localStorage.getItem("pending_stripe_customer");
+      if (pendingStripe) {
+        window.location.href = "/purchase-complete";
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {
