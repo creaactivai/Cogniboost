@@ -31,6 +31,17 @@ async function runStartupMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token varchar`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at timestamp`);
     console.log('Startup migrations: password columns verified');
+
+    // Email sequence tracking columns
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_day2_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_day5_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_day7_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ending_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_expired_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reengagement_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_progress_sent timestamp`);
+    console.log('Startup migrations: email sequence columns verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }
@@ -239,6 +250,21 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+
+      // Start email sequence cron — runs every hour
+      import("./emailSequences").then(({ runAllEmailSequences }) => {
+        // Run once on startup (5 min delay to let everything initialize)
+        setTimeout(() => {
+          runAllEmailSequences().catch((e) => console.error("[Email Cron] Startup run error:", e));
+        }, 5 * 60 * 1000);
+
+        // Then every hour
+        setInterval(() => {
+          runAllEmailSequences().catch((e) => console.error("[Email Cron] Interval error:", e));
+        }, 60 * 60 * 1000);
+
+        log("Email sequence cron scheduled (every hour)");
+      }).catch((e) => console.error("[Email Cron] Failed to load:", e));
     },
   );
 })();

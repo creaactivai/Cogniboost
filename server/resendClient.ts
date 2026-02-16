@@ -51,7 +51,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress';
 
 // Send email using template
 export async function sendEmail(
@@ -1022,6 +1022,289 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
           </div>
         </body>
         </html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Onboarding Day 2 — Quick Win =====
+    onboarding_day2_quickwin: {
+      subject: '¡Tu primera lección te espera! Aprende en 10 minutos',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .tip { background: #2a2a2a; padding: 20px; margin: 20px 0; border-left: 4px solid #4FD1C5; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
+            <p>Sabemos que empezar algo nuevo puede sentirse abrumador, pero aquí va un secreto: <strong>solo necesitas 10 minutos para tu primera victoria.</strong></p>
+            <div class="tip">
+              <p style="color: #4FD1C5; font-weight: bold; margin: 0 0 10px 0;">Tu Quick Win de hoy:</p>
+              <p style="margin: 0;">Completa la primera lección de tu curso. Es corta, interactiva y te dará la confianza de que esto funciona.</p>
+            </div>
+            <p>Los estudiantes que completan su primera lección en las primeras 48 horas tienen <strong>3x más probabilidad</strong> de alcanzar sus metas de inglés.</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">EMPEZAR MI PRIMERA LECCIÓN</a>
+            <p>¿Tienes preguntas? Responde a este email y te ayudamos.</p>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Onboarding Day 5 — Social Proof =====
+    onboarding_day5_social_proof: {
+      subject: 'Cómo María pasó de A2 a B2 en 4 meses',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .quote { background: #2a2a2a; padding: 25px; margin: 20px 0; border-left: 4px solid #FD335A; font-style: italic; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>${data.firstName || 'Estudiante'}, conoce a María</h1>
+            <p>Cuando María llegó a CogniBoost, estaba frustrada. Llevaba años "estudiando" inglés pero no podía mantener una conversación profesional.</p>
+            <div class="quote">
+              <p style="color: #ffffff; margin: 0;">"Los Class Labs cambiaron todo para mí. Practicar con otros hispanohablantes de mi nivel me quitó el miedo a hablar. En 4 meses pasé de A2 a B2 y conseguí una promoción en mi trabajo."</p>
+              <p style="color: #4FD1C5; margin: 10px 0 0 0; font-style: normal; font-weight: bold;">— María G., Gerente de Marketing, Ciudad de México</p>
+            </div>
+            <p>El secreto de María fue simple: <strong>consistencia + práctica en vivo.</strong> Los cursos te dan la base, los Class Labs te dan la fluidez.</p>
+            <p>Tú también puedes lograrlo. ¿Ya reservaste tu primera sesión en vivo?</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">EXPLORAR CLASS LABS</a>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Onboarding Day 7 — Feature Highlight (Quiz + Labs) =====
+    onboarding_day7_feature: {
+      subject: '¿Ya descubriste esta función? La mayoría no la conoce',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #FD335A; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .feature { background: #2a2a2a; padding: 20px; margin: 15px 0; border-left: 4px solid #33CBFB; }
+          .feature h3 { color: #33CBFB; margin: 0 0 8px 0; }
+          .feature p { margin: 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
+            <p>Ya llevas una semana con nosotros. Queremos asegurarnos de que estés sacando el máximo provecho. Aquí van dos funciones que muchos estudiantes no descubren al principio:</p>
+            <div class="feature">
+              <h3>Examen de Nivel Adaptativo</h3>
+              <p>Nuestro quiz se adapta a tus respuestas en tiempo real. Te da tu nivel CEFR exacto (A1-C2) para que estudies exactamente lo que necesitas.</p>
+            </div>
+            <div class="feature">
+              <h3>Class Labs por Nivel</h3>
+              <p>No son clases normales. Son laboratorios de conversación donde practicas con otros estudiantes de TU nivel. Máx. 6 personas, temas reales, feedback inmediato.</p>
+            </div>
+            <p>¿Ya probaste ambas? Si no, esta semana es el momento perfecto.</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/placement-quiz'}" class="cta">TOMAR MI EXAMEN DE NIVEL</a>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Trial Ending (Day 5 of 7-day trial) =====
+    trial_ending: {
+      subject: '⏰ Tu prueba gratuita termina en 2 días',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #FD335A; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .countdown { background: linear-gradient(135deg, #FD335A 0%, #c4264a 100%); padding: 25px; text-align: center; margin: 20px 0; }
+          .countdown h2 { color: #ffffff; margin: 0; font-size: 36px; }
+          .countdown p { color: rgba(255,255,255,0.9); margin: 10px 0 0 0; }
+          .benefit { background: #2a2a2a; padding: 15px; margin: 10px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>${data.firstName || 'Estudiante'}, tu prueba está por terminar</h1>
+            <div class="countdown">
+              <h2>2 DÍAS</h2>
+              <p>restantes en tu prueba del plan ${data.planName || 'Premium'}</p>
+            </div>
+            <p>En estos días has tenido acceso a todo lo que CogniBoost ofrece. Si continúas, no perderás nada de tu progreso.</p>
+            <p><strong>Lo que mantienes con tu suscripción:</strong></p>
+            <div class="benefit"><p style="margin: 0;">✓ Todo tu progreso y lecciones completadas</p></div>
+            <div class="benefit"><p style="margin: 0;">✓ Acceso a Class Labs en vivo</p></div>
+            <div class="benefit"><p style="margin: 0;">✓ Certificados de completación</p></div>
+            <div class="benefit"><p style="margin: 0;">✓ Soporte prioritario</p></div>
+            <p>Si no deseas continuar, puedes cancelar en cualquier momento desde tu dashboard. Sin compromisos.</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">VER MI PROGRESO</a>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Trial Expired =====
+    trial_expired: {
+      subject: 'Tu prueba terminó — tu progreso sigue aquí',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #FD335A; color: #ffffff; padding: 20px 40px; text-decoration: none; font-weight: bold; margin: 20px 0; font-size: 16px; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>Hola ${data.firstName || 'estudiante'}</h1>
+            <p>Tu prueba gratuita del plan <strong>${data.planName || 'Premium'}</strong> ha finalizado.</p>
+            <p>Pero queremos que sepas algo importante: <strong>todo tu progreso sigue guardado.</strong> Tus lecciones completadas, tu nivel y tus logros no desaparecen.</p>
+            <p>Cuando estés listo para continuar, solo elige un plan y retoma exactamente donde lo dejaste.</p>
+            <p style="text-align: center;">
+              <a href="https://cogniboost-production.up.railway.app/#pricing" class="cta">VER PLANES Y PRECIOS</a>
+            </p>
+            <p>¿Algo nos faltó? ¿Tienes dudas? Responde a este email — nos importa tu experiencia.</p>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Re-engagement (30 days inactive) =====
+    reengagement: {
+      subject: '${data.firstName || "Hola"}, te echamos de menos',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .whats-new { background: #2a2a2a; padding: 20px; margin: 20px 0; border-left: 4px solid #4FD1C5; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>¡Hola ${data.firstName || 'estudiante'}!</h1>
+            <p>Hace un tiempo que no te vemos por CogniBoost y queríamos saber cómo estás.</p>
+            <p>Entendemos que la vida se complica. Pero recuerda: incluso <strong>10 minutos al día</strong> hacen la diferencia.</p>
+            <div class="whats-new">
+              <p style="color: #4FD1C5; font-weight: bold; margin: 0 0 10px 0;">Mientras no estabas, agregamos:</p>
+              <ul style="color: #cccccc; margin: 0; padding-left: 20px;">
+                <li style="margin: 8px 0;">Nuevos Class Labs semanales con temas actuales</li>
+                <li style="margin: 8px 0;">Más lecciones y quizzes interactivos</li>
+                <li style="margin: 8px 0;">Mejoras en el seguimiento de progreso</li>
+              </ul>
+            </div>
+            <p>Tu progreso sigue exactamente donde lo dejaste. Solo haz clic para retomar:</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">VOLVER A MI DASHBOARD</a>
+            <p>Si ya no quieres recibir estos emails, lo entendemos. Pero tu cuenta siempre estará aquí.</p>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Payment Failed =====
+    payment_failed: {
+      subject: 'Problema con tu pago — actualiza tu método de pago',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #F6AD55; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #F6AD55; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .alert { background: #2a2a2a; padding: 20px; margin: 20px 0; border-left: 4px solid #F6AD55; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>Hola ${data.firstName || 'estudiante'}</h1>
+            <p>No pudimos procesar tu pago para el plan <strong>${data.planName || 'Premium'}</strong>. Esto probablemente se debe a una tarjeta expirada o fondos insuficientes.</p>
+            <div class="alert">
+              <p style="color: #F6AD55; font-weight: bold; margin: 0 0 10px 0;">¿Qué significa esto?</p>
+              <p style="margin: 0;">Tu acceso a cursos y Class Labs no se verá interrumpido de inmediato, pero necesitamos que actualices tu método de pago para evitar la suspensión de tu cuenta.</p>
+            </div>
+            <p>Solo toma un minuto actualizar tu información de pago:</p>
+            <a href="${data.billingUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">ACTUALIZAR MÉTODO DE PAGO</a>
+            <p>Si tienes alguna duda sobre el cobro, responde a este email y te ayudamos.</p>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
+      `
+    },
+    // ===== EMAIL SEQUENCE: Weekly Progress Summary =====
+    weekly_progress: {
+      subject: '📊 Tu resumen semanal de inglés — ${data.lessonsCompleted || "0"} lecciones completadas',
+      html: `
+        <!DOCTYPE html><html><head><style>
+          body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px; }
+          .logo { font-family: Impact, 'Arial Black', sans-serif; font-size: 32px; color: #33CBFB; text-align: center; margin-bottom: 30px; }
+          h1 { color: #33CBFB; margin: 0 0 20px 0; }
+          p { line-height: 1.7; color: #cccccc; }
+          .cta { display: inline-block; background: #33CBFB; color: #000000; padding: 15px 30px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+          .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+          .stat { background: #2a2a2a; padding: 20px; text-align: center; }
+          .stat-value { font-size: 28px; color: #33CBFB; font-weight: bold; }
+          .stat-label { font-size: 12px; color: #888888; text-transform: uppercase; margin-top: 5px; }
+          .footer { text-align: center; margin-top: 30px; color: #666666; font-size: 12px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>Tu semana en CogniBoost</h1>
+            <p>¡Hola ${data.firstName || 'estudiante'}! Aquí tienes tu resumen de la semana:</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <tr>
+                <td style="background: #2a2a2a; padding: 20px; text-align: center; width: 50%;">
+                  <div style="font-size: 28px; color: #33CBFB; font-weight: bold;">${data.lessonsCompleted || '0'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase; margin-top: 5px;">Lecciones</div>
+                </td>
+                <td style="background: #2a2a2a; padding: 20px; text-align: center; width: 50%;">
+                  <div style="font-size: 28px; color: #4FD1C5; font-weight: bold;">${data.quizzesCompleted || '0'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase; margin-top: 5px;">Quizzes</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="background: #2a2a2a; padding: 20px; text-align: center; width: 50%;">
+                  <div style="font-size: 28px; color: #FD335A; font-weight: bold;">${data.labsAttended || '0'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase; margin-top: 5px;">Class Labs</div>
+                </td>
+                <td style="background: #2a2a2a; padding: 20px; text-align: center; width: 50%;">
+                  <div style="font-size: 28px; color: #F6AD55; font-weight: bold;">${data.currentStreak || '0'}</div>
+                  <div style="font-size: 12px; color: #888888; text-transform: uppercase; margin-top: 5px;">Días de racha</div>
+                </td>
+              </tr>
+            </table>
+            <p>${parseInt(data.lessonsCompleted || '0') > 0 ? '¡Excelente trabajo! Sigue así.' : 'Esta semana fue tranquila. ¡La próxima puede ser tu mejor semana!'}</p>
+            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">IR A MI DASHBOARD</a>
+            <p><strong>— El equipo de CogniBoost</strong></p>
+            <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
+          </div>
+        </body></html>
       `
     }
   };

@@ -60,6 +60,15 @@ export const users = pgTable("users", {
   weeklyHoursGoal: text("weekly_hours_goal"), // 1-3, 4-6, 7-10, 10+
   welcomeEmailSent: boolean("welcome_email_sent").notNull().default(false),
   onboardingReminderSent: boolean("onboarding_reminder_sent").notNull().default(false),
+  // Email sequence tracking
+  onboardingDay2Sent: boolean("onboarding_day2_sent").notNull().default(false),
+  onboardingDay5Sent: boolean("onboarding_day5_sent").notNull().default(false),
+  onboardingDay7Sent: boolean("onboarding_day7_sent").notNull().default(false),
+  trialEndingSent: boolean("trial_ending_sent").notNull().default(false),
+  trialExpiredSent: boolean("trial_expired_sent").notNull().default(false),
+  reengagementSent: boolean("reengagement_sent").notNull().default(false),
+  paymentFailedSent: boolean("payment_failed_sent").notNull().default(false),
+  weeklyProgressSent: timestamp("weekly_progress_sent"),
   // Placement quiz results
   placementLevel: text("placement_level"), // A1, A2, B1, B2, C1, C2 from placement quiz
   placementConfidence: text("placement_confidence"), // low, medium, high

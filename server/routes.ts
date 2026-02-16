@@ -3770,6 +3770,18 @@ Important:
     }
   });
 
+  // Admin: Run ALL automated email sequences (user onboarding + lead nurture)
+  app.post("/api/admin/email-sequences/run", requireAdmin, async (req, res) => {
+    try {
+      const { runAllEmailSequences } = await import("./emailSequences");
+      const result = await runAllEmailSequences();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error running all email sequences:", error);
+      res.status(500).json({ error: "Failed to run email sequences" });
+    }
+  });
+
   // Admin: Update lead status
   app.patch("/api/admin/leads/:id/status", requireAdmin, async (req, res) => {
     try {
