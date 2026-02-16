@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { 
-  TrendingUp, 
-  Clock, 
-  BookOpen, 
-  Users, 
+import { useAuth } from "@/hooks/use-auth";
+import {
+  TrendingUp,
+  Clock,
+  BookOpen,
+  Users,
   Award,
   Flame,
   Target,
@@ -17,7 +18,8 @@ import {
   GraduationCap,
   CheckCircle,
   Lock,
-  Unlock
+  Unlock,
+  Loader2
 } from "lucide-react";
 import {
   RadarChart,
@@ -83,24 +85,64 @@ interface UserSubscription {
   tier?: string;
 }
 
+interface UserStatsData {
+  totalHoursStudied?: string;
+  coursesCompleted?: number;
+  labsAttended?: number;
+  currentLevel?: string;
+  xpPoints?: number;
+  speakingMinutes?: number;
+  vocabularyWords?: number;
+}
+
+const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+const getLevelLabel = (level: string) => {
+  const labels: Record<string, string> = {
+    A1: "Principiante",
+    A2: "Elemental",
+    B1: "Intermedio",
+    B2: "Intermedio Alto",
+    C1: "Avanzado",
+    C2: "Maestría",
+  };
+  return labels[level] || level;
+};
+
 export function ProgressTracking() {
+  const { user } = useAuth();
+
   // Fetch student scores from API
   const { data: studentScores, isLoading: scoresLoading } = useQuery<StudentScores>({
     queryKey: ["/api/student/scores"],
   });
-  
+
+  // Fetch user stats (hours, labs, level, xp, etc.)
+  const { data: userStats, isLoading: statsLoading } = useQuery<UserStatsData>({
+    queryKey: ["/api/user-stats"],
+  });
+
   // Fetch user subscription tier
   const { data: subscription } = useQuery<UserSubscription>({
     queryKey: ["/api/subscription"],
   });
-  
+
   const isFreeUser = !subscription?.tier || subscription.tier === 'free';
-  
-  const currentLevel = "B1";
-  const nextLevel = "B2";
-  const xpProgress = 65; // % towards next level
-  const totalXP = 2450;
-  const xpNeeded = 3000;
+
+  // Use real data from API — level comes from user-stats (which already resolves placementLevel → currentLevel)
+  const currentLevel = userStats?.currentLevel || user?.placementLevel || "A1";
+  const currentLevelIndex = levelOrder.indexOf(currentLevel);
+  const nextLevel = currentLevelIndex < levelOrder.length - 1 ? levelOrder[currentLevelIndex + 1] : currentLevel;
+  const totalXP = userStats?.xpPoints || 0;
+  // XP needed per level — simple progression
+  const xpPerLevel = 500;
+  const xpNeeded = (currentLevelIndex + 1) * xpPerLevel;
+  const xpProgress = xpNeeded > 0 ? Math.min(Math.round((totalXP / xpNeeded) * 100), 100) : 0;
+
+  // Real stats from API
+  const hoursStudied = userStats?.totalHoursStudied ? parseFloat(userStats.totalHoursStudied) : 0;
+  const labsAttended = userStats?.labsAttended || 0;
+  const vocabularyWords = userStats?.vocabularyWords || 0;
 
   return (
     <div className="space-y-8">
@@ -139,43 +181,57 @@ export function ProgressTracking() {
 
       {/* Level progress */}
       <Card className="p-6 border-border bg-gradient-to-r from-primary/5 to-accent/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-            {/* Current level badge */}
-            <div className="w-24 h-24 bg-primary flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-3xl font-display text-primary-foreground">{currentLevel}</p>
-                <p className="text-xs font-mono text-primary-foreground/70">NIVEL</p>
+        {statsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              {/* Current level badge */}
+              <div className="w-24 h-24 bg-primary flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-3xl font-display text-primary-foreground">{currentLevel}</p>
+                  <p className="text-xs font-mono text-primary-foreground/70">{getLevelLabel(currentLevel)}</p>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xl font-display uppercase mb-2">Progreso de Nivel</h2>
+                {totalXP > 0 ? (
+                  <>
+                    <p className="font-mono text-muted-foreground mb-3">
+                      {totalXP} / {xpNeeded} XP para alcanzar {nextLevel}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Progress value={xpProgress} className="w-48 h-2" />
+                      <span className="text-sm font-mono text-primary">{xpProgress}%</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="font-mono text-muted-foreground mb-3">
+                    Nivel actual: <strong className="text-primary">{currentLevel} - {getLevelLabel(currentLevel)}</strong>. ¡Completa cursos para ganar XP!
+                  </p>
+                )}
               </div>
             </div>
-            <div>
-              <h2 className="text-xl font-display uppercase mb-2">Progreso de Nivel</h2>
-              <p className="font-mono text-muted-foreground mb-3">
-                {totalXP} / {xpNeeded} XP para alcanzar {nextLevel}
-              </p>
-              <div className="flex items-center gap-3">
-                <Progress value={xpProgress} className="w-48 h-2" />
-                <span className="text-sm font-mono text-primary">{xpProgress}%</span>
-              </div>
+            <div className="flex gap-3">
+              <Card className="p-4 border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <Target className="w-4 h-4 text-accent" />
+                  <span className="text-xs font-mono text-muted-foreground">Meta Diaria</span>
+                </div>
+                <p className="text-2xl font-display">30 min</p>
+              </Card>
+              <Card className="p-4 border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <Flame className="w-4 h-4 text-accent" />
+                  <span className="text-xs font-mono text-muted-foreground">Racha</span>
+                </div>
+                <p className="text-2xl font-display">0 días</p>
+              </Card>
             </div>
           </div>
-          <div className="flex gap-3">
-            <Card className="p-4 border-border">
-              <div className="flex items-center gap-2 mb-1">
-                <Target className="w-4 h-4 text-accent" />
-                <span className="text-xs font-mono text-muted-foreground">Meta Diaria</span>
-              </div>
-              <p className="text-2xl font-display">30 min</p>
-            </Card>
-            <Card className="p-4 border-border">
-              <div className="flex items-center gap-2 mb-1">
-                <Flame className="w-4 h-4 text-accent" />
-                <span className="text-xs font-mono text-muted-foreground">Racha</span>
-              </div>
-              <p className="text-2xl font-display">7 días</p>
-            </Card>
-          </div>
-        </div>
+        )}
       </Card>
 
       {/* GPA and Course Scores Section */}
@@ -280,7 +336,7 @@ export function ProgressTracking() {
             </div>
             <span className="text-xs font-mono text-muted-foreground uppercase">Horas Totales</span>
           </div>
-          <p className="text-3xl font-display">24.5</p>
+          <p className="text-3xl font-display">{statsLoading ? "..." : hoursStudied.toFixed(1)}</p>
         </Card>
         <Card className="p-5 border-border">
           <div className="flex items-center gap-3 mb-3">
@@ -298,7 +354,7 @@ export function ProgressTracking() {
             </div>
             <span className="text-xs font-mono text-muted-foreground uppercase">Labs Asistidos</span>
           </div>
-          <p className="text-3xl font-display">12</p>
+          <p className="text-3xl font-display">{statsLoading ? "..." : labsAttended}</p>
         </Card>
         <Card className="p-5 border-border">
           <div className="flex items-center gap-3 mb-3">
@@ -307,7 +363,7 @@ export function ProgressTracking() {
             </div>
             <span className="text-xs font-mono text-muted-foreground uppercase">Palabras Aprendidas</span>
           </div>
-          <p className="text-3xl font-display">847</p>
+          <p className="text-3xl font-display">{statsLoading ? "..." : vocabularyWords}</p>
         </Card>
       </div>
 

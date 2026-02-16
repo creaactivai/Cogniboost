@@ -547,30 +547,41 @@ export async function registerRoutes(
       const subscriptionTier = user?.subscriptionTier || 'free';
       const stats = await storage.getUserStats(userId);
       
+      // Determine the correct level: prioritize user_stats.currentLevel, then placementLevel from quiz, then englishLevel from onboarding
+      const resolvedLevel = stats?.currentLevel || user?.placementLevel || user?.englishLevel || "A1";
+
       if (subscriptionTier === 'free') {
         // Return limited basic stats for free users
         return res.json({
-          totalHoursStudied: "0",
-          coursesCompleted: 0,
-          labsAttended: 0,
-          currentLevel: stats?.currentLevel || "A1",
-          xpPoints: 0,
+          totalHoursStudied: stats?.totalHoursStudied || "0",
+          coursesCompleted: stats?.coursesCompleted || 0,
+          labsAttended: stats?.labsAttended || 0,
+          currentLevel: resolvedLevel,
+          xpPoints: stats?.xpPoints || 0,
           speakingMinutes: 0,
           vocabularyWords: 0,
           premiumFeature: true,
           message: "Actualiza tu plan para ver estadísticas detalladas"
         });
       }
-      
-      res.json(stats || {
-        totalHoursStudied: "0",
-        coursesCompleted: 0,
-        labsAttended: 0,
-        currentLevel: "A1",
-        xpPoints: 0,
-        speakingMinutes: 0,
-        vocabularyWords: 0,
-      });
+
+      // For paid users, return full stats with correct level fallback
+      if (stats) {
+        res.json({
+          ...stats,
+          currentLevel: resolvedLevel,
+        });
+      } else {
+        res.json({
+          totalHoursStudied: "0",
+          coursesCompleted: 0,
+          labsAttended: 0,
+          currentLevel: resolvedLevel,
+          xpPoints: 0,
+          speakingMinutes: 0,
+          vocabularyWords: 0,
+        });
+      }
     } catch (error) {
       console.error("Error fetching user stats:", error);
       res.status(500).json({ error: "Failed to fetch user stats" });
