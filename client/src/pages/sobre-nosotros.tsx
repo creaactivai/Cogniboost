@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoImage from "@assets/Frame_2_1768763364518.png";
@@ -38,6 +39,11 @@ const stats = [
 export default function SobreNosotros() {
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Sobre Nosotros - CogniBoost | Metodologia Class Labs</title>
+        <meta name="description" content="Conoce a CogniBoost y la metodologia Class Labs creada por Lic. Coral Lozano. 10+ años de experiencia en educacion, 87% de avance profesional en 6 meses. Educacion de ingles diseñada para hispanohablantes." />
+        <link rel="canonical" href="https://cogniboost-production.up.railway.app/sobre-nosotros" />
+      </Helmet>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">

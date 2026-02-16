@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
 
 interface LessonCardProps {
@@ -122,6 +123,10 @@ export default function AdminCourseLessons() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
+  const [moduleToDelete, setModuleToDelete] = useState<CourseModule | null>(null);
+  const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
+  const [moduleFormData, setModuleFormData] = useState({ title: "", description: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [formData, setFormData] = useState({
@@ -200,6 +205,33 @@ export default function AdminCourseLessons() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/lessons`] });
       toast({ title: "Estado de publicación actualizado" });
+    },
+  });
+
+  const updateModuleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { title?: string; description?: string } }) =>
+      apiRequest("PATCH", `/api/admin/modules/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      toast({ title: "Modulo actualizado exitosamente" });
+      setIsModuleDialogOpen(false);
+      setEditingModule(null);
+    },
+    onError: () => {
+      toast({ title: "Error al actualizar modulo", variant: "destructive" });
+    },
+  });
+
+  const deleteModuleMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/modules/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/lessons`] });
+      toast({ title: "Modulo eliminado exitosamente" });
+      setModuleToDelete(null);
+    },
+    onError: () => {
+      toast({ title: "Error al eliminar modulo", variant: "destructive" });
     },
   });
 
@@ -557,12 +589,38 @@ export default function AdminCourseLessons() {
                 
                 return (
                   <div key={module.id} className="space-y-3">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Layers className="w-5 h-5" style={{ color: '#33CBFB' }} />
-                      <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                        {module.title}
-                      </h3>
-                      <Badge variant="secondary">{moduleLessons.length} lecciones</Badge>
+                    <div className="flex items-center justify-between pb-2 border-b">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-5 h-5" style={{ color: '#33CBFB' }} />
+                        <h3 className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                          {module.title}
+                        </h3>
+                        <Badge variant="secondary">{moduleLessons.length} lecciones</Badge>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setEditingModule(module);
+                            setModuleFormData({ title: module.title, description: (module as any).description || "" });
+                            setIsModuleDialogOpen(true);
+                          }}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar Modulo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setModuleToDelete(module)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Eliminar Modulo
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                     {moduleLessons.length === 0 ? (
                       <p className="text-sm text-muted-foreground pl-7">
@@ -630,11 +688,12 @@ export default function AdminCourseLessons() {
           )}
         </div>
 
-        {/* Delete Confirmation Dialog */}
+        {/* Delete Lesson Confirmation Dialog */}
         <AlertDialog open={!!lessonToDelete} onOpenChange={(open) => !open && setLessonToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <AlertDialogTitle className="flex items-center gap-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <AlertTriangle className="w-5 h-5 text-destructive" />
                 ¿Eliminar lección permanentemente?
               </AlertDialogTitle>
               <AlertDialogDescription>
@@ -654,6 +713,82 @@ export default function AdminCourseLessons() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Delete Module Confirmation Dialog */}
+        <AlertDialog open={!!moduleToDelete} onOpenChange={(open) => !open && setModuleToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                ¿Eliminar módulo permanentemente?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente el módulo
+                <strong> "{moduleToDelete?.title}"</strong> y todas las lecciones dentro de este módulo quedarán sin módulo asignado.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => moduleToDelete && deleteModuleMutation.mutate(moduleToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete-module"
+              >
+                {deleteModuleMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Edit Module Dialog */}
+        <Dialog open={isModuleDialogOpen} onOpenChange={(open) => { setIsModuleDialogOpen(open); if (!open) { setEditingModule(null); setModuleFormData({ title: "", description: "" }); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                Editar Módulo
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (editingModule) {
+                updateModuleMutation.mutate({ id: editingModule.id, data: moduleFormData });
+              }
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Título del Módulo</Label>
+                <Input
+                  value={moduleFormData.title}
+                  onChange={(e) => setModuleFormData({ ...moduleFormData, title: e.target.value })}
+                  placeholder="Título del módulo"
+                  required
+                  data-testid="input-module-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Descripción (opcional)</Label>
+                <Textarea
+                  value={moduleFormData.description}
+                  onChange={(e) => setModuleFormData({ ...moduleFormData, description: e.target.value })}
+                  placeholder="Descripción del módulo"
+                  rows={3}
+                  data-testid="input-module-description"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsModuleDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateModuleMutation.isPending}
+                  data-testid="button-submit-module"
+                >
+                  {updateModuleMutation.isPending ? "Guardando..." : "Guardar Cambios"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

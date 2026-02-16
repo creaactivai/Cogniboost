@@ -1,0 +1,14 @@
+# CogniBoost - Robots.txt
+# https://cogniboost-production.up.railway.app
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /api/
+Disallow: /api/*
+
+# Sitemap
+Sitemap: https://cogniboost-production.up.railway.app/sitemap.xml

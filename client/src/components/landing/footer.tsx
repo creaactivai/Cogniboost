@@ -69,7 +69,7 @@ export function Footer() {
 
           {/* Product links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Producto</h4>
+            <h3 className="text-sm font-semibold uppercase tracking-widest mb-6">Producto</h3>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
@@ -86,7 +86,7 @@ export function Footer() {
 
           {/* Company links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Empresa</h4>
+            <h3 className="text-sm font-semibold uppercase tracking-widest mb-6">Empresa</h3>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
@@ -103,7 +103,7 @@ export function Footer() {
 
           {/* Legal links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-widest mb-6">Legal</h4>
+            <h3 className="text-sm font-semibold uppercase tracking-widest mb-6">Legal</h3>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>

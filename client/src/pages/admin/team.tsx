@@ -35,7 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, UserCheck, Users, Mail, MoreVertical, ShieldOff, Loader2, Plus, UserPlus, Clock, Trash2, Send, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { Shield, UserCheck, Users, Mail, MoreVertical, ShieldOff, Loader2, Plus, UserPlus, Clock, Trash2, Send, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +73,9 @@ export default function AdminTeam() {
   const { toast } = useToast();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [staffInviteDialogOpen, setStaffInviteDialogOpen] = useState(false);
+  const [staffToRevoke, setStaffToRevoke] = useState<string | null>(null);
+  const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
+  const [adminToRevoke, setAdminToRevoke] = useState<{id: string; name: string} | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -566,7 +570,7 @@ export default function AdminTeam() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => revokeStaffInvitationMutation.mutate(invitation.id)}
+                                onClick={() => setStaffToRevoke(invitation.id)}
                                 disabled={revokeStaffInvitationMutation.isPending}
                                 title="Revocar invitación"
                                 data-testid={`button-revoke-staff-${invitation.id}`}
@@ -653,8 +657,8 @@ export default function AdminTeam() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => toggleAdminMutation.mutate({ userId: admin.id, isAdmin: false })}
+                            <DropdownMenuItem
+                              onClick={() => setAdminToRevoke({ id: admin.id, name: `${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.email })}
                               className="text-destructive"
                               data-testid={`button-revoke-admin-${admin.id}`}
                             >
@@ -827,7 +831,7 @@ export default function AdminTeam() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteInvitationMutation.mutate(invitation.id)}
+                          onClick={() => setInvitationToDelete(invitation.id)}
                           disabled={deleteInvitationMutation.isPending}
                           data-testid={`button-delete-invitation-${invitation.id}`}
                         >
@@ -904,6 +908,93 @@ export default function AdminTeam() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Revoke Staff Invitation Confirmation */}
+      <AlertDialog open={!!staffToRevoke} onOpenChange={(open) => !open && setStaffToRevoke(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Revocar invitacion?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. La persona invitada ya no podra usar este enlace para unirse al equipo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (staffToRevoke) {
+                  revokeStaffInvitationMutation.mutate(staffToRevoke);
+                  setStaffToRevoke(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Revocar Invitacion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Admin Invitation Confirmation */}
+      <AlertDialog open={!!invitationToDelete} onOpenChange={(open) => !open && setInvitationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Eliminar invitacion?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. Se eliminara permanentemente esta invitacion pendiente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (invitationToDelete) {
+                  deleteInvitationMutation.mutate(invitationToDelete);
+                  setInvitationToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke Admin Confirmation */}
+      <AlertDialog open={!!adminToRevoke} onOpenChange={(open) => !open && setAdminToRevoke(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Revocar permisos de administrador?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se removera el rol de administrador de <strong>{adminToRevoke?.name}</strong>. Esta persona ya no tendra acceso al panel de administracion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (adminToRevoke) {
+                  toggleAdminMutation.mutate({ userId: adminToRevoke.id, isAdmin: false });
+                  setAdminToRevoke(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Revocar Admin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

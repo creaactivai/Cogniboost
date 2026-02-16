@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Header } from "@/components/landing/header";
 import { Hero } from "@/components/landing/hero";
 import { Methodology, ConversationLabsDeepDive } from "@/components/landing/methodology";
@@ -11,6 +12,11 @@ import { AnimatedSection } from "@/hooks/use-scroll-animation";
 export default function LandingPage() {
   return (
     <>
+      <Helmet>
+        <title>CogniBoost - Aprende Ingles Profesional | Clases para Hispanohablantes</title>
+        <meta name="description" content="Aprende ingles profesional con la metodologia Class Labs. Clases en vivo, laboratorios de conversacion y cursos diseñados para hispanohablantes que quieren avanzar en sus carreras. 250+ lecciones, 95% satisfaccion." />
+        <link rel="canonical" href="https://cogniboost-production.up.railway.app/" />
+      </Helmet>
       <Header />
       <div className="min-h-screen page-transition">
         <main className="pt-16">

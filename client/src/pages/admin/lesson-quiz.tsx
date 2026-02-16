@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, ArrowLeft, Sparkles, Check, X, Eye, EyeOff, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Sparkles, Check, X, Eye, EyeOff, GripVertical, AlertTriangle } from "lucide-react";
 import type { Course, Lesson, Quiz, QuizQuestion } from "@shared/schema";
 
 interface QuizWithQuestions extends Quiz {
@@ -29,6 +30,8 @@ export default function AdminLessonQuiz() {
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [numberOfQuestions, setNumberOfQuestions] = useState(5);
+  const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<QuizQuestion | null>(null);
 
   const [quizFormData, setQuizFormData] = useState({
     title: "",
@@ -672,11 +675,7 @@ export default function AdminLessonQuiz() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        if (confirm("¿Eliminar este quiz y todas sus preguntas?")) {
-                          deleteQuizMutation.mutate(selectedQuiz.id);
-                        }
-                      }}
+                      onClick={() => setQuizToDelete(selectedQuiz)}
                       data-testid="button-delete-quiz"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -760,11 +759,7 @@ export default function AdminLessonQuiz() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                if (confirm("¿Eliminar esta pregunta?")) {
-                                  deleteQuestionMutation.mutate(question.id);
-                                }
-                              }}
+                              onClick={() => setQuestionToDelete(question)}
                               data-testid={`button-delete-question-${question.id}`}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -786,6 +781,65 @@ export default function AdminLessonQuiz() {
           </div>
         </div>
       </div>
+
+      {/* Delete Quiz Confirmation */}
+      <AlertDialog open={!!quizToDelete} onOpenChange={(open) => !open && setQuizToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Eliminar quiz permanentemente?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. Se eliminara permanentemente el quiz
+              <strong> "{quizToDelete?.title}"</strong> junto con todas sus preguntas y los intentos de estudiantes asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (quizToDelete) {
+                  deleteQuizMutation.mutate(quizToDelete.id);
+                  setQuizToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteQuizMutation.isPending ? "Eliminando..." : "Eliminar Permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Question Confirmation */}
+      <AlertDialog open={!!questionToDelete} onOpenChange={(open) => !open && setQuestionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Eliminar pregunta?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. Se eliminara permanentemente esta pregunta del quiz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (questionToDelete) {
+                  deleteQuestionMutation.mutate(questionToDelete.id);
+                  setQuestionToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteQuestionMutation.isPending ? "Eliminando..." : "Eliminar Pregunta"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -61,6 +62,14 @@ export default function PlacementQuiz() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const placementHelmet = (
+    <Helmet>
+      <title>Evalua Tu Nivel de Ingles Gratis - CogniBoost</title>
+      <meta name="description" content="Descubre tu nivel de ingles con nuestra evaluacion gratuita. Recibe recomendaciones personalizadas y un camino de aprendizaje adaptado a tus objetivos profesionales." />
+      <link rel="canonical" href="https://cogniboost-production.up.railway.app/placement-quiz" />
+    </Helmet>
+  );
 
   const [quizState, setQuizState] = useState<QuizState | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -510,6 +519,7 @@ export default function PlacementQuiz() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {placementHelmet}
       <header className="border-b border-border p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <h1 className="font-display text-2xl text-primary uppercase">CogniBoost</h1>

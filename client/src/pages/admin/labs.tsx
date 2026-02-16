@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video, X, MessageCircle, Repeat, Radio, CalendarCheck, History, MoreVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Users, Clock, Video, X, MessageCircle, Repeat, Radio, CalendarCheck, History, MoreVertical, AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Instructor, LiveSession, SessionRoom } from "@shared/schema";
 
@@ -43,6 +44,8 @@ export default function AdminLabs() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLab, setEditingLab] = useState<LabWithRooms | null>(null);
   const [activeFilter, setActiveFilter] = useState<LabFilter>("all");
+  const [labToDelete, setLabToDelete] = useState<LabWithRooms | null>(null);
+  const [seriesToDelete, setSeriesToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -625,9 +628,7 @@ export default function AdminLabs() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => {
-                                  if (confirm("¿Eliminar todas las sesiones futuras de esta serie?")) {
-                                    deleteSeriesMutation.mutate(lab.seriesId!);
-                                  }
+                                  setSeriesToDelete(lab.seriesId!);
                                 }}
                                 className="text-destructive"
                                 data-testid={`menu-delete-series-${lab.id}`}
@@ -640,9 +641,7 @@ export default function AdminLabs() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => {
-                              if (confirm("¿Estás seguro de eliminar este laboratorio?")) {
-                                deleteMutation.mutate(lab.id);
-                              }
+                              setLabToDelete(lab);
                             }}
                             className="text-destructive"
                             data-testid={`menu-delete-lab-${lab.id}`}
@@ -660,6 +659,65 @@ export default function AdminLabs() {
           )}
         </div>
       </div>
+
+      {/* Delete Lab Confirmation */}
+      <AlertDialog open={!!labToDelete} onOpenChange={(open) => !open && setLabToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Eliminar laboratorio permanentemente?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. Se eliminara permanentemente el laboratorio
+              <strong> "{labToDelete?.title}"</strong> junto con todas las reservas de estudiantes asociadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (labToDelete) {
+                  deleteMutation.mutate(labToDelete.id);
+                  setLabToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Series Confirmation */}
+      <AlertDialog open={!!seriesToDelete} onOpenChange={(open) => !open && setSeriesToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ¿Eliminar toda la serie?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. Se eliminaran permanentemente todas las sesiones futuras de esta serie recurrente, incluyendo las reservas de estudiantes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (seriesToDelete) {
+                  deleteSeriesMutation.mutate(seriesToDelete);
+                  setSeriesToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar Serie Completa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
