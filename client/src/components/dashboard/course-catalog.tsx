@@ -109,7 +109,7 @@ function CourseCard({
         </div>
 
         {/* Progress or CTA */}
-        {isEnrolled && progress !== undefined ? (
+        {isEnrolled && progress ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-muted-foreground">Progreso</span>
@@ -124,12 +124,12 @@ function CourseCard({
           </div>
         ) : (
           <Link href={`/dashboard/courses/${id}`}>
-            <Button 
-              className="w-full font-mono uppercase tracking-wider" 
-              variant={isFree ? "default" : "outline"}
-              data-testid={`button-enroll-${id}`}
+            <Button
+              className="w-full font-mono uppercase tracking-wider"
+              variant="default"
+              data-testid={isEnrolled ? `button-continue-${id}` : `button-start-${id}`}
             >
-              {isFree ? "Empezar Gratis" : "Inscribirse"}
+              {isEnrolled ? "Continuar" : isFree ? "Empezar Gratis" : "Empezar"}
             </Button>
           </Link>
         )}
