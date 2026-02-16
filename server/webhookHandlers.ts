@@ -26,6 +26,9 @@ export class WebhookHandlers {
     console.log(`Stripe webhook received: ${event.type}`);
 
     switch (event.type) {
+      case 'checkout.session.completed':
+        await WebhookHandlers.handleCheckoutCompleted(event.data.object);
+        break;
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
@@ -44,13 +47,76 @@ export class WebhookHandlers {
     }
   }
 
+  /**
+   * Handle checkout.session.completed — fires when a customer finishes Stripe Checkout.
+   * For logged-in users: the user already has stripeCustomerId, so the subscription webhook will handle email.
+   * For guest users: the user doesn't exist yet, so we store the session info and send email later via link-customer.
+   * This handler ensures we at least attempt to link + email for logged-in users who already have a Stripe customer.
+   */
+  static async handleCheckoutCompleted(session: any) {
+    const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+    const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+    const planName = session.metadata?.planName || '';
+    const customerEmail = session.customer_details?.email || '';
+
+    console.log(`[Webhook] checkout.session.completed: customer=${customerId}, plan=${planName}, email=${customerEmail}`);
+
+    if (!customerId) {
+      console.warn('[Webhook] checkout.session.completed: No customer ID found');
+      return;
+    }
+
+    // Try to find the user by stripeCustomerId (logged-in checkout)
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+
+    if (user) {
+      // Logged-in user: update their subscription info and send email
+      let subscriptionTier: 'flex' | 'basic' | 'premium' = 'basic';
+      if (planName) {
+        const lowerPlan = planName.toLowerCase();
+        if (lowerPlan.includes('flex')) subscriptionTier = 'flex';
+        else if (lowerPlan.includes('premium')) subscriptionTier = 'premium';
+        else subscriptionTier = 'basic';
+      }
+
+      await db.update(users).set({
+        stripeSubscriptionId: subscriptionId || undefined,
+        subscriptionTier,
+        status: 'active',
+        onboardingCompleted: true,
+        updatedAt: new Date(),
+      }).where(eq(users.id, user.id));
+
+      console.log(`[Webhook] checkout.session.completed: Updated user ${user.id} with plan=${planName}, tier=${subscriptionTier}`);
+
+      // Send subscription activated email for logged-in users
+      if (user.email) {
+        sendEmail(user.email, 'subscription_activated', {
+          firstName: user.firstName || 'Estudiante',
+          planName: planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1),
+          dashboardUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/dashboard`,
+        }).then(() => {
+          console.log(`[Webhook] Subscription activated email sent to ${user.email}`);
+        }).catch(err => {
+          console.error(`[Webhook] Failed to send subscription activated email to ${user.email}:`, err);
+        });
+      }
+    } else {
+      // Guest checkout: user doesn't exist yet in our DB — email will be sent via /api/stripe/link-customer
+      console.log(`[Webhook] checkout.session.completed: No user found for customer ${customerId} (guest checkout). Email will be sent when account is linked.`);
+    }
+  }
+
   static async handleSubscriptionUpdate(subscription: any) {
     const customerId = subscription.customer;
     const subscriptionId = subscription.id;
     const status = subscription.status;
 
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
-    if (!user) return;
+    if (!user) {
+      console.log(`[Webhook] subscription.${status}: No user found for customer ${customerId} (likely guest checkout, will be handled via link-customer)`);
+      return;
+    }
 
     const previousStatus = user.status;
     let userStatus: 'active' | 'hold' | 'inactive' = 'active';
@@ -117,15 +183,17 @@ export class WebhookHandlers {
 
     console.log(`Subscription updated for user ${user.id}: status=${userStatus}, tier=${subscriptionTier}, plan=${planName}`);
 
-    // Send activation email when subscription becomes active (new or reactivated)
-    if (userStatus === 'active' && previousStatus !== 'active' && user.email) {
+    // Send activation email only for REACTIVATIONS (e.g., user was hold/inactive and comes back)
+    // New subscriptions are handled by checkout.session.completed (logged-in) or link-customer (guest)
+    const isReactivation = userStatus === 'active' && (previousStatus === 'hold' || previousStatus === 'inactive');
+    if (isReactivation && user.email) {
       sendEmail(user.email, 'subscription_activated', {
         firstName: user.firstName || 'Estudiante',
-        planName: planName,
-        dashboardUrl: 'https://cogniboost.co/dashboard'
-      }).catch(err => console.error('Failed to send subscription activated email:', err));
-
-      console.log(`Subscription activated email sent to ${user.email} for plan ${planName}`);
+        planName: planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1),
+        dashboardUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/dashboard`,
+      }).then(() => {
+        console.log(`[Webhook] Reactivation email sent to ${user.email} for plan ${planName}`);
+      }).catch(err => console.error('[Webhook] Failed to send reactivation email:', err));
     }
   }
 

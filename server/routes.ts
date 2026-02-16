@@ -736,7 +736,7 @@ export async function registerRoutes(
       }
 
       const { customerId, subscriptionId, planName } = req.body;
-      
+
       if (!customerId) {
         return res.status(400).json({ error: "Customer ID is required" });
       }
@@ -751,13 +751,27 @@ export async function registerRoutes(
       }
 
       // Update user with Stripe customer ID, subscription tier, and mark onboarding as complete
-      await storage.updateUser(userId, { 
+      await storage.updateUser(userId, {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId || undefined,
         subscriptionTier,
         onboardingCompleted: true,
         status: 'active',
       });
+
+      // Send subscription activated email (the webhook likely fired before the user existed)
+      const user = await storage.getUser(userId);
+      if (user?.email) {
+        sendEmail(user.email, 'subscription_activated', {
+          firstName: user.firstName || 'Estudiante',
+          planName: planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1),
+          dashboardUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/dashboard`,
+        }).then(() => {
+          console.log(`[link-customer] Subscription activated email sent to ${user.email} for plan ${planName}`);
+        }).catch(err => {
+          console.error(`[link-customer] Failed to send subscription activated email to ${user.email}:`, err);
+        });
+      }
 
       res.json({ success: true });
     } catch (error) {
