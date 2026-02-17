@@ -656,13 +656,13 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                             </p>
                             <RadioGroup
                               value={quizAnswers[question.id]?.toString()}
-                              onValueChange={(value) => setQuizAnswers({ ...quizAnswers, [question.id]: parseInt(value) })}
+                              onValueChange={(value) => setQuizAnswers(prev => ({ ...prev, [question.id]: parseInt(value) }))}
                             >
                               {question.options.map((option, optIndex) => (
                                 <div
                                   key={optIndex}
                                   className="flex items-center space-x-3 p-3 border hover-elevate cursor-pointer"
-                                  onClick={() => setQuizAnswers({ ...quizAnswers, [question.id]: optIndex })}
+                                  onClick={() => setQuizAnswers(prev => ({ ...prev, [question.id]: optIndex }))}
                                 >
                                   <RadioGroupItem value={optIndex.toString()} id={`q${question.id}-opt${optIndex}`} />
                                   <Label htmlFor={`q${question.id}-opt${optIndex}`} className="font-mono cursor-pointer flex-1">
