@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical, Volume2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
 
@@ -50,6 +50,12 @@ function LessonCard({ lesson, courseId, onEdit, onDelete, onTogglePublish }: Les
                 <span className="flex items-center gap-1">
                   <FileText className="w-3 h-3" />
                   {lesson.pdfMaterials.length} PDF
+                </span>
+              )}
+              {(lesson as any).audioMaterials && (lesson as any).audioMaterials.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Volume2 className="w-3 h-3" />
+                  {(lesson as any).audioMaterials.length} Audio
                 </span>
               )}
             </div>
@@ -128,7 +134,10 @@ export default function AdminCourseLessons() {
   const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
   const [moduleFormData, setModuleFormData] = useState({ title: "", description: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [audioUploadProgress, setAudioUploadProgress] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -137,6 +146,7 @@ export default function AdminCourseLessons() {
     duration: 0,
     orderIndex: 0,
     pdfMaterials: [] as string[],
+    audioMaterials: [] as string[],
     isPreview: false,
     isOpen: false,
     isPublished: false,
@@ -244,6 +254,7 @@ export default function AdminCourseLessons() {
       duration: 0,
       orderIndex: lessons?.length || 0,
       pdfMaterials: [],
+      audioMaterials: [],
       isPreview: false,
       isOpen: false,
       isPublished: false,
@@ -261,6 +272,7 @@ export default function AdminCourseLessons() {
       duration: lesson.duration,
       orderIndex: lesson.orderIndex,
       pdfMaterials: lesson.pdfMaterials || [],
+      audioMaterials: (lesson as any).audioMaterials || [],
       isPreview: lesson.isPreview,
       isOpen: lesson.isOpen,
       isPublished: lesson.isPublished,
@@ -317,6 +329,60 @@ export default function AdminCourseLessons() {
     setFormData(prev => ({
       ...prev,
       pdfMaterials: prev.pdfMaterials.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const mp3Files = files.filter(f => f.name.endsWith(".mp3"));
+    if (mp3Files.length === 0) {
+      toast({ title: "Solo se permiten archivos MP3", variant: "destructive" });
+      return;
+    }
+
+    setUploadingAudio(true);
+    let uploaded = 0;
+
+    for (const file of mp3Files) {
+      setAudioUploadProgress(`Subiendo ${uploaded + 1} de ${mp3Files.length}...`);
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+
+        const response = await fetch("/api/upload/audio", {
+          method: "POST",
+          body: formDataUpload,
+          credentials: "include",
+        });
+
+        if (!response.ok) throw new Error("Upload failed");
+
+        const { url } = await response.json();
+        // Store as "filename::url" so the serving endpoint can match by filename
+        setFormData(prev => ({
+          ...prev,
+          audioMaterials: [...prev.audioMaterials, `${file.name}::${url}`],
+        }));
+        uploaded++;
+      } catch {
+        toast({ title: `Error al subir ${file.name}`, variant: "destructive" });
+      }
+    }
+
+    setUploadingAudio(false);
+    setAudioUploadProgress("");
+    if (audioInputRef.current) audioInputRef.current.value = "";
+    if (uploaded > 0) {
+      toast({ title: `${uploaded} archivo(s) de audio subidos` });
+    }
+  };
+
+  const removeAudio = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      audioMaterials: prev.audioMaterials.filter((_, i) => i !== index),
     }));
   };
 
@@ -527,6 +593,59 @@ export default function AdminCourseLessons() {
                           </Button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
+                  <Label className="flex items-center gap-2 mb-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                    <Volume2 className="w-4 h-4" />
+                    Archivos de Audio
+                  </Label>
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept=".mp3"
+                    multiple
+                    onChange={handleAudioUpload}
+                    className="hidden"
+                    data-testid="input-lesson-audio"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => audioInputRef.current?.click()}
+                    disabled={uploadingAudio}
+                    data-testid="button-upload-audio"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploadingAudio ? audioUploadProgress : "Subir MP3s"}
+                  </Button>
+                  {formData.audioMaterials.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-mono text-muted-foreground mb-2">
+                        {formData.audioMaterials.length} archivo(s) de audio
+                      </p>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {formData.audioMaterials.map((entry, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-background border">
+                            <span
+                              className="text-sm truncate flex-1"
+                              style={{ fontFamily: 'JetBrains Mono, monospace', color: '#10B981' }}
+                            >
+                              {entry.split('::')[0]}
+                            </span>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeAudio(index)}
+                            >
+                              <X className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

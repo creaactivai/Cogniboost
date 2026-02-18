@@ -41,6 +41,7 @@ export const createLessonSchema = z.object({
   duration: z.number().int().min(0, "Duration must be non-negative").default(0),
   orderIndex: z.number().int().min(1, "Order index must be at least 1"),
   pdfMaterials: z.array(z.string().url("Invalid PDF URL")).optional(),
+  audioMaterials: z.array(z.string()).optional(),
   isPreview: z.boolean().default(false),
   isOpen: z.boolean().default(false),
   isPublished: z.boolean().default(false),

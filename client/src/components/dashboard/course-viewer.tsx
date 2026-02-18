@@ -429,16 +429,23 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     )}
 
                     {selectedLesson.htmlContent && (
-                      <div 
+                      <div
                         className="lesson-html-content mb-6"
                         data-testid="lesson-html-content"
                       >
                         <iframe
-                          srcDoc={selectedLesson.htmlContent}
+                          srcDoc={
+                            selectedLesson.audioMaterials && selectedLesson.audioMaterials.length > 0
+                              ? selectedLesson.htmlContent.replace(
+                                  /var\s+AUDIO_BASE_URL\s*=\s*['"]\.\/audio\/['"]\s*;/,
+                                  `var AUDIO_BASE_URL = '/api/audio/${selectedLesson.id}/';`
+                                )
+                              : selectedLesson.htmlContent
+                          }
                           className="w-full border-0 rounded-lg bg-white"
                           style={{ minHeight: "800px", height: "auto" }}
                           title={selectedLesson.title}
-                          sandbox="allow-scripts"
+                          sandbox="allow-scripts allow-same-origin"
                         />
                       </div>
                     )}

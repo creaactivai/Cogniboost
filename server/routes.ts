@@ -28,7 +28,7 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (_req, file, cb) => {
@@ -36,6 +36,18 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
+
+const uploadAudio = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'audio/mpeg' || file.mimetype === 'audio/mp3') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only MP3 files are allowed'));
     }
   }
 });
@@ -409,6 +421,7 @@ export async function registerRoutes(
             ...lesson,
             vimeoId: null, // Hide video content
             pdfMaterials: [], // Hide materials
+            audioMaterials: [], // Hide audio files
             content: null, // Hide lesson content
             isLockedBySubscription: true, // Flag for frontend
           };
@@ -1835,6 +1848,72 @@ Guidelines:
     } catch (error) {
       console.error("Error uploading PDF:", error);
       res.status(500).json({ error: "Failed to upload PDF" });
+    }
+  });
+
+  // Upload audio MP3 file (protected, for lesson audio materials)
+  app.post("/api/upload/audio", requireAdmin, uploadAudio.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+
+      // Get presigned URL for upload
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+
+      // Upload the file buffer directly to the presigned URL
+      const response = await fetch(uploadURL, {
+        method: 'PUT',
+        body: req.file.buffer,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload to storage');
+      }
+
+      // Get the normalized path for serving the file
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      const fileUrl = objectPath;
+
+      res.json({ url: fileUrl, name: req.file.originalname });
+    } catch (error) {
+      console.error("Error uploading audio:", error);
+      res.status(500).json({ error: "Failed to upload audio file" });
+    }
+  });
+
+  // Serve lesson audio files — redirects to GCS URL based on lesson's audioMaterials
+  app.get("/api/audio/:lessonId/:filename", async (req, res) => {
+    try {
+      const { lessonId, filename } = req.params;
+      const lesson = await storage.getLessonById(lessonId);
+
+      if (!lesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+
+      if (!lesson.audioMaterials || lesson.audioMaterials.length === 0) {
+        return res.status(404).json({ error: "No audio files for this lesson" });
+      }
+
+      // audioMaterials format: ["filename::url", ...]
+      const entry = lesson.audioMaterials.find(m => m.startsWith(filename + "::"));
+      if (!entry) {
+        return res.status(404).json({ error: "Audio file not found" });
+      }
+
+      const url = entry.split("::").slice(1).join("::");
+
+      // Redirect to the storage URL
+      res.redirect(302, url);
+    } catch (error) {
+      console.error("Error serving audio:", error);
+      res.status(500).json({ error: "Failed to serve audio file" });
     }
   });
 

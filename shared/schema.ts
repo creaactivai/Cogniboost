@@ -78,6 +78,7 @@ export const lessons = pgTable("lessons", {
   duration: integer("duration").notNull().default(0), // in minutes
   orderIndex: integer("order_index").notNull(),
   pdfMaterials: text("pdf_materials").array(), // URLs to PDF files in object storage
+  audioMaterials: text("audio_materials").array(), // "filename::url" pairs for lesson audio MP3s
   isPreview: boolean("is_preview").notNull().default(false),
   isOpen: boolean("is_open").notNull().default(false), // Open lessons bypass prerequisite checks
   isPublished: boolean("is_published").notNull().default(false),
