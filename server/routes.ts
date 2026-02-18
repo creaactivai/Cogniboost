@@ -4,7 +4,8 @@ import { createHash } from "crypto";
 import multer from "multer";
 import OpenAI from "openai";
 import { z } from "zod";
-import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { uploadToGcs } from "./gcsDirectUpload";
 import { registerOAuthRoutes } from "./auth/oauthRoutes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { storage } from "./storage";
@@ -1822,29 +1823,8 @@ Guidelines:
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const objectStorageService = new ObjectStorageService();
-      
-      // Get presigned URL for upload
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      
-      // Upload the file buffer directly to the presigned URL
-      const response = await fetch(uploadURL, {
-        method: 'PUT',
-        body: req.file.buffer,
-        headers: {
-          'Content-Type': 'application/pdf',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload to storage');
-      }
-
-      // Get the normalized path for serving the file
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-      const fileUrl = objectPath;
-
-      res.json({ url: fileUrl, name: req.file.originalname });
+      const result = await uploadToGcs(req.file.buffer, req.file.originalname, 'application/pdf');
+      res.json(result);
     } catch (error) {
       console.error("Error uploading PDF:", error);
       res.status(500).json({ error: "Failed to upload PDF" });
@@ -1858,29 +1838,8 @@ Guidelines:
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const objectStorageService = new ObjectStorageService();
-
-      // Get presigned URL for upload
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-
-      // Upload the file buffer directly to the presigned URL
-      const response = await fetch(uploadURL, {
-        method: 'PUT',
-        body: req.file.buffer,
-        headers: {
-          'Content-Type': 'audio/mpeg',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload to storage');
-      }
-
-      // Get the normalized path for serving the file
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-      const fileUrl = objectPath;
-
-      res.json({ url: fileUrl, name: req.file.originalname });
+      const result = await uploadToGcs(req.file.buffer, req.file.originalname, 'audio/mpeg');
+      res.json(result);
     } catch (error) {
       console.error("Error uploading audio:", error);
       res.status(500).json({ error: "Failed to upload audio file" });
