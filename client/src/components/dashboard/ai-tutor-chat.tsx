@@ -63,7 +63,7 @@ export function AiTutorChat() {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: error.message || "Lo siento, hubo un error. Por favor intenta de nuevo.",
+        content: error.message || "Sorry, there was an error. Please try again.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -105,14 +105,14 @@ export function AiTutorChat() {
 
   const getLevelLabel = (level?: string) => {
     const labels: Record<string, string> = {
-      "A1": "Principiante",
-      "A2": "Elemental",
-      "B1": "Intermedio",
-      "B2": "Intermedio Alto",
-      "C1": "Avanzado",
-      "C2": "Experto"
+      "A1": "Beginner",
+      "A2": "Elementary",
+      "B1": "Intermediate",
+      "B2": "Upper Intermediate",
+      "C1": "Advanced",
+      "C2": "Expert"
     };
-    return labels[level || "A1"] || "Principiante";
+    return labels[level || "A1"] || "Beginner";
   };
 
   if (!isOpen) {
@@ -143,14 +143,14 @@ export function AiTutorChat() {
           <div>
             <CardTitle className="text-base">AI English Tutor</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Nivel: {getLevelLabel(user?.englishLevel)}
+              Level: {getLevelLabel(user?.englishLevel)}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-xs">
-            {user?.subscriptionTier === "free" ? "5/día" : 
-             user?.subscriptionTier === "flex" ? "20/día" : "Ilimitado"}
+            {user?.subscriptionTier === "free" ? "5/day" :
+             user?.subscriptionTier === "flex" ? "20/day" : "Unlimited"}
           </Badge>
           <Button
             variant="ghost"
@@ -168,10 +168,10 @@ export function AiTutorChat() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <MessageCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
-              <h3 className="font-medium text-sm mb-1">Practica tu inglés</h3>
+              <h3 className="font-medium text-sm mb-1">Practice your English</h3>
               <p className="text-xs text-muted-foreground">
-                Escribe en inglés o español y te ayudaré a mejorar. 
-                Corregiremos errores y practicaremos conversación.
+                Write in English or Spanish and I'll help you improve.
+                We'll correct errors and practice conversation.
               </p>
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 <Button
@@ -184,7 +184,7 @@ export function AiTutorChat() {
                   }}
                   data-testid="button-suggestion-1"
                 >
-                  Saludar en inglés
+                  Greet in English
                 </Button>
                 <Button
                   variant="outline"
@@ -196,7 +196,7 @@ export function AiTutorChat() {
                   }}
                   data-testid="button-suggestion-2"
                 >
-                  Ver temas
+                  View topics
                 </Button>
               </div>
             </div>
@@ -223,7 +223,7 @@ export function AiTutorChat() {
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Escribiendo...</span>
+                    <span className="text-muted-foreground">Typing...</span>
                   </div>
                 </div>
               )}
@@ -238,7 +238,7 @@ export function AiTutorChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Escribe tu mensaje..."
+              placeholder="Type your message..."
               disabled={chatMutation.isPending}
               className="flex-1"
               data-testid="input-ai-tutor-message"

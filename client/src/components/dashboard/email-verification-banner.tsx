@@ -20,14 +20,14 @@ export function EmailVerificationBanner() {
     onSuccess: (data) => {
       if (data.alreadyVerified) {
         toast({
-          title: "Correo ya verificado",
+          title: "Email already verified",
           description: data.message,
         });
         setDismissed(true);
       } else {
         toast({
-          title: "Correo enviado",
-          description: "Hemos enviado un nuevo enlace de verificación a tu correo.",
+          title: "Email sent",
+          description: "We've sent a new verification link to your email.",
         });
         setEmailSent(true);
       }
@@ -37,13 +37,13 @@ export function EmailVerificationBanner() {
         const errorData = error.response ? await error.response.json() : { error: error.message };
         toast({
           title: "Error",
-          description: errorData.error || "No se pudo enviar el correo de verificación.",
+          description: errorData.error || "Could not send verification email.",
           variant: "destructive",
         });
       } catch {
         toast({
           title: "Error",
-          description: error.message || "Error desconocido",
+          description: error.message || "Unknown error",
           variant: "destructive",
         });
       }
@@ -60,10 +60,10 @@ export function EmailVerificationBanner() {
         <Mail className="h-5 w-5 text-orange-500 shrink-0" />
         <div>
           <p className="text-sm font-medium text-foreground">
-            Verifica tu correo electrónico
+            Verify your email address
           </p>
           <p className="text-xs text-muted-foreground">
-            Revisa tu bandeja de entrada y haz clic en el enlace para verificar {user.email}
+            Check your inbox and click the link to verify {user.email}
           </p>
         </div>
       </div>
@@ -71,7 +71,7 @@ export function EmailVerificationBanner() {
         {emailSent ? (
           <div className="flex items-center gap-2 text-sm text-emerald-600">
             <CheckCircle className="h-4 w-4" />
-            <span>Correo enviado</span>
+            <span>Email sent</span>
           </div>
         ) : (
           <Button
@@ -84,10 +84,10 @@ export function EmailVerificationBanner() {
             {resendMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Enviando...
+                Sending...
               </>
             ) : (
-              "Reenviar correo"
+              "Resend email"
             )}
           </Button>
         )}

@@ -116,6 +116,39 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     enabled: !!courseId,
   });
 
+  // Auto-enroll student when opening a course (if not already enrolled)
+  const autoEnrollMutation = useMutation({
+    mutationFn: async (cId: string) => {
+      const response = await apiRequest("POST", "/api/enrollments", { courseId: cId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "progress"] });
+    },
+  });
+
+  const hasAutoEnrolled = useRef(false);
+
+  useEffect(() => {
+    if (!courseId || !user || isAdminPreview || hasAutoEnrolled.current) return;
+    const checkAndEnroll = async () => {
+      try {
+        const res = await fetch("/api/enrollments/with-progress", { credentials: "include" });
+        if (!res.ok) return;
+        const existingEnrollments = await res.json();
+        const alreadyEnrolled = existingEnrollments.some((e: any) => e.courseId === courseId);
+        if (!alreadyEnrolled) {
+          hasAutoEnrolled.current = true;
+          autoEnrollMutation.mutate(courseId);
+        }
+      } catch (err) {
+        console.error("Auto-enroll check failed:", err);
+      }
+    };
+    checkAndEnroll();
+  }, [courseId, user, isAdminPreview]);
+
   // Create a map for quick lookup of lesson unlock status
   const lessonProgressMap = new Map(
     courseProgress?.lessons.map(l => [l.id, l]) || []
@@ -136,14 +169,14 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     onSuccess: () => {
       refetchProgress();
       toast({
-        title: "¡Lección completada!",
-        description: "Has completado esta lección exitosamente.",
+        title: "Lesson completed!",
+        description: "You have successfully completed this lesson.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "No se pudo marcar la lección como completada.",
+        description: "Could not mark the lesson as complete.",
         variant: "destructive",
       });
     },
@@ -162,16 +195,17 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         refetchProgress();
       }
       toast({
-        title: result.isPassed ? "¡Felicidades!" : "Inténtalo de nuevo",
-        description: result.isPassed 
-          ? `Aprobaste con ${result.score}%`
-          : `Obtuviste ${result.score}%. Necesitas ${result.passingScore}% para aprobar.`,
+        title: result.isPassed ? "Congratulations!" : "Try again",
+        description: result.isPassed
+          ? `You passed with ${result.score}%`
+          : `You scored ${result.score}%. You need ${result.passingScore}% to pass.`,
       });
     },
     onError: () => {
+      hasSubmittedRef.current = false; // Reset so user can retry
       toast({
         title: "Error",
-        description: "No se pudo enviar el quiz. Inténtalo de nuevo.",
+        description: "Could not submit quiz. Please try again.",
         variant: "destructive",
       });
     },
@@ -196,6 +230,15 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
 
   const handleSubmitQuiz = () => {
     if (!quiz || hasSubmittedRef.current || submitQuizMutation.isPending) return;
+    if (!allQuestionsAnswered) {
+      const unanswered = sortedQuestions.filter((q) => quizAnswers[q.id] === undefined).length;
+      toast({
+        title: "Unanswered questions",
+        description: `You have ${unanswered} unanswered question(s). Answer all to submit.`,
+        variant: "destructive",
+      });
+      return;
+    }
     hasSubmittedRef.current = true;
     const answers = sortedQuestions.map((q) => quizAnswers[q.id] ?? -1);
     submitQuizMutation.mutate(answers);
@@ -228,11 +271,11 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
   if (!course) {
     return (
       <div className="text-center py-12">
-        <p className="font-mono text-muted-foreground">Curso no encontrado</p>
+        <p className="font-mono text-muted-foreground">Course not found</p>
         <Link href="/dashboard/courses">
           <Button className="mt-4" variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a Cursos
+            Back to Courses
           </Button>
         </Link>
       </div>
@@ -254,16 +297,16 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 <Play className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Modo Vista Previa Admin</p>
+                <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Admin Preview Mode</p>
                 <p className="text-xs text-muted-foreground">
-                  Viendo el curso como un estudiante. Todas las lecciones están desbloqueadas.
+                  Viewing the course as a student. All lessons are unlocked.
                 </p>
               </div>
             </div>
             <Link href="/admin/courses">
               <Button size="sm" variant="outline" data-testid="button-back-to-admin">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver al Admin
+                Back to Admin
               </Button>
             </Link>
           </div>
@@ -279,7 +322,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         <div>
           <h1 className="text-2xl font-display uppercase">{course.title}</h1>
           <p className="text-sm font-mono text-muted-foreground">
-            {course.level} · {lessons?.length || 0} lecciones
+            {course.level} · {lessons?.length || 0} lessons
           </p>
         </div>
       </div>
@@ -292,16 +335,16 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 <Lock className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="font-mono font-semibold text-sm">Plan Gratuito</p>
+                <p className="font-mono font-semibold text-sm">Free Plan</p>
                 <p className="text-xs text-muted-foreground">
-                  {lockedLessonsCount} lecciones bloqueadas. Actualiza para acceder a todo el contenido.
+                  {lockedLessonsCount} lessons locked. Upgrade to access all content.
                 </p>
               </div>
             </div>
             <Link href="/#pricing">
               <Button size="sm" data-testid="button-upgrade-plan">
                 <Unlock className="w-4 h-4 mr-2" />
-                Actualizar Plan
+                Upgrade Plan
               </Button>
             </Link>
           </div>
@@ -311,12 +354,12 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-2">
           <h2 className="font-mono font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">
-            Contenido del Curso
+            Course Content
           </h2>
           {isLoadingProgress && (
             <div className="text-center py-4">
               <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
-              <p className="text-xs text-muted-foreground mt-2">Cargando progreso...</p>
+              <p className="text-xs text-muted-foreground mt-2">Loading progress...</p>
             </div>
           )}
           {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
@@ -345,16 +388,16 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 onClick={() => {
                   if (isLockedBySubscription) {
                     toast({
-                      title: "Contenido Premium",
-                      description: "Actualiza tu plan para acceder a todas las lecciones.",
+                      title: "Premium Content",
+                      description: "Upgrade your plan to access all lessons.",
                       variant: "default",
                     });
                     return;
                   }
                   if (!isUnlocked) {
                     toast({
-                      title: "Lección bloqueada",
-                      description: "Completa las lecciones anteriores para desbloquear esta.",
+                      title: "Lesson locked",
+                      description: "Complete previous lessons to unlock this one.",
                       variant: "destructive",
                     });
                     return;
@@ -386,7 +429,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         </span>
                       )}
                       {lesson.isOpen && (
-                        <Badge variant="outline" className="text-[10px] px-1 py-0">Abierta</Badge>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">Open</Badge>
                       )}
                       {isLockedBySubscription && (
                         <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
@@ -453,7 +496,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     {selectedLesson.pdfMaterials && selectedLesson.pdfMaterials.length > 0 && (
                       <div className="space-y-2">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                          Materiales
+                          Materials
                         </h3>
                         {selectedLesson.pdfMaterials.map((url, index) => (
                           <a
@@ -491,12 +534,12 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                               {isCompleted ? (
                                 <>
                                   <CheckCircle className="w-4 h-4 mr-2" />
-                                  Lección Completada
+                                  Lesson Completed
                                 </>
                               ) : (
                                 <>
                                   <Play className="w-4 h-4 mr-2" />
-                                  Marcar como Completada
+                                  Mark as Complete
                                 </>
                               )}
                             </Button>
@@ -514,9 +557,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           <ClipboardList className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="font-mono font-semibold">Quiz de la Lección</h3>
+                          <h3 className="font-mono font-semibold">Lesson Quiz</h3>
                           <p className="text-sm font-mono text-muted-foreground">
-                            Evalúa tu comprensión del contenido
+                            Test your understanding of the content
                           </p>
                         </div>
                       </div>
@@ -525,7 +568,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         data-testid="button-start-quiz"
                       >
                         <Play className="w-4 h-4 mr-2" />
-                        Iniciar Quiz
+                        Start Quiz
                       </Button>
                     </div>
                   </Card>
@@ -540,14 +583,14 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     <div className="text-center py-8">
                       <ClipboardList className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="font-mono text-muted-foreground">
-                        No hay quiz disponible para esta lección
+                        No quiz available for this lesson
                       </p>
                       <Button
                         variant="outline"
                         className="mt-4"
                         onClick={() => setShowQuiz(false)}
                       >
-                        Volver a la Lección
+                        Back to Lesson
                       </Button>
                     </div>
                   ) : quizResult ? (
@@ -564,19 +607,19 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           )}
                         </div>
                         <h2 className="text-2xl font-display uppercase mb-2">
-                          {quizResult.isPassed ? '¡Aprobaste!' : 'No Aprobaste'}
+                          {quizResult.isPassed ? 'You Passed!' : 'You Did Not Pass'}
                         </h2>
                         <p className="font-mono text-3xl font-bold" style={{ color: quizResult.isPassed ? '#33CBFB' : '#FD335A' }}>
                           {quizResult.score}%
                         </p>
                         <p className="font-mono text-sm text-muted-foreground mt-2">
-                          Puntaje mínimo: {quizResult.passingScore}%
+                          Minimum score: {quizResult.passingScore}%
                         </p>
                       </div>
 
                       <div className="space-y-4">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider">
-                          Revisión de Respuestas
+                          Answer Review
                         </h3>
                         {quizResult.results.map((result, index) => {
                           const matchingQuestion = sortedQuestions.find(q => q.id === result.questionId);
@@ -597,7 +640,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                                   </p>
                                   {!result.isCorrect && matchingQuestion && (
                                     <p className="font-mono text-sm text-green-600 dark:text-green-400">
-                                      Respuesta correcta: {matchingQuestion.options[result.correctAnswer]}
+                                      Correct answer: {matchingQuestion.options[result.correctAnswer]}
                                     </p>
                                   )}
                                   {result.explanation && (
@@ -618,7 +661,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           onClick={() => setShowQuiz(false)}
                           className="flex-1"
                         >
-                          Volver a la Lección
+                          Back to Lesson
                         </Button>
                         <Button
                           onClick={resetQuiz}
@@ -626,7 +669,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           data-testid="button-retry-quiz"
                         >
                           <RotateCcw className="w-4 h-4 mr-2" />
-                          Intentar de Nuevo
+                          Try Again
                         </Button>
                       </div>
                     </div>
@@ -636,7 +679,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         <div>
                           <h2 className="text-xl font-display uppercase">{quiz.title}</h2>
                           <p className="font-mono text-sm text-muted-foreground">
-                            {quiz.questions.length} preguntas · Puntaje mínimo: {quiz.passingScore}%
+                            {quiz.questions.length} questions · Min score: {quiz.passingScore}%
                           </p>
                         </div>
                         {timeLeft !== null && (
@@ -682,22 +725,34 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         ))}
                       </div>
 
-                      <div className="flex gap-3">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowQuiz(false)}
-                          className="flex-1"
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          onClick={handleSubmitQuiz}
-                          disabled={!allQuestionsAnswered || submitQuizMutation.isPending}
-                          className="flex-1"
-                          data-testid="button-submit-quiz"
-                        >
-                          {submitQuizMutation.isPending ? "Enviando..." : "Enviar Respuestas"}
-                        </Button>
+                      <div className="space-y-2">
+                        {!allQuestionsAnswered && sortedQuestions.length > 0 && (
+                          <p className="text-sm font-mono text-muted-foreground text-center">
+                            {Object.keys(quizAnswers).length}/{sortedQuestions.length} questions answered
+                          </p>
+                        )}
+                        <div className="flex gap-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowQuiz(false)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSubmitQuiz}
+                            disabled={!allQuestionsAnswered || submitQuizMutation.isPending}
+                            className="flex-1"
+                            data-testid="button-submit-quiz"
+                          >
+                            {submitQuizMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Submitting...
+                              </>
+                            ) : "Submit Answers"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -707,9 +762,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
           ) : (
             <Card className="p-8 text-center">
               <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="font-mono font-semibold mb-2">Selecciona una Lección</h3>
+              <h3 className="font-mono font-semibold mb-2">Select a Lesson</h3>
               <p className="font-mono text-sm text-muted-foreground">
-                Elige una lección del menú para comenzar a aprender
+                Choose a lesson from the menu to start learning
               </p>
             </Card>
           )}

@@ -190,7 +190,9 @@ export class WebhookHandlers {
     }
 
     // Map plan name to subscription tier
-    let subscriptionTier: 'free' | 'flex' | 'basic' | 'premium' = 'free';
+    // IMPORTANT: For active/trialing subscriptions where plan name can't be determined,
+    // preserve the user's existing tier instead of resetting to 'free'
+    let subscriptionTier: 'free' | 'flex' | 'basic' | 'premium' | null = null;
 
     if (status === 'canceled' || status === 'incomplete_expired' || status === 'past_due' || status === 'unpaid') {
       subscriptionTier = 'free';
@@ -205,15 +207,20 @@ export class WebhookHandlers {
       }
     }
     if (!planName && (status === 'active' || status === 'trialing')) {
-      console.warn(`Warning: Could not determine plan for subscription ${subscriptionId}, keeping tier as: ${subscriptionTier}`);
+      console.warn(`[Webhook] Warning: Could not determine plan for active subscription ${subscriptionId}. Preserving user's existing tier: ${user.subscriptionTier}`);
     }
 
-    await db.update(users).set({
+    // Build update payload — only include subscriptionTier if we positively identified it
+    const updatePayload: Record<string, any> = {
       stripeSubscriptionId: subscriptionId,
       status: userStatus,
-      subscriptionTier: subscriptionTier,
       updatedAt: new Date(),
-    }).where(eq(users.id, user.id));
+    };
+    if (subscriptionTier !== null) {
+      updatePayload.subscriptionTier = subscriptionTier;
+    }
+
+    await db.update(users).set(updatePayload).where(eq(users.id, user.id));
 
     console.log(`Subscription updated for user ${user.id}: status=${userStatus}, tier=${subscriptionTier}, plan=${planName}`);
 

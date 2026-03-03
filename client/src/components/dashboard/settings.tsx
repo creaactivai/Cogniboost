@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +14,49 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { 
-  User, 
-  Bell, 
-  Globe, 
-  CreditCard, 
+import {
+  User,
+  Bell,
+  Globe,
+  CreditCard,
   Shield,
   Camera,
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function Settings() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [isManagingSubscription, setIsManagingSubscription] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setIsManagingSubscription(true);
+    try {
+      const response = await fetch("/api/stripe/create-portal-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Could not open subscription portal");
+      }
+    } catch (error: any) {
+      console.error("Manage subscription error:", error);
+      toast({
+        title: "Error",
+        description: "Could not open subscription portal. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsManagingSubscription(false);
+    }
+  };
 
   const getInitials = () => {
     if (!user) return "U";
@@ -38,9 +69,9 @@ export function Settings() {
     <div className="space-y-8 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Configuración de Cuenta</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Account Settings</h1>
         <p className="font-mono text-muted-foreground">
-          Administra tus preferencias y suscripción
+          Manage your preferences and subscription
         </p>
       </div>
 
@@ -48,7 +79,7 @@ export function Settings() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-2 mb-6">
           <User className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display uppercase">Perfil</h2>
+          <h2 className="text-lg font-display uppercase">Profile</h2>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">
@@ -70,14 +101,14 @@ export function Settings() {
                 <Camera className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-xs font-mono text-muted-foreground">JPG, PNG. Máx 2MB</p>
+            <p className="text-xs font-mono text-muted-foreground">JPG, PNG. Max 2MB</p>
           </div>
 
           {/* Form fields */}
           <div className="flex-1 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName" className="font-mono text-sm">Nombre</Label>
+                <Label htmlFor="firstName" className="font-mono text-sm">First Name</Label>
                 <Input 
                   id="firstName" 
                   defaultValue={user?.firstName || ""} 
@@ -86,7 +117,7 @@ export function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName" className="font-mono text-sm">Apellido</Label>
+                <Label htmlFor="lastName" className="font-mono text-sm">Last Name</Label>
                 <Input 
                   id="lastName" 
                   defaultValue={user?.lastName || ""} 
@@ -96,7 +127,7 @@ export function Settings() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="font-mono text-sm">Correo Electrónico</Label>
+              <Label htmlFor="email" className="font-mono text-sm">Email</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -106,11 +137,11 @@ export function Settings() {
                 data-testid="input-email"
               />
               <p className="text-xs font-mono text-muted-foreground">
-                El correo asociado a tu cuenta
+                The email associated with your account
               </p>
             </div>
             <Button className="font-mono uppercase tracking-wider" data-testid="button-save-profile">
-              Guardar Cambios
+              Save Changes
             </Button>
           </div>
         </div>
@@ -120,15 +151,15 @@ export function Settings() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-2 mb-6">
           <Globe className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display uppercase">Preferencias</h2>
+          <h2 className="text-lg font-display uppercase">Preferences</h2>
         </div>
 
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="font-mono font-medium">Idioma de la Interfaz</p>
+              <p className="font-mono font-medium">Interface Language</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Elige tu idioma preferido para la plataforma
+                Choose your preferred language for the platform
               </p>
             </div>
             <Select defaultValue="es">
@@ -136,9 +167,9 @@ export function Settings() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en">Inglés</SelectItem>
-                <SelectItem value="es">Español</SelectItem>
-                <SelectItem value="pt">Portugués</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="es">Spanish</SelectItem>
+                <SelectItem value="pt">Portuguese</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -147,9 +178,9 @@ export function Settings() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="font-mono font-medium">Zona Horaria</p>
+              <p className="font-mono font-medium">Time Zone</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Configura tu zona horaria para la programación de labs
+                Set your time zone for lab scheduling
               </p>
             </div>
             <Select defaultValue="est">
@@ -172,15 +203,15 @@ export function Settings() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-2 mb-6">
           <Bell className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display uppercase">Notificaciones</h2>
+          <h2 className="text-lg font-display uppercase">Notifications</h2>
         </div>
 
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Recordatorios de Labs</p>
+              <p className="font-mono font-medium">Lab Reminders</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Recibe recordatorios antes de tus labs programados
+                Receive reminders before your scheduled labs
               </p>
             </div>
             <Switch defaultChecked data-testid="switch-lab-reminders" />
@@ -190,9 +221,9 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Actualizaciones de Cursos</p>
+              <p className="font-mono font-medium">Course Updates</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Recibe notificaciones sobre nuevas lecciones y cursos
+                Receive notifications about new lessons and courses
               </p>
             </div>
             <Switch defaultChecked data-testid="switch-course-updates" />
@@ -202,9 +233,9 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Reportes de Progreso</p>
+              <p className="font-mono font-medium">Progress Reports</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Resumen semanal de tu progreso de aprendizaje
+                Weekly summary of your learning progress
               </p>
             </div>
             <Switch defaultChecked data-testid="switch-progress-reports" />
@@ -214,9 +245,9 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Correos de Marketing</p>
+              <p className="font-mono font-medium">Marketing Emails</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Promociones, consejos y recursos de aprendizaje
+                Promotions, tips and learning resources
               </p>
             </div>
             <Switch data-testid="switch-marketing" />
@@ -228,7 +259,7 @@ export function Settings() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-2 mb-6">
           <CreditCard className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display uppercase">Suscripción</h2>
+          <h2 className="text-lg font-display uppercase">Subscription</h2>
         </div>
 
         <div className="p-4 border border-primary/30 bg-primary/5 mb-6">
@@ -236,27 +267,40 @@ export function Settings() {
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <p className="font-mono font-semibold" data-testid="text-plan-name">
-                  {user?.subscriptionTier === 'premium' ? 'Plan Premium' :
-                   user?.subscriptionTier === 'basic' ? 'Plan Básico' :
-                   user?.subscriptionTier === 'flex' ? 'Plan Flex' : 'Plan Gratis'}
+                  {user?.subscriptionTier === 'premium' ? 'Premium Plan' :
+                   user?.subscriptionTier === 'basic' ? 'Standard Plan' :
+                   user?.subscriptionTier === 'flex' ? 'Flex Plan' : 'Free Plan'}
                 </p>
-                <Badge className="bg-primary text-primary-foreground font-mono text-xs">ACTIVO</Badge>
+                <Badge className="bg-primary text-primary-foreground font-mono text-xs">ACTIVE</Badge>
               </div>
               <p className="text-sm font-mono text-muted-foreground" data-testid="text-plan-price">
-                {user?.subscriptionTier === 'premium' ? '$99.99/mes' :
-                 user?.subscriptionTier === 'basic' ? '$49.99/mes' :
-                 user?.subscriptionTier === 'flex' ? '$14.99/mes' : 'Gratis'}
+                {user?.subscriptionTier === 'premium' ? '$99.99/mo' :
+                 user?.subscriptionTier === 'basic' ? '$49.99/mo' :
+                 user?.subscriptionTier === 'flex' ? '$14.99/mo' : 'Free'}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
               {user?.subscriptionTier !== 'free' && (
-                <Button variant="outline" className="font-mono" data-testid="button-manage-subscription">
-                  Administrar
+                <Button
+                  variant="outline"
+                  className="font-mono"
+                  data-testid="button-manage-subscription"
+                  onClick={handleManageSubscription}
+                  disabled={isManagingSubscription}
+                >
+                  {isManagingSubscription ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Manage"
+                  )}
                 </Button>
               )}
               {user?.subscriptionTier !== 'premium' && (
                 <Button className="bg-accent text-accent-foreground font-mono" data-testid="button-upgrade">
-                  {user?.subscriptionTier === 'free' ? 'Actualizar Plan' : 'Subir a Premium'}
+                  {user?.subscriptionTier === 'free' ? 'Upgrade Plan' : 'Upgrade to Premium'}
                 </Button>
               )}
             </div>
@@ -268,11 +312,11 @@ export function Settings() {
             <>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Primeras 3 lecciones del Módulo 1</span>
+                <span>First 3 lessons of Module 1</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Examen de nivel gratuito</span>
+                <span>Free placement test</span>
               </div>
             </>
           )}
@@ -280,11 +324,15 @@ export function Settings() {
             <>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Acceso a todos los cursos pregrabados</span>
+                <span>Access to all pre-recorded courses</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Sin límite de lecciones</span>
+                <span>Unlimited lessons</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
+                <Check className="w-4 h-4 text-primary" />
+                <span>1 Conversation Lab per month</span>
               </div>
             </>
           )}
@@ -292,11 +340,11 @@ export function Settings() {
             <>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Acceso a todos los cursos pregrabados</span>
+                <span>Access to all pre-recorded courses</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>2 Labs de Conversación por semana</span>
+                <span>2 Conversation Labs per week</span>
               </div>
             </>
           )}
@@ -304,15 +352,15 @@ export function Settings() {
             <>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Acceso ilimitado a todos los cursos</span>
+                <span>Unlimited access to all courses</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Labs de Conversación ilimitados</span>
+                <span>Unlimited Conversation Labs</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                 <Check className="w-4 h-4 text-primary" />
-                <span>Soporte prioritario</span>
+                <span>Priority support</span>
               </div>
             </>
           )}
@@ -323,15 +371,15 @@ export function Settings() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-2 mb-6">
           <Shield className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display uppercase">Privacidad y Seguridad</h2>
+          <h2 className="text-lg font-display uppercase">Privacy & Security</h2>
         </div>
 
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Visibilidad del Perfil</p>
+              <p className="font-mono font-medium">Profile Visibility</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Permitir que otros estudiantes vean tu perfil
+                Allow other students to see your profile
               </p>
             </div>
             <Switch defaultChecked data-testid="switch-profile-visibility" />
@@ -341,9 +389,9 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mono font-medium">Mostrar Progreso</p>
+              <p className="font-mono font-medium">Show Progress</p>
               <p className="text-sm font-mono text-muted-foreground">
-                Mostrar tu nivel y logros públicamente
+                Show your level and achievements publicly
               </p>
             </div>
             <Switch data-testid="switch-show-progress" />
@@ -352,12 +400,12 @@ export function Settings() {
           <Separator />
 
           <div>
-            <p className="font-mono font-medium mb-2">Eliminar Cuenta</p>
+            <p className="font-mono font-medium mb-2">Delete Account</p>
             <p className="text-sm font-mono text-muted-foreground mb-4">
-              Eliminar permanentemente tu cuenta y todos los datos asociados
+              Permanently delete your account and all associated data
             </p>
             <Button variant="destructive" className="font-mono" data-testid="button-delete-account">
-              Eliminar Cuenta
+              Delete Account
             </Button>
           </div>
         </div>

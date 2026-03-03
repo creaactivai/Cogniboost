@@ -49,7 +49,7 @@ const plans = [
       { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificado descargable", included: true },
       { text: "Soporte por email", included: true },
-      { text: "Conversation Labs", included: false },
+      { text: "1 Conversation Lab por mes", included: true },
       { text: "Clases en vivo grupales", included: false },
     ],
     cta: "Prueba 7 Días Gratis",

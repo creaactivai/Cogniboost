@@ -30,51 +30,53 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import type { LiveSession, SessionRoom, RoomBooking, Subscription } from "@shared/schema";
-import { 
-  canAccessLabs, 
-  canBookMoreLabs, 
-  getWeeklyLabLimit, 
+import {
+  canAccessLabs,
+  canBookMoreLabs,
+  getWeeklyLabLimit,
+  getMonthlyLabLimit,
   getTierDisplayName,
   getStartOfCurrentWeek,
-  type SubscriptionTier 
+  getStartOfCurrentMonth,
+  type SubscriptionTier
 } from "@/lib/tier-access";
 
-const courseTopicsEs: Record<string, string> = {
-  "Business English": "Inglés de Negocios",
-  "Travel & Tourism": "Viajes y Turismo",
-  "Technology": "Tecnología",
-  "Culture & Arts": "Cultura y Artes",
-  "Healthcare": "Salud",
-  "Finance": "Finanzas",
-  "Academic English": "Inglés Académico",
-  "Everyday Conversations": "Conversaciones Cotidianas",
+const courseTopicsEn: Record<string, string> = {
+  "Business English": "Business English",
+  "Travel & Tourism": "Travel & Tourism",
+  "Technology": "Technology",
+  "Culture & Arts": "Culture & Arts",
+  "Healthcare": "Healthcare",
+  "Finance": "Finance",
+  "Academic English": "Academic English",
+  "Everyday Conversations": "Everyday Conversations",
 };
 
-const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
+const getTopicLabel = (topic: string) => courseTopicsEn[topic] || topic;
 
 type SessionWithRooms = LiveSession & { rooms: SessionRoom[] };
 
 function formatDate(dateStr: string): { dayName: string; dayNum: string; month: string; time: string } {
   const date = new Date(dateStr);
-  const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   let dayName = days[date.getDay()];
   if (date.toDateString() === today.toDateString()) {
-    dayName = "Hoy";
+    dayName = "Today";
   } else if (date.toDateString() === tomorrow.toDateString()) {
-    dayName = "Mañana";
+    dayName = "Tomorrow";
   }
   
   return {
     dayName,
     dayNum: date.getDate().toString(),
     month: months[date.getMonth()],
-    time: date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true })
+    time: date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
   };
 }
 
@@ -101,7 +103,7 @@ function RoomCard({ room, isBooked, onBook, isBooking, isAtWeeklyLimit = false }
             {isBooked && (
               <Badge className="bg-primary text-primary-foreground font-mono text-xs">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                Reservado
+                Booked
               </Badge>
             )}
           </div>
@@ -111,7 +113,7 @@ function RoomCard({ room, isBooked, onBook, isBooking, isAtWeeklyLimit = false }
               <span>{room.currentParticipants}/{room.maxParticipants}</span>
             </div>
             <span className={isFull ? "text-destructive" : "text-muted-foreground"}>
-              {isFull ? "Lleno" : `${spotsLeft} lugares`}
+              {isFull ? "Full" : `${spotsLeft} spots`}
             </span>
           </div>
         </div>
@@ -122,7 +124,7 @@ function RoomCard({ room, isBooked, onBook, isBooking, isAtWeeklyLimit = false }
               className="bg-accent text-accent-foreground font-mono text-xs"
               data-testid={`button-join-room-${room.id}`}
             >
-              Unirse
+              Join
             </Button>
           ) : (
             <Button 
@@ -133,7 +135,7 @@ function RoomCard({ room, isBooked, onBook, isBooking, isAtWeeklyLimit = false }
               className="font-mono text-xs"
               data-testid={`button-book-room-${room.id}`}
             >
-              {isBooking ? "..." : isAtWeeklyLimit ? "Límite" : "Reservar"}
+              {isBooking ? "..." : isAtWeeklyLimit ? "Limit" : "Book"}
             </Button>
           )}
         </div>
@@ -175,7 +177,7 @@ function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookin
             {hasBookedRoom && (
               <Badge className="bg-primary text-primary-foreground font-mono">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                Inscrito
+                Enrolled
               </Badge>
             )}
           </div>
@@ -191,13 +193,13 @@ function LiveSessionCard({ session, bookedRoomIds, onBookRoom, isBooking, bookin
             </div>
             <div className="flex items-center gap-1">
               <MessageSquare className="w-3 h-3" />
-              <span>{session.rooms.length} salas por tema</span>
+              <span>{session.rooms.length} rooms by topic</span>
             </div>
           </div>
           
           <div className="space-y-2">
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
-              Selecciona una sala por tema:
+              Select a room by topic:
             </p>
             <div className="grid gap-2">
               {session.rooms.map(room => (
@@ -246,16 +248,24 @@ export function ConversationLabs() {
   });
 
   const bookedRoomIds = new Set(bookings.map(b => b.roomId));
-  
+
   const weekStart = getStartOfCurrentWeek();
   const currentWeekBookings = bookings.filter(b => {
     const bookingDate = new Date(b.bookedAt as unknown as string);
     return bookingDate >= weekStart && !b.cancelledAt;
   }).length;
-  
+
+  const monthStart = getStartOfCurrentMonth();
+  const currentMonthBookings = bookings.filter(b => {
+    const bookingDate = new Date(b.bookedAt as unknown as string);
+    return bookingDate >= monthStart && !b.cancelledAt;
+  }).length;
+
   const weeklyLimit = getWeeklyLabLimit(userTier);
-  const canBookMore = canBookMoreLabs(userTier, currentWeekBookings);
+  const monthlyLimit = getMonthlyLabLimit(userTier);
+  const canBookMore = canBookMoreLabs(userTier, currentWeekBookings, currentMonthBookings);
   const isAtWeeklyLimit = weeklyLimit !== null && currentWeekBookings >= weeklyLimit;
+  const isAtMonthlyLimit = monthlyLimit !== null && currentMonthBookings >= monthlyLimit;
 
   const bookRoomMutation = useMutation({
     mutationFn: async (roomId: string) => {
@@ -266,15 +276,15 @@ export function ConversationLabs() {
       queryClient.invalidateQueries({ queryKey: ["/api/room-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/live-sessions"] });
       toast({
-        title: "¡Sala reservada!",
-        description: "Tu lugar en la sala ha sido confirmado.",
+        title: "Room booked!",
+        description: "Your spot in the room has been confirmed.",
       });
       setBookingRoomId(null);
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "No se pudo reservar la sala. Intenta de nuevo.",
+        description: "Could not book the room. Please try again.",
         variant: "destructive",
       });
       setBookingRoomId(null);
@@ -314,9 +324,9 @@ export function ConversationLabs() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-display uppercase mb-2">Labs de Conversación</h1>
+          <h1 className="text-3xl font-display uppercase mb-2">Conversation Labs</h1>
           <p className="font-mono text-muted-foreground">
-            Práctica en vivo con otros estudiantes de tu nivel
+            Live practice with other students at your level
           </p>
         </div>
         
@@ -332,7 +342,7 @@ export function ConversationLabs() {
                     </div>
                     <div>
                       <p className="text-2xl font-display">0</p>
-                      <p className="text-xs font-mono text-muted-foreground">Salas Reservadas</p>
+                      <p className="text-xs font-mono text-muted-foreground">Rooms Booked</p>
                     </div>
                   </div>
                 </Card>
@@ -343,7 +353,7 @@ export function ConversationLabs() {
                     </div>
                     <div>
                       <p className="text-2xl font-display">0</p>
-                      <p className="text-xs font-mono text-muted-foreground">Labs Asistidos</p>
+                      <p className="text-xs font-mono text-muted-foreground">Labs Attended</p>
                     </div>
                   </div>
                 </Card>
@@ -354,7 +364,7 @@ export function ConversationLabs() {
                     </div>
                     <div>
                       <p className="text-2xl font-display">5+</p>
-                      <p className="text-xs font-mono text-muted-foreground">Sesiones Disponibles</p>
+                      <p className="text-xs font-mono text-muted-foreground">Available Sessions</p>
                     </div>
                   </div>
                 </Card>
@@ -362,7 +372,7 @@ export function ConversationLabs() {
               <div className="h-48 bg-muted/30 flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
                   <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="font-mono text-sm">Sesiones de práctica en vivo</p>
+                  <p className="font-mono text-sm">Live practice sessions</p>
                 </div>
               </div>
             </div>
@@ -374,23 +384,23 @@ export function ConversationLabs() {
                 <Lock className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-xl font-display uppercase mb-2">
-                Acceso a Labs Bloqueado
+                Labs Access Locked
               </h3>
               <p className="font-mono text-sm text-muted-foreground mb-6">
-                {userTier === "free" 
-                  ? "Los labs de conversación en vivo están disponibles desde el plan Básico. Practica con otros estudiantes y mejora tu fluidez."
-                  : "Tu plan Flex incluye acceso a cursos pregrabados. Actualiza al plan Básico para unirte a sesiones de práctica en vivo."
+                {userTier === "free"
+                  ? "Live conversation labs are available starting from the Basic plan. Practice with other students and improve your fluency."
+                  : "Your Flex plan includes access to pre-recorded courses. Upgrade to the Basic plan to join live practice sessions."
                 }
               </p>
               <div className="flex flex-col gap-3">
                 <Link href="/choose-plan">
                   <Button className="w-full font-mono" data-testid="button-upgrade-labs">
                     <Crown className="w-4 h-4 mr-2" />
-                    Actualizar a Básico - $49.99/mes
+                    Upgrade to Basic - $49.99/mo
                   </Button>
                 </Link>
                 <p className="text-xs font-mono text-muted-foreground">
-                  Plan Básico: 2 labs por semana • Plan Premium: labs ilimitados
+                  Basic Plan: 2 labs per week {"\u2022"} Premium Plan: unlimited labs
                 </p>
               </div>
             </div>
@@ -403,13 +413,13 @@ export function ConversationLabs() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Labs de Conversación</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Conversation Labs</h1>
         <p className="font-mono text-muted-foreground">
-          Únete a sesiones en vivo y elige la sala por tema que más te interese
+          Join live sessions and choose the room by topic that interests you most
         </p>
       </div>
       
-      {isAtWeeklyLimit && (
+      {(isAtWeeklyLimit || isAtMonthlyLimit) && (
         <Card className="p-4 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
@@ -417,15 +427,19 @@ export function ConversationLabs() {
             </div>
             <div className="flex-1">
               <h4 className="font-mono font-medium text-orange-800 dark:text-orange-200">
-                Límite semanal alcanzado ({currentWeekBookings}/{weeklyLimit})
+                {isAtMonthlyLimit
+                  ? `Monthly limit reached (${currentMonthBookings}/${monthlyLimit})`
+                  : `Weekly limit reached (${currentWeekBookings}/${weeklyLimit})`}
               </h4>
               <p className="text-sm font-mono text-orange-600 dark:text-orange-400 mb-3">
-                Has reservado el máximo de labs para esta semana. Actualiza a Premium para acceso ilimitado.
+                {isAtMonthlyLimit
+                  ? "You've booked the maximum labs for this month. Upgrade your plan for more labs."
+                  : "You've booked the maximum labs for this week. Upgrade to Premium for unlimited access."}
               </p>
               <Link href="/choose-plan">
                 <Button size="sm" className="font-mono" data-testid="button-upgrade-unlimited">
                   <Crown className="w-4 h-4 mr-2" />
-                  Actualizar a Premium
+                  {isAtMonthlyLimit ? "Upgrade Plan" : "Upgrade to Premium"}
                 </Button>
               </Link>
             </div>
@@ -441,7 +455,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">{bookedRoomsCount}</p>
-              <p className="text-xs font-mono text-muted-foreground">Salas Reservadas</p>
+              <p className="text-xs font-mono text-muted-foreground">Rooms Booked</p>
             </div>
           </div>
         </Card>
@@ -452,7 +466,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">{attendedCount}</p>
-              <p className="text-xs font-mono text-muted-foreground">Labs Asistidos</p>
+              <p className="text-xs font-mono text-muted-foreground">Labs Attended</p>
             </div>
           </div>
         </Card>
@@ -463,7 +477,7 @@ export function ConversationLabs() {
             </div>
             <div>
               <p className="text-2xl font-display">{upcomingSessions.length}</p>
-              <p className="text-xs font-mono text-muted-foreground">Sesiones Próximas</p>
+              <p className="text-xs font-mono text-muted-foreground">Upcoming Sessions</p>
             </div>
           </div>
         </Card>
@@ -472,9 +486,9 @@ export function ConversationLabs() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted">
-            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Próximas</TabsTrigger>
-            <TabsTrigger value="booked" className="font-mono" data-testid="tab-booked">Mis Reservas</TabsTrigger>
-            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Pasadas</TabsTrigger>
+            <TabsTrigger value="upcoming" className="font-mono" data-testid="tab-upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="booked" className="font-mono" data-testid="tab-booked">My Bookings</TabsTrigger>
+            <TabsTrigger value="past" className="font-mono" data-testid="tab-past">Past</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -482,10 +496,10 @@ export function ConversationLabs() {
           <div className="flex gap-2">
             <Select value={levelFilter} onValueChange={setLevelFilter}>
               <SelectTrigger className="w-32 font-mono" data-testid="select-level">
-                <SelectValue placeholder="Nivel" />
+                <SelectValue placeholder="Level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los Niveles</SelectItem>
+                <SelectItem value="all">All Levels</SelectItem>
                 {courseLevels.map((level) => (
                   <SelectItem key={level} value={level}>{level}</SelectItem>
                 ))}
@@ -493,11 +507,11 @@ export function ConversationLabs() {
             </Select>
             <Select value={topicFilter} onValueChange={setTopicFilter}>
               <SelectTrigger className="w-40 font-mono" data-testid="select-topic">
-                <SelectValue placeholder="Tema" />
+                <SelectValue placeholder="Topic" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los Temas</SelectItem>
-                {Object.entries(courseTopicsEs).map(([value, label]) => (
+                <SelectItem value="all">All Topics</SelectItem>
+                {Object.entries(courseTopicsEn).map(([value, label]) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
@@ -510,7 +524,7 @@ export function ConversationLabs() {
         {sessionsLoading && (
           <div className="text-center py-16">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin mx-auto mb-4"></div>
-            <p className="font-mono text-muted-foreground">Cargando sesiones...</p>
+            <p className="font-mono text-muted-foreground">Loading sessions...</p>
           </div>
         )}
 
@@ -524,16 +538,16 @@ export function ConversationLabs() {
                 onBookRoom={(roomId) => bookRoomMutation.mutate(roomId)}
                 isBooking={bookRoomMutation.isPending}
                 bookingRoomId={bookingRoomId}
-                isAtWeeklyLimit={isAtWeeklyLimit}
+                isAtWeeklyLimit={isAtWeeklyLimit || isAtMonthlyLimit}
               />
             ))
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
               <p className="font-mono text-muted-foreground">
-                {sessions.length === 0 
-                  ? "No hay sesiones programadas por ahora" 
-                  : "No hay sesiones que coincidan con tus filtros"
+                {sessions.length === 0
+                  ? "No sessions scheduled at the moment"
+                  : "No sessions match your filters"
                 }
               </p>
             </div>
@@ -555,9 +569,9 @@ export function ConversationLabs() {
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground mb-4">Aún no has reservado ninguna sala</p>
+              <p className="font-mono text-muted-foreground mb-4">You haven't booked any rooms yet</p>
               <Button onClick={() => setActiveTab("upcoming")} className="font-mono">
-                Ver Sesiones Disponibles
+                View Available Sessions
               </Button>
             </div>
           )
@@ -578,7 +592,7 @@ export function ConversationLabs() {
           ) : (
             <div className="text-center py-16">
               <Clock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="font-mono text-muted-foreground">No hay sesiones pasadas para mostrar</p>
+              <p className="font-mono text-muted-foreground">No past sessions to show</p>
             </div>
           )
         )}

@@ -26,22 +26,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const menuItems = [
   {
-    title: "Inicio",
+    title: "Home",
     url: "/dashboard",
     icon: Home,
   },
   {
-    title: "Mis Cursos",
+    title: "My Courses",
     url: "/dashboard/courses",
     icon: BookOpen,
   },
   {
-    title: "Labs de Conversación",
+    title: "Conversation Labs",
     url: "/dashboard/labs",
     icon: Users,
   },
   {
-    title: "Mi Progreso",
+    title: "My Progress",
     url: "/dashboard/progress",
     icon: BarChart3,
   },
@@ -49,12 +49,12 @@ const menuItems = [
 
 const secondaryItems = [
   {
-    title: "Configuración",
+    title: "Settings",
     url: "/dashboard/settings",
     icon: Settings,
   },
   {
-    title: "Ayuda y Soporte",
+    title: "Help & Support",
     url: "/dashboard/help",
     icon: HelpCircle,
   },
@@ -89,7 +89,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
-            Aprendizaje
+            Learning
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -112,7 +112,7 @@ export function AppSidebar() {
 
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
-            Cuenta
+            Account
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -146,7 +146,7 @@ export function AppSidebar() {
             <p className="font-mono text-sm text-sidebar-foreground truncate">
               {user?.firstName && user?.lastName 
                 ? `${user.firstName} ${user.lastName}`
-                : user?.email || "Usuario"
+                : user?.email || "User"
               }
             </p>
             <p className="text-xs font-mono text-sidebar-foreground/60 truncate">
@@ -160,7 +160,7 @@ export function AppSidebar() {
           data-testid="button-logout"
         >
           <LogOut className="w-4 h-4" />
-          <span className="font-mono">Cerrar Sesión</span>
+          <span className="font-mono">Sign Out</span>
         </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>

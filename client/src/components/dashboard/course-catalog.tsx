@@ -28,19 +28,19 @@ import { Badge } from "@/components/ui/badge";
 import { courseLevels, type Course } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
-// Spanish translations for course topics
-const courseTopicsEs: Record<string, string> = {
-  "Business English": "Inglés de Negocios",
-  "Travel & Tourism": "Viajes y Turismo",
-  "Technology": "Tecnología",
-  "Culture & Arts": "Cultura y Artes",
-  "Healthcare": "Salud",
-  "Finance": "Finanzas",
-  "Academic English": "Inglés Académico",
-  "Everyday Conversations": "Conversaciones Cotidianas",
+// English labels for course topics
+const courseTopics: Record<string, string> = {
+  "Business English": "Business English",
+  "Travel & Tourism": "Travel & Tourism",
+  "Technology": "Technology",
+  "Culture & Arts": "Culture & Arts",
+  "Healthcare": "Healthcare",
+  "Finance": "Finance",
+  "Academic English": "Academic English",
+  "Everyday Conversations": "Everyday Conversations",
 };
 
-const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
+const getTopicLabel = (topic: string) => courseTopics[topic] || topic;
 
 interface CourseCardProps {
   id: string;
@@ -79,7 +79,7 @@ function CourseCard({
         {/* Free badge */}
         {isFree && (
           <div className="absolute top-3 right-3 px-2 py-1 bg-accent text-accent-foreground text-xs font-mono">
-            GRATIS
+            FREE
           </div>
         )}
         {/* Play button overlay */}
@@ -104,7 +104,7 @@ function CourseCard({
           </div>
           <div className="flex items-center gap-1">
             <BookOpen className="w-3 h-3" />
-            <span>{lessonsCount} lecciones</span>
+            <span>{lessonsCount} lessons</span>
           </div>
         </div>
 
@@ -112,13 +112,13 @@ function CourseCard({
         {isEnrolled && progress ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-muted-foreground">Progreso</span>
+              <span className="text-muted-foreground">Progress</span>
               <span className="text-primary">{progress}%</span>
             </div>
             <Progress value={progress} className="h-1" />
             <Link href={`/dashboard/courses/${id}`}>
               <Button className="w-full mt-3 font-mono uppercase tracking-wider" data-testid={`button-continue-${id}`}>
-                Continuar
+                Continue
               </Button>
             </Link>
           </div>
@@ -129,7 +129,7 @@ function CourseCard({
               variant="default"
               data-testid={isEnrolled ? `button-continue-${id}` : `button-start-${id}`}
             >
-              {isEnrolled ? "Continuar" : isFree ? "Empezar Gratis" : "Empezar"}
+              {isEnrolled ? "Continue" : isFree ? "Start Free" : "Start"}
             </Button>
           </Link>
         )}
@@ -142,8 +142,8 @@ function CourseCard({
 const mockCourses: CourseCardProps[] = [
   {
     id: "1",
-    title: "Inglés de Negocios: Reuniones y Presentaciones",
-    description: "Domina el vocabulario y frases necesarias para reuniones y presentaciones efectivas.",
+    title: "Business English: Meetings & Presentations",
+    description: "Master the vocabulary and phrases needed for effective meetings and presentations.",
     level: "B1",
     topic: "Business English",
     duration: 180,
@@ -153,8 +153,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "2",
-    title: "Conversaciones Cotidianas: En la Oficina",
-    description: "Aprende inglés casual para interacciones diarias con colegas y clientes.",
+    title: "Everyday Conversations: At the Office",
+    description: "Learn casual English for daily interactions with colleagues and clients.",
     level: "A2",
     topic: "Everyday Conversations",
     duration: 120,
@@ -164,8 +164,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "3",
-    title: "Gramática Esencial: Tiempos Pasados",
-    description: "Profundiza en el pasado simple, pasado continuo y pasado perfecto.",
+    title: "Essential Grammar: Past Tenses",
+    description: "Dive deep into the simple past, past continuous, and past perfect.",
     level: "B1",
     topic: "Academic English",
     duration: 90,
@@ -175,8 +175,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "4",
-    title: "Introducción al Inglés",
-    description: "Comienza tu viaje en inglés con vocabulario básico y frases esenciales.",
+    title: "Introduction to English",
+    description: "Start your English journey with basic vocabulary and essential phrases.",
     level: "A1",
     topic: "Everyday Conversations",
     duration: 60,
@@ -185,8 +185,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "5",
-    title: "Inglés para Viajes: Aeropuerto y Hotel",
-    description: "Inglés esencial para viajeros - desde la reserva hasta el check-out.",
+    title: "English for Travel: Airport & Hotel",
+    description: "Essential English for travelers - from booking to check-out.",
     level: "A2",
     topic: "Travel & Tourism",
     duration: 90,
@@ -194,8 +194,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "6",
-    title: "Vocabulario de la Industria Tech",
-    description: "Domina el lenguaje de la tecnología, startups y desarrollo de software.",
+    title: "Tech Industry Vocabulary",
+    description: "Master the language of technology, startups, and software development.",
     level: "B2",
     topic: "Technology",
     duration: 150,
@@ -203,8 +203,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "7",
-    title: "Negociaciones Empresariales Avanzadas",
-    description: "Estrategias y lenguaje de alto nivel para negociaciones complejas.",
+    title: "Advanced Business Negotiations",
+    description: "High-level strategies and language for complex negotiations.",
     level: "C1",
     topic: "Business English",
     duration: 200,
@@ -212,8 +212,8 @@ const mockCourses: CourseCardProps[] = [
   },
   {
     id: "8",
-    title: "Fundamentos de Inglés Médico",
-    description: "Vocabulario esencial para profesionales de la salud y pacientes.",
+    title: "Medical English Fundamentals",
+    description: "Essential vocabulary for healthcare professionals and patients.",
     level: "B1",
     topic: "Healthcare",
     duration: 120,
@@ -225,12 +225,12 @@ const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 const getLevelLabel = (level: string) => {
   const labels: Record<string, string> = {
-    A1: "Principiante",
-    A2: "Elemental", 
-    B1: "Intermedio",
-    B2: "Intermedio Alto",
-    C1: "Avanzado",
-    C2: "Maestría",
+    A1: "Beginner",
+    A2: "Elementary",
+    B1: "Intermediate",
+    B2: "Upper Intermediate",
+    C1: "Advanced",
+    C2: "Mastery",
   };
   return labels[level] || level;
 };
@@ -303,9 +303,9 @@ export function CourseCatalog() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Mis Cursos</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">My Courses</h1>
         <p className="font-mono text-muted-foreground">
-          Explora y continúa tu viaje de aprendizaje
+          Explore and continue your learning journey
         </p>
       </div>
 
@@ -320,7 +320,7 @@ export function CourseCatalog() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Unlock className="w-4 h-4 text-muted-foreground" />
-            <span className="font-mono text-xs text-muted-foreground" data-testid="text-unlocked-levels-label">Niveles desbloqueados:</span>
+            <span className="font-mono text-xs text-muted-foreground" data-testid="text-unlocked-levels-label">Unlocked levels:</span>
             {unlockedLevels.map((level) => (
               <Badge key={level} variant={level === userLevel ? "default" : "secondary"} className="text-xs" data-testid={`badge-level-${level}`}>
                 {level}
@@ -335,7 +335,7 @@ export function CourseCatalog() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar cursos..."
+            placeholder="Search courses..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 font-mono"
@@ -345,10 +345,10 @@ export function CourseCatalog() {
         <div className="flex gap-2">
           <Select value={levelFilter} onValueChange={setLevelFilter}>
             <SelectTrigger className="w-32 font-mono" data-testid="select-level-filter">
-              <SelectValue placeholder="Nivel" />
+              <SelectValue placeholder="Level" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los Niveles</SelectItem>
+              <SelectItem value="all">All Levels</SelectItem>
               {courseLevels.map((level) => (
                 <SelectItem key={level} value={level}>{level}</SelectItem>
               ))}
@@ -356,11 +356,11 @@ export function CourseCatalog() {
           </Select>
           <Select value={topicFilter} onValueChange={setTopicFilter}>
             <SelectTrigger className="w-40 font-mono" data-testid="select-topic-filter">
-              <SelectValue placeholder="Tema" />
+              <SelectValue placeholder="Topic" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los Temas</SelectItem>
-              {Object.entries(courseTopicsEs).map(([value, label]) => (
+              <SelectItem value="all">All Topics</SelectItem>
+              {Object.entries(courseTopics).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -371,9 +371,9 @@ export function CourseCatalog() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted">
-          <TabsTrigger value="all" className="font-mono" data-testid="tab-all-courses">Todos los Cursos</TabsTrigger>
-          <TabsTrigger value="enrolled" className="font-mono" data-testid="tab-enrolled">En Progreso</TabsTrigger>
-          <TabsTrigger value="completed" className="font-mono" data-testid="tab-completed">Completados</TabsTrigger>
+          <TabsTrigger value="all" className="font-mono" data-testid="tab-all-courses">All Courses</TabsTrigger>
+          <TabsTrigger value="enrolled" className="font-mono" data-testid="tab-enrolled">In Progress</TabsTrigger>
+          <TabsTrigger value="completed" className="font-mono" data-testid="tab-completed">Completed</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -387,7 +387,7 @@ export function CourseCatalog() {
       ) : (
         <div className="text-center py-20">
           <Filter className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">No se encontraron cursos con estos criterios</p>
+          <p className="font-mono text-muted-foreground">No courses found matching these criteria</p>
           <Button 
             variant="outline" 
             className="mt-4 font-mono"
@@ -397,7 +397,7 @@ export function CourseCatalog() {
               setTopicFilter("all");
             }}
           >
-            Limpiar Filtros
+            Clear Filters
           </Button>
         </div>
       )}

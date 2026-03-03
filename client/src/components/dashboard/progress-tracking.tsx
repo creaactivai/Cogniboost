@@ -37,30 +37,30 @@ import {
 
 // Sample data for charts (shown as preview/demo for new users)
 const sampleSkillsData = [
-  { skill: "Hablar", value: 70, fullMark: 100 },
-  { skill: "Escuchar", value: 85, fullMark: 100 },
-  { skill: "Leer", value: 90, fullMark: 100 },
-  { skill: "Escribir", value: 65, fullMark: 100 },
-  { skill: "Vocabulario", value: 75, fullMark: 100 },
-  { skill: "Gramática", value: 80, fullMark: 100 },
+  { skill: "Speaking", value: 70, fullMark: 100 },
+  { skill: "Listening", value: 85, fullMark: 100 },
+  { skill: "Reading", value: 90, fullMark: 100 },
+  { skill: "Writing", value: 65, fullMark: 100 },
+  { skill: "Vocabulary", value: 75, fullMark: 100 },
+  { skill: "Grammar", value: 80, fullMark: 100 },
 ];
 
 const sampleWeeklyProgress = [
-  { day: "Lun", minutes: 45 },
-  { day: "Mar", minutes: 60 },
-  { day: "Mié", minutes: 30 },
-  { day: "Jue", minutes: 90 },
-  { day: "Vie", minutes: 45 },
-  { day: "Sáb", minutes: 120 },
-  { day: "Dom", minutes: 60 },
+  { day: "Mon", minutes: 45 },
+  { day: "Tue", minutes: 60 },
+  { day: "Wed", minutes: 30 },
+  { day: "Thu", minutes: 90 },
+  { day: "Fri", minutes: 45 },
+  { day: "Sat", minutes: 120 },
+  { day: "Sun", minutes: 60 },
 ];
 
 // Achievement definitions (system tracks unlock status from user activity)
 const achievementDefinitions = [
-  { icon: Flame, id: "streak_7", title: "Racha de 7 Días", description: "Estudia 7 días seguidos" },
-  { icon: Users, id: "labs_10", title: "Asistente Regular", description: "Asiste a 10 labs de conversación" },
-  { icon: BookOpen, id: "courses_5", title: "Maestro de Cursos", description: "Completa 5 cursos" },
-  { icon: Zap, id: "fast_learner", title: "Aprendiz Veloz", description: "Termina un curso en una semana" },
+  { icon: Flame, id: "streak_7", title: "7-Day Streak", description: "Study 7 days in a row" },
+  { icon: Users, id: "labs_10", title: "Regular Attendee", description: "Attend 10 conversation labs" },
+  { icon: BookOpen, id: "courses_5", title: "Course Master", description: "Complete 5 courses" },
+  { icon: Zap, id: "fast_learner", title: "Fast Learner", description: "Finish a course in one week" },
 ];
 
 interface CourseScore {
@@ -99,12 +99,12 @@ const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 const getLevelLabel = (level: string) => {
   const labels: Record<string, string> = {
-    A1: "Principiante",
-    A2: "Elemental",
-    B1: "Intermedio",
-    B2: "Intermedio Alto",
-    C1: "Avanzado",
-    C2: "Maestría",
+    A1: "Beginner",
+    A2: "Elementary",
+    B1: "Intermediate",
+    B2: "Upper Intermediate",
+    C1: "Advanced",
+    C2: "Mastery",
   };
   return labels[level] || level;
 };
@@ -148,9 +148,9 @@ export function ProgressTracking() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Progreso y Certificados</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">Progress & Certificates</h1>
         <p className="font-mono text-muted-foreground">
-          Sigue tu camino de aprendizaje y logros
+          Track your learning journey and achievements
         </p>
       </div>
       
@@ -163,16 +163,16 @@ export function ProgressTracking() {
                 <Lock className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-display text-lg uppercase">Analíticas Avanzadas</p>
+                <p className="font-display text-lg uppercase">Advanced Analytics</p>
                 <p className="text-sm text-muted-foreground">
-                  Actualiza tu plan para acceder a gráficos de habilidades, certificados y logros detallados.
+                  Upgrade your plan to access skill charts, certificates, and detailed achievements.
                 </p>
               </div>
             </div>
             <Link href="/#pricing">
               <Button data-testid="button-upgrade-analytics">
                 <Unlock className="w-4 h-4 mr-2" />
-                Actualizar Plan
+                Upgrade Plan
               </Button>
             </Link>
           </div>
@@ -196,11 +196,11 @@ export function ProgressTracking() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xl font-display uppercase mb-2">Progreso de Nivel</h2>
+                <h2 className="text-xl font-display uppercase mb-2">Level Progress</h2>
                 {totalXP > 0 ? (
                   <>
                     <p className="font-mono text-muted-foreground mb-3">
-                      {totalXP} / {xpNeeded} XP para alcanzar {nextLevel}
+                      {totalXP} / {xpNeeded} XP to reach {nextLevel}
                     </p>
                     <div className="flex items-center gap-3">
                       <Progress value={xpProgress} className="w-48 h-2" />
@@ -209,7 +209,7 @@ export function ProgressTracking() {
                   </>
                 ) : (
                   <p className="font-mono text-muted-foreground mb-3">
-                    Nivel actual: <strong className="text-primary">{currentLevel} - {getLevelLabel(currentLevel)}</strong>. ¡Completa cursos para ganar XP!
+                    Current level: <strong className="text-primary">{currentLevel} - {getLevelLabel(currentLevel)}</strong>. Complete courses to earn XP!
                   </p>
                 )}
               </div>
@@ -218,16 +218,16 @@ export function ProgressTracking() {
               <Card className="p-4 border-border">
                 <div className="flex items-center gap-2 mb-1">
                   <Target className="w-4 h-4 text-accent" />
-                  <span className="text-xs font-mono text-muted-foreground">Meta Diaria</span>
+                  <span className="text-xs font-mono text-muted-foreground">Daily Goal</span>
                 </div>
                 <p className="text-2xl font-display">30 min</p>
               </Card>
               <Card className="p-4 border-border">
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="w-4 h-4 text-accent" />
-                  <span className="text-xs font-mono text-muted-foreground">Racha</span>
+                  <span className="text-xs font-mono text-muted-foreground">Streak</span>
                 </div>
-                <p className="text-2xl font-display">0 días</p>
+                <p className="text-2xl font-display">0 days</p>
               </Card>
             </div>
           </div>
@@ -239,7 +239,7 @@ export function ProgressTracking() {
         <Card className="p-6 border-border">
           <div className="flex items-center gap-3 mb-6">
             <GraduationCap className="w-6 h-6 text-primary" />
-            <h3 className="text-lg font-display uppercase">Puntuaciones de Cursos</h3>
+            <h3 className="text-lg font-display uppercase">Course Scores</h3>
           </div>
           <div className="flex items-center justify-center h-32">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent animate-spin" />
@@ -249,36 +249,36 @@ export function ProgressTracking() {
         <Card className="p-6 border-border">
           <div className="flex items-center gap-3 mb-6">
             <GraduationCap className="w-6 h-6 text-primary" />
-            <h3 className="text-lg font-display uppercase">Puntuaciones de Cursos</h3>
+            <h3 className="text-lg font-display uppercase">Course Scores</h3>
           </div>
           
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <div className="flex items-center gap-2 mb-1">
                 <Trophy className="w-4 h-4 text-primary" />
-                <span className="text-xs font-mono text-muted-foreground">GPA Global</span>
+                <span className="text-xs font-mono text-muted-foreground">Overall GPA</span>
               </div>
               <p className="text-3xl font-display text-primary">{studentScores.overallGpa.toFixed(2)}</p>
-              <p className="text-xs font-mono text-muted-foreground">de 4.0</p>
+              <p className="text-xs font-mono text-muted-foreground">of 4.0</p>
             </Card>
             <Card className="p-4 border-border">
               <div className="flex items-center gap-2 mb-1">
                 <BookOpen className="w-4 h-4 text-accent" />
-                <span className="text-xs font-mono text-muted-foreground">Cursos Inscritos</span>
+                <span className="text-xs font-mono text-muted-foreground">Courses Enrolled</span>
               </div>
               <p className="text-3xl font-display">{studentScores.totalCoursesEnrolled}</p>
             </Card>
             <Card className="p-4 border-border">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-xs font-mono text-muted-foreground">Cursos Aprobados</span>
+                <span className="text-xs font-mono text-muted-foreground">Courses Passed</span>
               </div>
               <p className="text-3xl font-display text-green-600">{studentScores.coursesPassed}</p>
             </Card>
             <Card className="p-4 border-border">
               <div className="flex items-center gap-2 mb-1">
                 <Target className="w-4 h-4 text-accent" />
-                <span className="text-xs font-mono text-muted-foreground">Promedio</span>
+                <span className="text-xs font-mono text-muted-foreground">Average</span>
               </div>
               <p className="text-3xl font-display">
                 {studentScores.courses?.length > 0 
@@ -291,7 +291,7 @@ export function ProgressTracking() {
           {/* Course breakdown */}
           {studentScores.courses?.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-sm font-mono text-muted-foreground uppercase">Desglose por Curso</h4>
+              <h4 className="text-sm font-mono text-muted-foreground uppercase">Course Breakdown</h4>
               {studentScores.courses.map((course) => (
                 <div key={course.courseId} className="flex items-center gap-4 p-3 bg-muted/30" data-testid={`score-course-${course.courseId}`}>
                   <div className="flex-1 min-w-0">
@@ -301,16 +301,16 @@ export function ProgressTracking() {
                       {course.isPassed ? (
                         <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          Aprobado
+                          Passed
                         </Badge>
                       ) : (
                         <Badge variant="secondary">
-                          En progreso
+                          In Progress
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="font-mono">{course.modulesCompleted}/{course.totalModules} módulos</span>
+                      <span className="font-mono">{course.modulesCompleted}/{course.totalModules} modules</span>
                       <span className="font-mono">GPA: {course.gpa.toFixed(2)}</span>
                     </div>
                   </div>
@@ -334,7 +334,7 @@ export function ProgressTracking() {
             <div className="w-10 h-10 bg-primary/10 flex items-center justify-center">
               <Clock className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-xs font-mono text-muted-foreground uppercase">Horas Totales</span>
+            <span className="text-xs font-mono text-muted-foreground uppercase">Total Hours</span>
           </div>
           <p className="text-3xl font-display">{statsLoading ? "..." : hoursStudied.toFixed(1)}</p>
         </Card>
@@ -343,7 +343,7 @@ export function ProgressTracking() {
             <div className="w-10 h-10 bg-primary/10 flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-xs font-mono text-muted-foreground uppercase">Cursos Hechos</span>
+            <span className="text-xs font-mono text-muted-foreground uppercase">Courses Completed</span>
           </div>
           <p className="text-3xl font-display">{studentScores?.coursesPassed || 0}</p>
         </Card>
@@ -352,7 +352,7 @@ export function ProgressTracking() {
             <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
               <Users className="w-5 h-5 text-accent" />
             </div>
-            <span className="text-xs font-mono text-muted-foreground uppercase">Labs Asistidos</span>
+            <span className="text-xs font-mono text-muted-foreground uppercase">Labs Attended</span>
           </div>
           <p className="text-3xl font-display">{statsLoading ? "..." : labsAttended}</p>
         </Card>
@@ -361,7 +361,7 @@ export function ProgressTracking() {
             <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-accent" />
             </div>
-            <span className="text-xs font-mono text-muted-foreground uppercase">Palabras Aprendidas</span>
+            <span className="text-xs font-mono text-muted-foreground uppercase">Words Learned</span>
           </div>
           <p className="text-3xl font-display">{statsLoading ? "..." : vocabularyWords}</p>
         </Card>
@@ -374,14 +374,14 @@ export function ProgressTracking() {
             <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-8 h-8 text-primary" />
             </div>
-            <p className="font-display text-lg uppercase mb-2">Próximamente</p>
-            <p className="text-sm text-muted-foreground mb-4">Gráficos de habilidades y actividad semanal estarán disponibles pronto</p>
-            <Badge variant="outline" className="font-mono">Vista Previa</Badge>
+            <p className="font-display text-lg uppercase mb-2">Coming Soon</p>
+            <p className="text-sm text-muted-foreground mb-4">Skill charts and weekly activity will be available soon</p>
+            <Badge variant="outline" className="font-mono">Preview</Badge>
           </div>
         </div>
         {/* Skills radar */}
         <Card className="p-6 border-border pointer-events-none opacity-50">
-          <h3 className="text-lg font-display uppercase mb-6">Desglose de Habilidades</h3>
+          <h3 className="text-lg font-display uppercase mb-6">Skills Breakdown</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={sampleSkillsData}>
@@ -396,7 +396,7 @@ export function ProgressTracking() {
                   tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                 />
                 <Radar
-                  name="Habilidades"
+                  name="Skills"
                   dataKey="value"
                   stroke="hsl(var(--primary))"
                   fill="hsl(var(--primary))"
@@ -408,14 +408,14 @@ export function ProgressTracking() {
           </div>
           <div className="mt-4 text-center">
             <p className="text-sm font-mono text-muted-foreground">
-              Áreas de enfoque: <span className="text-foreground">Escritura</span> y <span className="text-foreground">Habla</span>
+              Focus areas: <span className="text-foreground">Writing</span> and <span className="text-foreground">Speaking</span>
             </p>
           </div>
         </Card>
 
         {/* Weekly activity */}
         <Card className="p-6 border-border pointer-events-none opacity-50">
-          <h3 className="text-lg font-display uppercase mb-6">Actividad de Esta Semana</h3>
+          <h3 className="text-lg font-display uppercase mb-6">This Week's Activity</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sampleWeeklyProgress}>
@@ -440,7 +440,7 @@ export function ProgressTracking() {
                     border: "1px solid hsl(var(--border))",
                     fontFamily: "monospace"
                   }}
-                  formatter={(value: number) => [`${value} min`, "Tiempo de Estudio"]}
+                  formatter={(value: number) => [`${value} min`, "Study Time"]}
                 />
                 <Area 
                   type="monotone" 
@@ -454,7 +454,7 @@ export function ProgressTracking() {
           </div>
           <div className="mt-4 text-center">
             <p className="text-sm font-mono text-muted-foreground">
-              Total esta semana: <span className="text-primary font-semibold">7.5 horas</span>
+              Total this week: <span className="text-primary font-semibold">7.5 hours</span>
             </p>
           </div>
         </Card>
@@ -467,13 +467,13 @@ export function ProgressTracking() {
             <div className="w-16 h-16 bg-primary/20 flex items-center justify-center mx-auto mb-4">
               <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <p className="font-display text-lg uppercase mb-2">Próximamente</p>
-            <p className="text-sm text-muted-foreground mb-4">Sistema de logros en desarrollo</p>
-            <Badge variant="outline" className="font-mono">Vista Previa</Badge>
+            <p className="font-display text-lg uppercase mb-2">Coming Soon</p>
+            <p className="text-sm text-muted-foreground mb-4">Achievements system in development</p>
+            <Badge variant="outline" className="font-mono">Preview</Badge>
           </div>
         </div>
         <Card className="p-6 border-border pointer-events-none opacity-50">
-          <h3 className="text-lg font-display uppercase mb-6">Logros</h3>
+          <h3 className="text-lg font-display uppercase mb-6">Achievements</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {achievementDefinitions.map((achievement, index) => (
               <div 
@@ -495,16 +495,16 @@ export function ProgressTracking() {
       <Card className="p-6 border-border">
         <div className="flex items-center gap-3 mb-6">
           <Award className="w-6 h-6 text-primary" />
-          <h3 className="text-lg font-display uppercase">Certificados</h3>
+          <h3 className="text-lg font-display uppercase">Certificates</h3>
         </div>
         <div className="text-center py-8">
           <div className="w-16 h-16 bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Award className="w-8 h-8 text-primary" />
           </div>
-          <p className="font-display text-lg uppercase mb-2">Próximamente</p>
+          <p className="font-display text-lg uppercase mb-2">Coming Soon</p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Podrás descargar y compartir certificados cuando completes cursos y niveles. 
-            ¡Sigue aprendiendo para desbloquear tus primeros certificados!
+            You'll be able to download and share certificates when you complete courses and levels.
+            Keep learning to unlock your first certificates!
           </p>
         </div>
       </Card>

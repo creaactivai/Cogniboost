@@ -19,18 +19,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import type { LiveSession, SessionRoom, UserStats, Enrollment, Course } from "@shared/schema";
 
-const courseTopicsEs: Record<string, string> = {
-  "Business English": "Inglés de Negocios",
-  "Travel & Tourism": "Viajes y Turismo",
-  "Technology": "Tecnología",
-  "Culture & Arts": "Cultura y Artes",
-  "Healthcare": "Salud",
-  "Finance": "Finanzas",
-  "Academic English": "Inglés Académico",
-  "Everyday Conversations": "Conversaciones Cotidianas",
+const courseTopicsEn: Record<string, string> = {
+  "Business English": "Business English",
+  "Travel & Tourism": "Travel & Tourism",
+  "Technology": "Technology",
+  "Culture & Arts": "Culture & Arts",
+  "Healthcare": "Healthcare",
+  "Finance": "Finance",
+  "Academic English": "Academic English",
+  "Everyday Conversations": "Everyday Conversations",
 };
 
-const getTopicLabel = (topic: string) => courseTopicsEs[topic] || topic;
+const getTopicLabel = (topic: string) => courseTopicsEn[topic] || topic;
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -105,14 +105,14 @@ function formatSessionDate(dateStr: string): { label: string; time: string } {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   
-  let label = `${date.getDate()} ${["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][date.getMonth()]}`;
+  let label = `${date.getDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()]}`;
   if (date.toDateString() === today.toDateString()) {
-    label = "Hoy";
+    label = "Today";
   } else if (date.toDateString() === tomorrow.toDateString()) {
-    label = "Mañana";
+    label = "Tomorrow";
   }
-  
-  const time = date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   
   return { label, time };
 }
@@ -132,7 +132,7 @@ function UpcomingSessionCard({ session }: UpcomingSessionCardProps) {
         <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
           <MessageSquare className="w-5 h-5 text-accent" />
         </div>
-        <span className="text-xs font-mono text-muted-foreground">{totalSpots} lugares</span>
+        <span className="text-xs font-mono text-muted-foreground">{totalSpots} spots</span>
       </div>
       <p className="font-mono text-sm font-medium mb-1">{session.title}</p>
       <div className="flex flex-wrap gap-1 mb-3">
@@ -189,17 +189,17 @@ export function DashboardOverview() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display uppercase mb-2">
-            Bienvenido/a, <span className="text-primary">{user?.firstName || user?.email?.split('@')[0] || "Estudiante"}</span>
+            Welcome, <span className="text-primary">{user?.firstName || user?.email?.split('@')[0] || "Student"}</span>
           </h1>
           <p className="font-mono text-muted-foreground">
-            Continúa tu camino hacia la fluidez en inglés
+            Continue your path to English fluency
           </p>
         </div>
         {xpPoints > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30">
             <Flame className="w-5 h-5 text-accent" />
             <span className="font-mono text-sm">
-              <span className="font-bold">{xpPoints} XP</span> acumulados
+              <span className="font-bold">{xpPoints} XP</span> earned
             </span>
           </div>
         )}
@@ -208,27 +208,27 @@ export function DashboardOverview() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           icon={Clock} 
-          label="Horas Estudiadas" 
+          label="Hours Studied" 
           value={hoursStudied.toFixed(1)} 
           sublabel="Total" 
           isLoading={statsLoading}
         />
         <StatCard 
           icon={BookOpen} 
-          label="Cursos Completados" 
+          label="Courses Completed" 
           value={userStats?.coursesCompleted || 0} 
           isLoading={statsLoading}
         />
         <StatCard 
           icon={Users} 
-          label="Labs Asistidos" 
+          label="Labs Attended" 
           value={userStats?.labsAttended || 0} 
           color="accent" 
           isLoading={statsLoading}
         />
         <StatCard 
           icon={TrendingUp} 
-          label="Nivel Actual" 
+          label="Current Level" 
           value={currentLevel} 
           sublabel={`${xpPoints} XP`} 
           isLoading={statsLoading}
@@ -238,10 +238,10 @@ export function DashboardOverview() {
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display uppercase">Continuar Aprendiendo</h2>
+            <h2 className="text-xl font-display uppercase">Continue Learning</h2>
             <Link href="/dashboard/courses">
               <Button variant="ghost" className="font-mono text-sm" data-testid="link-view-all-courses">
-                Ver Todos
+                View All
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -251,14 +251,14 @@ export function DashboardOverview() {
               <Card className="p-6 border-border text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
                 <p className="text-xs font-mono text-muted-foreground">
-                  Cargando tus cursos...
+                  Loading your courses...
                 </p>
               </Card>
             ) : enrollments.length > 0 ? (
               enrollments.slice(0, 3).map((enrollment) => (
                 <ContinueLearningCard 
                   key={enrollment.id} 
-                  title={enrollment.course?.title || "Curso"} 
+                  title={enrollment.course?.title || "Course"} 
                   level={enrollment.course?.level || "A1"} 
                   progress={(enrollment as any).progress || 0}
                   courseId={enrollment.courseId}
@@ -268,11 +268,11 @@ export function DashboardOverview() {
               <Card className="p-6 border-border text-center">
                 <BookOpen className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-sm font-mono text-muted-foreground mb-4">
-                  Aún no estás inscrito en ningún curso
+                  You're not enrolled in any courses yet
                 </p>
                 <Link href="/dashboard/courses">
                   <Button data-testid="button-explore-courses">
-                    Explorar Cursos
+                    Explore Courses
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -283,10 +283,10 @@ export function DashboardOverview() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display uppercase">Próximas Sesiones</h2>
+            <h2 className="text-xl font-display uppercase">Upcoming Sessions</h2>
             <Link href="/dashboard/labs">
               <Button variant="ghost" className="font-mono text-sm" data-testid="link-view-all-labs">
-                Ver Todos
+                View All
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -300,14 +300,14 @@ export function DashboardOverview() {
               <Card className="p-6 border-border text-center">
                 <Calendar className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-xs font-mono text-muted-foreground">
-                  No hay sesiones programadas
+                  No scheduled sessions
                 </p>
               </Card>
             )}
           </div>
           <Link href="/dashboard/labs">
             <Button className="w-full bg-accent text-accent-foreground font-mono uppercase tracking-wider" data-testid="button-book-lab">
-              Reservar una Sala
+              Book a Room
             </Button>
           </Link>
         </div>
