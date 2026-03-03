@@ -506,6 +506,13 @@ export async function registerRoutes(
       if (!courseId) {
         return res.status(400).json({ error: "Course ID is required" });
       }
+
+      // Prevent duplicate enrollments
+      const existing = await storage.getEnrollmentByUserAndCourse(userId, courseId);
+      if (existing) {
+        return res.status(200).json(existing);
+      }
+
       const enrollment = await storage.createEnrollment({ userId, courseId });
       res.status(201).json(enrollment);
     } catch (error) {

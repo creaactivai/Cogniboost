@@ -125,6 +125,8 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
     },
   });
 
@@ -168,6 +170,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     },
     onSuccess: () => {
       refetchProgress();
+      queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
       toast({
         title: "Lesson completed!",
         description: "You have successfully completed this lesson.",
@@ -193,6 +198,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       // Refetch progress to update unlock status if quiz passed
       if (result.isPassed) {
         refetchProgress();
+        queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
       }
       toast({
         title: result.isPassed ? "Congratulations!" : "Try again",
