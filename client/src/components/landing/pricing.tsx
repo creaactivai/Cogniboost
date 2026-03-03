@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Sparkles, Gift, Zap, Star, Crown, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { trackPricingViewed, trackPlanSelected, trackCheckoutStarted, trackCTAClicked } from "@/lib/analytics";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Carousel,
   CarouselContent,
@@ -16,6 +22,7 @@ const plans = [
     tier: "free",
     price: "$0",
     period: "para siempre",
+    perSessionCost: null,
     description: "Perfecto para explorar",
     icon: Gift,
     iconColor: "text-[hsl(174_58%_56%)]",
@@ -26,7 +33,7 @@ const plans = [
       { text: "1 Sesión de clase en vivo de prueba", included: true },
       { text: "Seguimiento básico de progreso", included: true },
       { text: "Biblioteca completa de cursos", included: false },
-      { text: "Conversation Labs", included: false },
+      { text: "Conversation Labs", included: false, hasTooltip: true },
       { text: "Certificados", included: false },
     ],
     cta: "Comenzar Gratis",
@@ -38,6 +45,7 @@ const plans = [
     tier: "flex",
     price: "$14.99",
     period: "/mes",
+    perSessionCost: null,
     description: "Para aprendizaje a tu ritmo",
     icon: Zap,
     iconColor: "text-orange-500",
@@ -49,7 +57,7 @@ const plans = [
       { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificado descargable", included: true },
       { text: "Soporte por email", included: true },
-      { text: "1 Conversation Lab por mes", included: true },
+      { text: "1 Conversation Lab por mes", included: true, hasTooltip: true },
       { text: "Clases en vivo grupales", included: false },
     ],
     cta: "Prueba 7 Días Gratis",
@@ -61,6 +69,7 @@ const plans = [
     tier: "basic",
     price: "$49.99",
     period: "/mes",
+    perSessionCost: "~$6.25 por sesión",
     description: "La opción más popular",
     icon: Star,
     iconColor: "text-primary",
@@ -69,7 +78,7 @@ const plans = [
     trial: "Prueba 7 días gratis",
     features: [
       { text: "Biblioteca completa de cursos", included: true },
-      { text: "2 Conversation Labs por semana", included: true },
+      { text: "2 Conversation Labs por semana", included: true, hasTooltip: true },
       { text: "Clases en vivo por nivel (A1-C2)", included: true },
       { text: "Seguimiento avanzado y analíticas", included: true },
       { text: "Certificado descargable", included: true },
@@ -85,6 +94,7 @@ const plans = [
     tier: "premium",
     price: "$99.99",
     period: "/mes",
+    perSessionCost: "Sesiones ilimitadas",
     description: "Para estudiantes comprometidos",
     icon: Crown,
     iconColor: "text-amber-500",
@@ -93,7 +103,7 @@ const plans = [
     trial: "Prueba 7 días gratis",
     features: [
       { text: "Biblioteca completa de cursos", included: true },
-      { text: "Conversation Labs ILIMITADOS", included: true, highlight: true },
+      { text: "Conversation Labs ILIMITADOS", included: true, highlight: true, hasTooltip: true },
       { text: "Clases en vivo por nivel (A1-C2)", included: true },
       { text: "Prioridad de agenda en labs", included: true },
       { text: "Soporte prioritario", included: true },
@@ -106,6 +116,8 @@ const plans = [
     stripePriceId: "price_1SrrgOBe5iAM2fel0N4oRbWS",
   },
 ];
+
+const CONVERSATION_LAB_TOOLTIP = "Sesiones en vivo donde practicas inglés hablando de temas que te interesan — negocios, entretenimiento, cultura — con otros profesionales de tu nivel.";
 
 function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: (priceId: string, planName: string) => void }) {
   const IconComponent = plan.icon;
@@ -120,12 +132,12 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
       window.location.href = "/signup";
     }
   };
-  
+
   return (
-    <div 
+    <div
       className={`
         relative p-6 border hover-elevate transition-colors duration-300 rounded flex flex-col h-full
-        ${plan.popular ? "border-primary" : "border-border"} 
+        ${plan.popular ? "border-primary" : "border-border"}
         ${plan.accent ? "bg-foreground text-background" : "bg-card"}
       `}
       data-testid={`card-plan-${plan.name.toLowerCase()}`}
@@ -153,10 +165,15 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
       {/* Plan header */}
       <div className="mb-6">
         <p className="text-sm font-medium uppercase tracking-wider opacity-60 mb-1" data-testid={`text-plan-name-${plan.name.toLowerCase()}`}>{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-2">
+        <div className="flex items-baseline gap-1 mb-1">
           <span className="text-4xl font-bold" data-testid={`text-plan-price-${plan.name.toLowerCase()}`}>{plan.price}</span>
           <span className="text-sm opacity-60">{plan.period}</span>
         </div>
+        {plan.perSessionCost && (
+          <p className={`text-xs font-medium mb-1 ${plan.accent ? "text-amber-400" : "text-primary"}`}>
+            {plan.perSessionCost}
+          </p>
+        )}
         <p className="text-sm opacity-60">{plan.description}</p>
       </div>
 
@@ -172,12 +189,24 @@ function PricingCard({ plan, onCheckout }: { plan: typeof plans[0]; onCheckout: 
             <span className={`text-sm leading-tight ${!feature.included ? "opacity-40" : ""} ${'highlight' in feature && feature.highlight ? "font-semibold text-amber-400" : ""}`}>
               {feature.text}
             </span>
+            {'hasTooltip' in feature && feature.hasTooltip && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 cursor-help ${plan.accent ? "opacity-50" : "text-muted-foreground"}`} />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[250px] text-xs">
+                    {CONVERSATION_LAB_TOOLTIP}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </li>
         ))}
       </ul>
 
       {/* CTA */}
-      <Button 
+      <Button
         className={`w-full ${plan.name === "Gratis" ? "bg-[#4ed0c3] text-foreground" : ""}`}
         variant={plan.variant}
         onClick={handleClick}
@@ -229,7 +258,7 @@ export function Pricing() {
         credentials: "include",
       });
       const data = await response.json();
-      
+
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -297,9 +326,9 @@ export function Pricing() {
           <>
             {/* Mobile carousel navigation */}
             <div className="flex items-center justify-between mb-4">
-              <Button 
-                size="icon" 
-                variant="ghost" 
+              <Button
+                size="icon"
+                variant="ghost"
                 onClick={() => api?.scrollPrev()}
                 disabled={current === 0}
                 className="disabled:opacity-30"
@@ -320,9 +349,9 @@ export function Pricing() {
                   />
                 ))}
               </div>
-              <Button 
-                size="icon" 
-                variant="ghost" 
+              <Button
+                size="icon"
+                variant="ghost"
                 onClick={() => api?.scrollNext()}
                 disabled={current === plans.length - 1}
                 className="disabled:opacity-30"
@@ -373,6 +402,14 @@ export function Pricing() {
             <span>7 días de prueba</span>
           </div>
         </div>
+
+        {/* Annual pricing note */}
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          ¿Necesitas un plan anual?{" "}
+          <a href="mailto:info@cognimight.com" className="text-primary hover:underline">
+            Escríbenos
+          </a>
+        </p>
       </div>
     </section>
   );

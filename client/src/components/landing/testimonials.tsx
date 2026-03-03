@@ -1,18 +1,10 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const testimonials = [
-  {
-    name: "Dorca NG",
-    role: "Empresaria",
-    company: "",
-    quote: "Me encanta este curso y la profesora es increíble. He aprendido muchísimas cosas. He estudiado en muchísimos institutos y dar con este ha sido la mejor decisión de mi vida.",
-    image: "",
-    initials: "DN",
-  },
   {
     name: "Roberto Encarnación",
     role: "Active Member",
@@ -20,6 +12,14 @@ const testimonials = [
     quote: "Seré breve: NO LO DUDES, INSCRÍBETE. Lo que más me sorprendió de este curso es que lo practicas inmediatamente. Perdí el miedo de hablarlo y de ser un A2 pasé a un B2 en solo 2 meses.",
     image: "",
     initials: "RE",
+  },
+  {
+    name: "Dorca NG",
+    role: "Empresaria",
+    company: "",
+    quote: "Me encanta este curso y la profesora es increíble. He aprendido muchísimas cosas. He estudiado en muchísimos institutos y dar con este ha sido la mejor decisión de mi vida.",
+    image: "",
+    initials: "DN",
   },
   {
     name: "Lawdelina Paulino",
@@ -47,8 +47,18 @@ const testimonials = [
   },
 ];
 
+function StarRating() {
+  return (
+    <div className="flex gap-0.5 mb-3">
+      {[...Array(5)].map((_, i) => (
+        <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+      ))}
+    </div>
+  );
+}
+
 export function Testimonials() {
-  const [activeIndex, setActiveIndex] = useState(2);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const handlePrev = () => {
     setActiveIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1));
@@ -68,7 +78,7 @@ export function Testimonials() {
     const adjustedDiff = getAdjustedDistance(index);
     const isActive = index === activeIndex;
     const absDistance = Math.abs(adjustedDiff);
-    
+
     if (absDistance > 2) {
       return { opacity: 0, transform: "scale(0.7)", zIndex: 0, display: "none" as const };
     }
@@ -97,7 +107,7 @@ export function Testimonials() {
           </h2>
         </div>
 
-        <div className="relative h-[400px] flex items-center justify-center">
+        <div className="relative h-[420px] flex items-center justify-center">
           <div className="relative w-full max-w-5xl flex items-center justify-center">
             {testimonials.map((testimonial, index) => {
               const style = getCardStyle(index);
@@ -132,20 +142,29 @@ export function Testimonials() {
                     )}
 
                     <CardContent className="p-6">
-                      <div className="flex items-start gap-3 mb-4">
-                        <Avatar className="w-12 h-12 border-2 border-background">
-                          <AvatarImage src={testimonial.image} alt={testimonial.name} />
-                          <AvatarFallback className="bg-[#4ed0c3] text-foreground">{testimonial.initials}</AvatarFallback>
-                        </Avatar>
-                      </div>
+                      {/* Star rating */}
+                      <StarRating />
 
-                      <p className={`text-sm leading-relaxed mb-4 ${isActive ? "" : "text-foreground"}`}>
+                      {/* Quote */}
+                      <p className={`text-sm leading-relaxed mb-5 ${isActive ? "" : "text-foreground"}`}>
                         "{testimonial.quote}"
                       </p>
 
-                      <p className={`text-xs ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                        - {testimonial.name}, {testimonial.role}{testimonial.company ? ` - ${testimonial.company}` : ""}
-                      </p>
+                      {/* Attribution — avatar + name below quote */}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-14 h-14 border-2 border-background">
+                          <AvatarImage src={testimonial.image} alt={testimonial.name} />
+                          <AvatarFallback className="bg-[#4ed0c3] text-foreground text-sm font-semibold">{testimonial.initials}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className={`text-sm font-semibold ${isActive ? "text-primary-foreground" : "text-foreground"}`}>
+                            {testimonial.name}
+                          </p>
+                          <p className={`text-xs ${isActive ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                            {testimonial.role}{testimonial.company ? ` · ${testimonial.company}` : ""}
+                          </p>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>

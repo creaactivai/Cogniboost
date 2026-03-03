@@ -1,13 +1,10 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Calendar, TrendingUp, Users, BookOpen, Award, Sparkles } from "lucide-react";
-import { SiWhatsapp } from "react-icons/si";
+import { Calendar, Users, BookOpen, Award, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AnimatedSection } from "@/hooks/use-scroll-animation";
 import { useBooking } from "@/contexts/booking-context";
-import { trackCTAClicked, trackBookingOpened, trackWhatsAppClicked } from "@/lib/analytics";
-
-const WHATSAPP_LINK = "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ";
+import { trackCTAClicked, trackBookingOpened } from "@/lib/analytics";
 
 export function Hero() {
   const [scrollY, setScrollY] = useState(0);
@@ -22,16 +19,16 @@ export function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
       {/* Grid pattern background with parallax */}
-      <div 
+      <div
         className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20"
         style={{ transform: `translateY(${scrollY * 0.1}px)` }}
       />
       {/* Animated accent blobs with parallax */}
-      <div 
+      <div
         className="absolute top-20 right-20 w-96 h-96 bg-primary/15 blur-3xl float-animation"
         style={{ transform: `translateY(${scrollY * 0.2}px)` }}
       />
-      <div 
+      <div
         className="absolute bottom-20 left-20 w-80 h-80 bg-[hsl(174_58%_56%/0.15)] blur-3xl float-animation"
         style={{ animationDelay: "3s", transform: `translateY(${scrollY * 0.15}px)` }}
       />
@@ -45,71 +42,53 @@ export function Hero() {
               <span className="text-sm uppercase tracking-wider">Para Hispanohablantes</span>
             </div>
 
-            {/* Main headline - New brand messaging */}
+            {/* Main headline */}
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
-              El inglés no es el problema.
+              Habla Inglés Con Confianza
               <br />
-              <span className="text-primary">El método sí.</span>
+              <span className="text-primary">— En Semanas, No Años</span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg">
-              <span className="font-semibold text-foreground">Metodología Class Labs:</span> Aprende inglés usándolo, no memorizándolo. 
-              Clases diseñadas para la vida real y el mundo profesional.
+              <span className="font-semibold text-foreground">Metodología Class Labs:</span> Aprende inglés usándolo en sesiones en vivo con profesionales como tú.
+              Resultados desde la primera semana.
             </p>
 
-            {/* CTA Buttons - Mobile-optimized: full-width on mobile, auto-width on desktop */}
+            {/* CTA Buttons - 2 clear CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:flex-wrap">
               <Button
                 size="lg"
-                className="w-full sm:w-[200px] justify-center"
-                onClick={() => { trackCTAClicked("Clase Gratis", "hero"); trackBookingOpened("class"); openBooking('class'); }}
+                className="w-full sm:w-auto justify-center"
+                onClick={() => { trackCTAClicked("Prueba Tu Primera Clase", "hero"); trackBookingOpened("class"); openBooking('class'); }}
                 data-testid="button-free-class"
               >
                 <Calendar className="mr-2 h-5 w-5" />
-                Clase Gratis!
+                Prueba Tu Primera Clase — Gratis
               </Button>
               <Link href="/placement-quiz" className="contents">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full sm:w-[200px] justify-center"
+                  className="w-full sm:w-auto justify-center"
                   data-testid="button-placement-quiz"
                   onClick={() => trackCTAClicked("Evaluar Mi Nivel", "hero")}
                 >
-                  <TrendingUp className="mr-2 h-5 w-5" />
                   Evaluar Mi Nivel
                 </Button>
               </Link>
-              <a href="#pricing" className="contents">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-[200px] justify-center bg-[#4ed0c3] hover:bg-[#3dbfb2] text-white border-[#4ed0c3]"
-                  data-testid="button-buy-now"
-                  onClick={() => trackCTAClicked("Comprar Ahora", "hero")}
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Comprar Ahora
-                </Button>
-              </a>
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="contents">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-[200px] justify-center"
-                  data-testid="button-whatsapp"
-                  onClick={() => trackWhatsAppClicked("hero")}
-                >
-                  <SiWhatsapp className="mr-2 h-5 w-5" />
-                  Asistencia
-                </Button>
-              </a>
             </div>
 
-            {/* Social proof */}
-            <div className="pt-4">
+            {/* Social proof — Roberto's testimonial + community */}
+            <div className="pt-4 space-y-3">
+              <div className="border-l-4 border-primary pl-4">
+                <p className="text-sm italic text-foreground">
+                  "De A2 a B2 en solo 2 meses."
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">— Roberto E., ARMY</p>
+              </div>
               <p className="text-sm text-muted-foreground">
-                Únete a <span className="text-foreground font-semibold">500+</span> profesionales y jóvenes avanzando sus carreras
+                Únete a <span className="text-foreground font-semibold">500+</span> profesionales hispanohablantes
               </p>
             </div>
           </div>
@@ -121,14 +100,14 @@ export function Hero() {
                 <div className="p-4 sm:p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary mb-2 sm:mb-3" />
                   <p className="text-2xl sm:text-3xl font-bold">250+</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Lecciones</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Lecciones Profesionales</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={200} className="h-full">
                 <div className="p-4 sm:p-6 bg-card border border-card-border hover-elevate rounded transition-colors duration-300 h-full">
                   <Users className="w-6 h-6 sm:w-8 sm:h-8 text-[hsl(174_58%_56%)] mb-2 sm:mb-3" />
                   <p className="text-2xl sm:text-3xl font-bold">500+</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Profesionales Activos</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Estudiantes Activos</p>
                 </div>
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={300} className="h-full">
@@ -140,9 +119,9 @@ export function Hero() {
               </AnimatedSection>
               <AnimatedSection animation="fade-left" delay={400} className="h-full">
                 <div className="p-4 sm:p-6 bg-primary text-primary-foreground hover-elevate rounded transition-colors duration-300 h-full">
-                  <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3" />
-                  <p className="text-2xl sm:text-3xl font-bold">3x</p>
-                  <p className="text-xs uppercase tracking-wider opacity-80">Más Rápido</p>
+                  <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3" />
+                  <p className="text-2xl sm:text-3xl font-bold">87%</p>
+                  <p className="text-xs uppercase tracking-wider opacity-80">Completación</p>
                 </div>
               </AnimatedSection>
             </div>

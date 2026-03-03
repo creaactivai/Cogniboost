@@ -19,6 +19,10 @@ const faqs = [
     answer: "A diferencia de los cursos donde te dicen qué temas aprender y de qué hablar (que tienen tasas de abandono del 95%), CogniBoost usa Class Labs donde hablas de temas que te interesan y ayudan a tu carrera. Avanzas con profesionales y estudiantes con objetivos similares, guiados por instructores nativos nivel C2. Por eso tenemos tasas de finalización del 87%.",
   },
   {
+    question: "Ya he probado otros cursos de inglés y no me funcionaron. ¿Por qué sería diferente?",
+    answer: "Entendemos tu frustración. Los cursos tradicionales tienen tasas de abandono del 95% porque te obligan a memorizar gramática y repetir diálogos que no te interesan. CogniBoost es diferente: en nuestros Class Labs hablas de temas que TE interesan — negocios, entretenimiento, cultura — con profesionales con objetivos similares. Por eso nuestra tasa de finalización es del 87%. Además, tu primera clase es gratis y sin compromiso — pruébalo y decide por ti mismo.",
+  },
+  {
     question: "¿Cómo funcionan los Class Labs?",
     answer: "Cada Class Lab tiene 8-12 profesionales con objetivos similares. Avanzan juntos durante 8 semanas promedio, con sesiones en vivo sobre temas de tu interés y expertos dándote feedback en tiempo real. La combinación de temas relevantes y comunidad es lo que impulsa las tasas de finalización del 87%.",
   },

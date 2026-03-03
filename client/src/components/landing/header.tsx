@@ -70,7 +70,7 @@ export function Header() {
                   <Button
                     data-testid="button-signup"
                   >
-                    Crear cuenta gratis
+                    Empieza Gratis
                   </Button>
                 </a>
               </div>
@@ -113,7 +113,7 @@ export function Header() {
                   </a>
                   <a href="/login" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full">
-                      Crear cuenta gratis
+                      Empieza Gratis
                     </Button>
                   </a>
                 </>

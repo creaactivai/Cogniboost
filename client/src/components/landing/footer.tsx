@@ -1,4 +1,5 @@
-import { SiLinkedin, SiInstagram, SiYoutube, SiX, SiTiktok, SiWhatsapp } from "react-icons/si";
+import { SiWhatsapp } from "react-icons/si";
+// Re-add social links when real URLs are available (LinkedIn, Instagram, YouTube, TikTok, X)
 import logoImage from "@assets/Frame_2_1768763364518.png";
 import { trackSocialClicked } from "@/lib/analytics";
 
@@ -23,11 +24,6 @@ const footerLinks = {
 
 const socialLinks = [
   { icon: SiWhatsapp, href: "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ", label: "WhatsApp" },
-  { icon: SiLinkedin, href: "#", label: "LinkedIn" },
-  { icon: SiInstagram, href: "#", label: "Instagram" },
-  { icon: SiYoutube, href: "#", label: "YouTube" },
-  { icon: SiTiktok, href: "#", label: "TikTok" },
-  { icon: SiX, href: "#", label: "X" },
 ];
 
 export function Footer() {
@@ -38,9 +34,9 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center mb-6">
-              <img 
-                src={logoImage} 
-                alt="CogniBoost" 
+              <img
+                src={logoImage}
+                alt="CogniBoost"
                 className="h-8 w-auto"
               />
             </div>
@@ -75,7 +71,7 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
-                  <a 
+                  <a
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -92,7 +88,7 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
-                  <a 
+                  <a
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -109,7 +105,7 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
-                  <a 
+                  <a
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
