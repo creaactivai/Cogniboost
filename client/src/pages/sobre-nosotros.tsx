@@ -40,9 +40,9 @@ export default function SobreNosotros() {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Sobre Nosotros - CogniBoost | Metodologia Class Labs</title>
-        <meta name="description" content="Conoce a CogniBoost y la metodologia Class Labs creada por Lic. Coral Lozano. 10+ años de experiencia en educacion, 87% de avance profesional en 6 meses. Educacion de ingles diseñada para hispanohablantes." />
-        <link rel="canonical" href="https://cogniboost-production.up.railway.app/sobre-nosotros" />
+        <title>Sobre Nosotros - CogniBoost | Metodología Class Labs</title>
+        <meta name="description" content="Conoce a CogniBoost y la metodología Class Labs creada por Lic. Coral Lozano. 10+ años de experiencia en educación, 87% tasa de completación. Educación de inglés diseñada para hispanohablantes." />
+        <link rel="canonical" href="https://cogniboost.co/sobre-nosotros" />
       </Helmet>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6">

@@ -816,7 +816,7 @@ export async function registerRoutes(
           tier: subscriptionTier,
           amount: planPrices[subscriptionTier] || '0',
           timestamp: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
-          adminUrl: `${process.env.APP_URL || 'https://cogniboost-production.up.railway.app'}/admin/financials`,
+          adminUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/admin/financials`,
         }).then(() => {
           console.log(`[link-customer] Admin notification sent for new subscription: ${user.email} → ${displayPlan}`);
         }).catch(err => {

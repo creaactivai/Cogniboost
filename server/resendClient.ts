@@ -1047,7 +1047,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <p style="margin: 0;">Completa la primera lección de tu curso. Es corta, interactiva y te dará la confianza de que esto funciona.</p>
             </div>
             <p>Los estudiantes que completan su primera lección en las primeras 48 horas tienen <strong>3x más probabilidad</strong> de alcanzar sus metas de inglés.</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">EMPEZAR MI PRIMERA LECCIÓN</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">EMPEZAR MI PRIMERA LECCIÓN</a>
             <p>¿Tienes preguntas? Responde a este email y te ayudamos.</p>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
@@ -1079,7 +1079,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             </div>
             <p>El secreto de María fue simple: <strong>consistencia + práctica en vivo.</strong> Los cursos te dan la base, los Class Labs te dan la fluidez.</p>
             <p>Tú también puedes lograrlo. ¿Ya reservaste tu primera sesión en vivo?</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">EXPLORAR CLASS LABS</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">EXPLORAR CLASS LABS</a>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
           </div>
@@ -1115,7 +1115,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <p>No son clases normales. Son laboratorios de conversación donde practicas con otros estudiantes de TU nivel. Máx. 6 personas, temas reales, feedback inmediato.</p>
             </div>
             <p>¿Ya probaste ambas? Si no, esta semana es el momento perfecto.</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/placement-quiz'}" class="cta">TOMAR MI EXAMEN DE NIVEL</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/placement-quiz'}" class="cta">TOMAR MI EXAMEN DE NIVEL</a>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
           </div>
@@ -1153,7 +1153,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <div class="benefit"><p style="margin: 0;">✓ Certificados de completación</p></div>
             <div class="benefit"><p style="margin: 0;">✓ Soporte prioritario</p></div>
             <p>Si no deseas continuar, puedes cancelar en cualquier momento desde tu dashboard. Sin compromisos.</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">VER MI PROGRESO</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">VER MI PROGRESO</a>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
           </div>
@@ -1180,7 +1180,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <p>Pero queremos que sepas algo importante: <strong>todo tu progreso sigue guardado.</strong> Tus lecciones completadas, tu nivel y tus logros no desaparecen.</p>
             <p>Cuando estés listo para continuar, solo elige un plan y retoma exactamente donde lo dejaste.</p>
             <p style="text-align: center;">
-              <a href="https://cogniboost-production.up.railway.app/#pricing" class="cta">VER PLANES Y PRECIOS</a>
+              <a href="https://cogniboost.co/#pricing" class="cta">VER PLANES Y PRECIOS</a>
             </p>
             <p>¿Algo nos faltó? ¿Tienes dudas? Responde a este email — nos importa tu experiencia.</p>
             <p><strong>— El equipo de CogniBoost</strong></p>
@@ -1217,7 +1217,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               </ul>
             </div>
             <p>Tu progreso sigue exactamente donde lo dejaste. Solo haz clic para retomar:</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">VOLVER A MI DASHBOARD</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">VOLVER A MI DASHBOARD</a>
             <p>Si ya no quieres recibir estos emails, lo entendemos. Pero tu cuenta siempre estará aquí.</p>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
@@ -1248,7 +1248,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               <p style="margin: 0;">Tu acceso a cursos y Class Labs no se verá interrumpido de inmediato, pero necesitamos que actualices tu método de pago para evitar la suspensión de tu cuenta.</p>
             </div>
             <p>Solo toma un minuto actualizar tu información de pago:</p>
-            <a href="${data.billingUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">ACTUALIZAR MÉTODO DE PAGO</a>
+            <a href="${data.billingUrl || 'https://cogniboost.co/dashboard'}" class="cta">ACTUALIZAR MÉTODO DE PAGO</a>
             <p>Si tienes alguna duda sobre el cobro, responde a este email y te ayudamos.</p>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
@@ -1300,7 +1300,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
               </tr>
             </table>
             <p>${parseInt(data.lessonsCompleted || '0') > 0 ? '¡Excelente trabajo! Sigue así.' : 'Esta semana fue tranquila. ¡La próxima puede ser tu mejor semana!'}</p>
-            <a href="${data.dashboardUrl || 'https://cogniboost-production.up.railway.app/dashboard'}" class="cta">IR A MI DASHBOARD</a>
+            <a href="${data.dashboardUrl || 'https://cogniboost.co/dashboard'}" class="cta">IR A MI DASHBOARD</a>
             <p><strong>— El equipo de CogniBoost</strong></p>
             <div class="footer"><p>© 2026 CogniBoost. Todos los derechos reservados.</p></div>
           </div>
@@ -1390,7 +1390,7 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             </div>
 
             <p style="text-align: center;">
-              <a href="${data.adminUrl || 'https://cogniboost-production.up.railway.app/admin/financials'}" style="display: inline-block; background: #667EEA; color: #ffffff; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 6px;">VER EN DASHBOARD</a>
+              <a href="${data.adminUrl || 'https://cogniboost.co/admin/financials'}" style="display: inline-block; background: #667EEA; color: #ffffff; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 6px;">VER EN DASHBOARD</a>
             </p>
 
             <div class="footer">

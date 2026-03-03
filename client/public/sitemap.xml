@@ -1,33 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://cogniboost-production.up.railway.app/</loc>
-    <lastmod>2026-02-15</lastmod>
+    <loc>https://cogniboost.co/</loc>
+    <lastmod>2026-03-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://cogniboost-production.up.railway.app/sobre-nosotros</loc>
-    <lastmod>2026-02-15</lastmod>
+    <loc>https://cogniboost.co/sobre-nosotros</loc>
+    <lastmod>2026-03-03</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://cogniboost-production.up.railway.app/legal</loc>
-    <lastmod>2026-02-15</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://cogniboost-production.up.railway.app/placement-quiz</loc>
-    <lastmod>2026-02-15</lastmod>
+    <loc>https://cogniboost.co/placement-quiz</loc>
+    <lastmod>2026-03-03</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://cogniboost-production.up.railway.app/login</loc>
+    <loc>https://cogniboost.co/legal</loc>
     <lastmod>2026-02-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

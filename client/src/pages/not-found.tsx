@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Home, ArrowLeft } from "lucide-react";
@@ -6,6 +7,10 @@ import { Link } from "wouter";
 export default function NotFound() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background" data-testid="page-not-found">
+      <Helmet>
+        <title>Página No Encontrada - CogniBoost</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex items-center mb-4 gap-3">
@@ -21,8 +26,8 @@ export default function NotFound() {
           </p>
 
           <div className="flex gap-2 mt-6">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => window.history.back()}
               data-testid="button-go-back"
             >

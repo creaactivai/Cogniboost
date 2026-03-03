@@ -13,9 +13,9 @@ export default function LandingPage() {
   return (
     <>
       <Helmet>
-        <title>CogniBoost - Aprende Ingles Profesional | Clases para Hispanohablantes</title>
-        <meta name="description" content="Aprende ingles profesional con la metodologia Class Labs. Clases en vivo, laboratorios de conversacion y cursos diseñados para hispanohablantes que quieren avanzar en sus carreras. 250+ lecciones, 95% satisfaccion." />
-        <link rel="canonical" href="https://cogniboost-production.up.railway.app/" />
+        <title>CogniBoost - Aprende Inglés Profesional | Clases para Hispanohablantes</title>
+        <meta name="description" content="Aprende inglés profesional con la metodología Class Labs. Clases en vivo, laboratorios de conversación y cursos diseñados para hispanohablantes que quieren avanzar en sus carreras. 250+ lecciones, 87% tasa de completación." />
+        <link rel="canonical" href="https://cogniboost.co/" />
       </Helmet>
       <Header />
       <div className="min-h-screen page-transition">

@@ -121,7 +121,7 @@ export function registerAuthRoutes(app: Express): void {
               tier: subscriptionTier,
               amount: ({ flex: '14.99', basic: '49.99', premium: '99.99' } as Record<string, string>)[subscriptionTier] || '0',
               timestamp: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
-              adminUrl: `${process.env.APP_URL || 'https://cogniboost-production.up.railway.app'}/admin/financials`,
+              adminUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/admin/financials`,
             }).catch(err => console.error(`[Signup] Failed to send admin notification:`, err));
 
             // Refresh user data to include Stripe fields

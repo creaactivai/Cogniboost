@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="">
+<html lang="es">
   <head>
     <script>
       // Force light mode as default - always start with light theme
@@ -39,10 +39,13 @@
 
       gtag('js', new Date());
     </script>
-    <!-- GA4 tag — loads async, measurement ID set via env or placeholder -->
+    <!--
+      GA4 Setup: Replace G-XXXXXXXXXX with your real Measurement ID.
+      Also set VITE_GA_MEASUREMENT_ID in your environment variables (Railway / .env).
+      Get your ID from: https://analytics.google.com → Admin → Data Streams → Measurement ID
+    -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
-      // Configure GA4 — replace G-XXXXXXXXXX with your real Measurement ID
       gtag('config', 'G-XXXXXXXXXX', {
         send_page_view: true,
         cookie_flags: 'SameSite=None;Secure'
@@ -52,31 +55,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>CogniBoost - Aprende Ingles Profesional | Clases para Hispanohablantes</title>
-    <meta name="description" content="Aprende ingles profesional con la metodologia Class Labs. Clases en vivo, laboratorios de conversacion y cursos diseñados para hispanohablantes que quieren avanzar en sus carreras. 250+ lecciones, 95% satisfaccion." />
-    <meta name="keywords" content="aprender ingles profesional, clases de ingles online, ingles para hispanohablantes, curso de ingles para profesionales, laboratorio de conversacion ingles, CogniBoost" />
-    <meta name="author" content="CogniBoost by CogniMight" />
-    <link rel="canonical" href="https://cogniboost-production.up.railway.app/" />
+    <title>CogniBoost - Aprende Inglés Profesional | Clases para Hispanohablantes</title>
+    <meta name="description" content="Aprende inglés profesional con la metodología Class Labs. Clases en vivo, laboratorios de conversación y cursos diseñados para hispanohablantes que quieren avanzar en sus carreras. 250+ lecciones, 87% tasa de completación." />
+    <meta name="keywords" content="aprender inglés profesional, clases de inglés online, inglés para hispanohablantes, curso de inglés para profesionales, laboratorio de conversación inglés, CogniBoost, inglés de negocios, clases de inglés conversacional" />
+    <meta name="author" content="CogniBoost by CogniMight — Lic. Coral Lozano, Fundadora" />
+    <link rel="canonical" href="https://cogniboost.co/" />
+
+    <!-- Hreflang: Spanish site targeting US hispanics -->
+    <link rel="alternate" hreflang="es-US" href="https://cogniboost.co/" />
+    <link rel="alternate" hreflang="es" href="https://cogniboost.co/" />
+    <link rel="alternate" hreflang="x-default" href="https://cogniboost.co/" />
 
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://cogniboost-production.up.railway.app/" />
-    <meta property="og:title" content="CogniBoost - Aprende Ingles Profesional" />
-    <meta property="og:description" content="Aprende ingles profesional con la metodologia Class Labs. 250+ lecciones, laboratorios de conversacion en vivo y cursos diseñados para hispanohablantes." />
-    <meta property="og:image" content="https://cogniboost-production.up.railway.app/assets/Frame_2_1768763364518-BVLm4IND.png" />
+    <meta property="og:url" content="https://cogniboost.co/" />
+    <meta property="og:title" content="CogniBoost - Aprende Inglés Profesional | Clases para Hispanohablantes" />
+    <meta property="og:description" content="Aprende inglés profesional con la metodología Class Labs. 250+ lecciones, laboratorios de conversación en vivo y cursos diseñados para hispanohablantes. 87% tasa de completación." />
+    <meta property="og:image" content="https://cogniboost.co/assets/Frame_2_1768763364518-BVLm4IND.png" />
     <meta property="og:locale" content="es_US" />
     <meta property="og:site_name" content="CogniBoost" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="CogniBoost - Aprende Ingles Profesional" />
-    <meta name="twitter:description" content="Metodologia Class Labs: aprende ingles usandolo, no memorizandolo. Clases diseñadas para la vida real y el mundo profesional." />
-    <meta name="twitter:image" content="https://cogniboost-production.up.railway.app/assets/Frame_2_1768763364518-BVLm4IND.png" />
+    <meta name="twitter:title" content="CogniBoost - Aprende Inglés Profesional" />
+    <meta name="twitter:description" content="Metodología Class Labs: aprende inglés usándolo en sesiones en vivo con profesionales como tú. 87% tasa de completación. Primera clase gratis." />
+    <meta name="twitter:image" content="https://cogniboost.co/assets/Frame_2_1768763364518-BVLm4IND.png" />
+
+    <!-- AI SEO: Allow AI search engines to understand and cite this content -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
 
-    <!-- Fonts: Only load what we actually use (Inter, Lora, JetBrains Mono) -->
+    <!-- Font Preload: Load primary weight first for better LCP -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -92,21 +104,33 @@
       "@type": "Organization",
       "name": "CogniBoost",
       "legalName": "CogniMight LLC",
-      "url": "https://cogniboost-production.up.railway.app",
-      "logo": "https://cogniboost-production.up.railway.app/assets/Frame_2_1768763364518-BVLm4IND.png",
-      "description": "Plataforma de aprendizaje de ingles profesional para hispanohablantes con la metodologia Class Labs.",
+      "url": "https://cogniboost.co",
+      "logo": "https://cogniboost.co/assets/Frame_2_1768763364518-BVLm4IND.png",
+      "description": "Plataforma de aprendizaje de inglés profesional para hispanohablantes con la metodología Class Labs. 87% tasa de completación.",
+      "foundingDate": "2025",
+      "founder": {
+        "@type": "Person",
+        "name": "Coral Lozano",
+        "jobTitle": "Fundadora & Directora Académica",
+        "description": "Lic. en Psicología, Maestría en Intervención de Dificultades de Aprendizaje, SAT Certified Coordinator, 10+ años en educación"
+      },
       "address": {
         "@type": "PostalAddress",
+        "streetAddress": "PMB 1420, 10900 Research Blvd, Ste 160C",
         "addressLocality": "Austin",
         "addressRegion": "TX",
+        "postalCode": "78759",
         "addressCountry": "US"
       },
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "info@cognimight.com",
-        "contactType": "customer service"
+        "contactType": "customer service",
+        "availableLanguage": ["es", "en"]
       },
-      "sameAs": []
+      "sameAs": [
+        "https://chat.whatsapp.com/DKAjOGcbzjsJUzg9R7dTHJ"
+      ]
     }
     </script>
 
@@ -116,12 +140,13 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "CogniBoost",
-      "url": "https://cogniboost-production.up.railway.app",
-      "inLanguage": "es"
+      "url": "https://cogniboost.co",
+      "inLanguage": "es",
+      "dateModified": "2026-03-03"
     }
     </script>
 
-    <!-- Structured Data: FAQPage -->
+    <!-- Structured Data: FAQPage (synced with actual FAQ content — 9 questions) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -129,18 +154,26 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "¿En que se diferencia CogniBoost de otros cursos online?",
+          "name": "¿En qué se diferencia CogniBoost de otros cursos online?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A diferencia de los cursos donde te dicen que temas aprender (que tienen tasas de abandono del 95%), CogniBoost usa Class Labs donde hablas de temas que te interesan y ayudan a tu carrera. Avanzas con profesionales y estudiantes con objetivos similares, guiados por instructores nativos nivel C2. Por eso tenemos tasas de finalizacion del 87%."
+            "text": "A diferencia de los cursos donde te dicen qué temas aprender (que tienen tasas de abandono del 95%), CogniBoost usa Class Labs donde hablas de temas que te interesan y ayudan a tu carrera. Avanzas con profesionales y estudiantes con objetivos similares, guiados por instructores nativos nivel C2. Por eso tenemos tasas de finalización del 87%."
           }
         },
         {
           "@type": "Question",
-          "name": "¿Como funcionan los Class Labs?",
+          "name": "Ya he probado otros cursos de inglés y no me funcionaron. ¿Por qué sería diferente?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Cada Class Lab tiene 8-12 profesionales con objetivos similares. Avanzan juntos durante 8 semanas promedio, con sesiones en vivo sobre temas de tu interes y expertos dandote feedback en tiempo real."
+            "text": "Los cursos tradicionales tienen tasas de abandono del 95% porque te obligan a memorizar gramática y repetir diálogos que no te interesan. CogniBoost es diferente: en nuestros Class Labs hablas de temas que te interesan — negocios, entretenimiento, cultura — con profesionales con objetivos similares. Por eso nuestra tasa de finalización es del 87%. Además, tu primera clase es gratis y sin compromiso."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo funcionan los Class Labs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Cada Class Lab tiene 8-12 profesionales con objetivos similares. Avanzan juntos durante 8 semanas promedio, con sesiones en vivo sobre temas de tu interés y expertos dándote feedback en tiempo real."
           }
         },
         {
@@ -148,15 +181,15 @@
           "name": "¿Los cursos son en vivo o pregrabados?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Combinamos ambos formatos. Tienes acceso a contenido pregrabado para estudiar a tu ritmo, mas sesiones en vivo semanales en Class Labs sobre temas de tu interes. Este modelo hibrido maximiza flexibilidad y resultados."
+            "text": "Combinamos ambos formatos. Tienes acceso a contenido pregrabado para estudiar a tu ritmo, más sesiones en vivo semanales en Class Labs sobre temas de tu interés. Este modelo híbrido maximiza flexibilidad y resultados."
           }
         },
         {
           "@type": "Question",
-          "name": "¿Puedo cancelar mi suscripcion?",
+          "name": "¿Puedo cancelar mi suscripción?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Por supuesto. Puedes cancelar en cualquier momento y no se te cobrara el proximo mes. Los cambios a planes menores toman efecto al final de tu periodo de facturacion."
+            "text": "Por supuesto. Puedes cancelar en cualquier momento y no se te cobrará el próximo mes. Los cambios a planes menores toman efecto al final de tu período de facturación."
           }
         },
         {
@@ -164,60 +197,105 @@
           "name": "¿Ofrecen certificados?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Si. Al completar cada curso recibes un certificado digital verificable que puedes compartir en LinkedIn. Tambien tendras proyectos reales que demuestran tus nuevas habilidades a empleadores potenciales."
+            "text": "Sí. Al completar cada curso recibes un certificado digital verificable que puedes compartir en LinkedIn. También tendrás proyectos reales que demuestran tus nuevas habilidades a empleadores potenciales."
           }
         },
         {
           "@type": "Question",
-          "name": "¿Como se que curso es el correcto para mi?",
+          "name": "¿Cuáles temas están disponibles en las sesiones en vivo?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Cuando te registras, realizas una evaluacion que identifica tus fortalezas, areas de mejora y objetivos. Te recomendamos un camino de aprendizaje personalizado basado en tu perfil y metas especificas."
+            "text": "Nuestros Class Labs cubren más de 20 áreas que incluyen Negocios, Entretenimiento, Cultura, Deporte, Relaciones Interpersonales y más. Dentro de cada categoría hay labs específicos como Real Estate, Películas, etc."
           }
         },
         {
           "@type": "Question",
-          "name": "¿Que metodos de pago aceptan?",
+          "name": "¿Cómo sé qué curso es el correcto para mí?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Aceptamos todas las tarjetas de credito y debito a nivel mundial. Tambien aceptamos metodos de pago como PayPal, Google Pay, Apple Pay, y Pay Over Time en Estados Unidos."
+            "text": "Cuando te registras, realizas una evaluación que identifica tus fortalezas, áreas de mejora y objetivos. Te recomendamos un camino de aprendizaje personalizado basado en tu perfil y metas específicas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Qué métodos de pago aceptan?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Aceptamos todas las tarjetas de crédito y débito a nivel mundial. También aceptamos métodos de pago como PayPal, Google Pay, Apple Pay, y Pay Over Time en Estados Unidos."
           }
         }
       ]
     }
     </script>
 
-    <!-- Structured Data: EducationalOrganization -->
+    <!-- Structured Data: EducationalOrganization with AggregateOffer -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "EducationalOrganization",
       "name": "CogniBoost",
-      "url": "https://cogniboost-production.up.railway.app",
-      "description": "Plataforma de aprendizaje de ingles profesional para hispanohablantes",
+      "url": "https://cogniboost.co",
+      "description": "Plataforma de aprendizaje de inglés profesional para hispanohablantes. Metodología Class Labs con 87% de tasa de completación.",
       "areaServed": {
         "@type": "Place",
         "name": "Americas"
       },
       "hasOfferCatalog": {
         "@type": "OfferCatalog",
-        "name": "Cursos de Ingles Profesional",
+        "name": "Cursos de Inglés Profesional",
         "itemListElement": [
           {
             "@type": "Course",
-            "name": "Ingles Profesional - Class Labs",
-            "description": "Aprende ingles profesional con sesiones en vivo, laboratorios de conversacion y contenido interactivo.",
+            "name": "Inglés Profesional - Class Labs",
+            "description": "Aprende inglés profesional con sesiones en vivo, laboratorios de conversación y contenido interactivo. Desde nivel A1 hasta C2.",
             "provider": {
               "@type": "Organization",
-              "name": "CogniBoost"
+              "name": "CogniBoost",
+              "url": "https://cogniboost.co"
             },
             "inLanguage": "es",
-            "educationalLevel": "Beginner to Advanced",
+            "educationalLevel": "Beginner to Advanced (A1-C2)",
+            "hasCourseInstance": {
+              "@type": "CourseInstance",
+              "courseMode": ["online", "blended"],
+              "instructor": {
+                "@type": "Person",
+                "name": "Coral Lozano"
+              }
+            },
             "offers": {
-              "@type": "Offer",
-              "price": "14.99",
+              "@type": "AggregateOffer",
+              "lowPrice": "0",
+              "highPrice": "99.99",
               "priceCurrency": "USD",
-              "availability": "https://schema.org/InStock"
+              "offerCount": "4",
+              "availability": "https://schema.org/InStock",
+              "offers": [
+                {
+                  "@type": "Offer",
+                  "name": "Gratis",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Flex",
+                  "price": "14.99",
+                  "priceCurrency": "USD"
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Básico",
+                  "price": "49.99",
+                  "priceCurrency": "USD"
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Premium",
+                  "price": "99.99",
+                  "priceCurrency": "USD"
+                }
+              ]
             }
           }
         ]

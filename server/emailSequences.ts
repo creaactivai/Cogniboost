@@ -18,7 +18,7 @@ import { lessonProgress, quizAttempts, roomBookings } from "../shared/schema";
 import { and, eq, lt, gt, sql, isNull, isNotNull, desc, count } from "drizzle-orm";
 import { sendEmail, type EmailTemplate } from "./resendClient";
 
-const BASE_URL = process.env.APP_URL || process.env.APP_BASE_URL || "https://cogniboost-production.up.railway.app";
+const BASE_URL = process.env.APP_URL || process.env.APP_BASE_URL || "https://cogniboost.co";
 
 interface SequenceResult {
   sequence: string;

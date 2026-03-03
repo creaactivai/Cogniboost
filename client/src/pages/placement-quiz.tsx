@@ -66,9 +66,9 @@ export default function PlacementQuiz() {
 
   const placementHelmet = (
     <Helmet>
-      <title>Evalua Tu Nivel de Ingles Gratis - CogniBoost</title>
-      <meta name="description" content="Descubre tu nivel de ingles con nuestra evaluacion gratuita. Recibe recomendaciones personalizadas y un camino de aprendizaje adaptado a tus objetivos profesionales." />
-      <link rel="canonical" href="https://cogniboost-production.up.railway.app/placement-quiz" />
+      <title>Evalúa Tu Nivel de Inglés Gratis - CogniBoost</title>
+      <meta name="description" content="Descubre tu nivel de inglés con nuestra evaluación gratuita. Recibe recomendaciones personalizadas y un camino de aprendizaje adaptado a tus objetivos profesionales." />
+      <link rel="canonical" href="https://cogniboost.co/placement-quiz" />
     </Helmet>
   );
 
