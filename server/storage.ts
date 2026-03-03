@@ -68,7 +68,7 @@ import {
   type InsertStaffInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, count, and, isNull, isNotNull, gte } from "drizzle-orm";
+import { eq, desc, sql, count, and, isNull, isNotNull, gte, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Course Categories
@@ -510,7 +510,7 @@ export class DatabaseStorage implements IStorage {
     // Fetch all lessons for enrolled courses in a single query
     const courseIds = userEnrollments.map(e => e.enrollments.courseId);
     const allLessons = courseIds.length > 0
-      ? await db.select().from(lessons).where(sql`${lessons.courseId} = ANY(${courseIds})`)
+      ? await db.select().from(lessons).where(inArray(lessons.courseId, courseIds))
       : [];
 
     // Fetch all lesson progress for the user in a single query
