@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical, Volume2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical, Volume2, Youtube, Loader2, ChevronDown, ChevronRight, Sparkles, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
 
@@ -242,6 +242,56 @@ export default function AdminCourseLessons() {
     },
     onError: () => {
       toast({ title: "Error al eliminar modulo", variant: "destructive" });
+    },
+  });
+
+  // Video Activity state
+  const [expandedVideoModule, setExpandedVideoModule] = useState<string | null>(null);
+  const [videoUrlInput, setVideoUrlInput] = useState<Record<string, string>>({});
+  const [videoTranscriptInput, setVideoTranscriptInput] = useState<Record<string, string>>({});
+
+  const fetchTranscriptMutation = useMutation({
+    mutationFn: async ({ moduleId, videoUrl }: { moduleId: string; videoUrl: string }) => {
+      const res = await apiRequest("POST", `/api/admin/modules/${moduleId}/fetch-transcript`, { videoUrl });
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      setVideoTranscriptInput(prev => ({ ...prev, [variables.moduleId]: data.transcript }));
+      toast({ title: "Transcript obtenido exitosamente" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "No se pudo obtener el transcript automáticamente",
+        description: "Pega el transcript manualmente en el campo de texto.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const saveTranscriptMutation = useMutation({
+    mutationFn: async ({ moduleId, videoUrl, videoTranscript }: { moduleId: string; videoUrl: string; videoTranscript: string }) =>
+      apiRequest("PATCH", `/api/admin/modules/${moduleId}`, { videoUrl, videoTranscript, videoSource: "youtube" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      toast({ title: "Video guardado exitosamente" });
+    },
+    onError: () => {
+      toast({ title: "Error al guardar video", variant: "destructive" });
+    },
+  });
+
+  const generateVideoQuizMutation = useMutation({
+    mutationFn: async ({ moduleId, numberOfQuestions }: { moduleId: string; numberOfQuestions?: number }) => {
+      const res = await apiRequest("POST", `/api/admin/modules/${moduleId}/generate-video-quiz`, { numberOfQuestions });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      toast({ title: `Quiz generado: ${data.questions?.length || 0} preguntas` });
+    },
+    onError: () => {
+      toast({ title: "Error al generar quiz del video", variant: "destructive" });
     },
   });
 
@@ -747,9 +797,9 @@ export default function AdminCourseLessons() {
                       </p>
                     ) : (
                       moduleLessons.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson) => (
-                        <LessonCard 
-                          key={lesson.id} 
-                          lesson={lesson} 
+                        <LessonCard
+                          key={lesson.id}
+                          lesson={lesson}
                           courseId={courseId!}
                           onEdit={handleEdit}
                           onDelete={() => setLessonToDelete(lesson)}
@@ -757,6 +807,159 @@ export default function AdminCourseLessons() {
                         />
                       ))
                     )}
+
+                    {/* Video Activity Section */}
+                    <Card className="p-3 border-dashed" style={{ borderColor: '#FF0000', backgroundColor: 'rgba(255, 0, 0, 0.03)' }}>
+                      <div
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => setExpandedVideoModule(expandedVideoModule === module.id ? null : module.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Youtube className="w-5 h-5" style={{ color: '#FF0000' }} />
+                          <span className="font-bold text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                            Video Activity
+                          </span>
+                          {module.videoUrl ? (
+                            <Badge variant="default" className="text-[10px]" style={{ backgroundColor: '#10B981' }}>
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Configurado
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">Sin configurar</Badge>
+                          )}
+                        </div>
+                        {expandedVideoModule === module.id ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+
+                      {expandedVideoModule === module.id && (
+                        <div className="mt-4 space-y-4">
+                          {/* YouTube URL Input */}
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                              <Youtube className="w-4 h-4" style={{ color: '#FF0000' }} />
+                              YouTube URL
+                            </Label>
+                            <div className="flex gap-2">
+                              <Input
+                                value={videoUrlInput[module.id] ?? module.videoUrl ?? ""}
+                                onChange={(e) => setVideoUrlInput(prev => ({ ...prev, [module.id]: e.target.value }))}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={fetchTranscriptMutation.isPending || !((videoUrlInput[module.id] ?? module.videoUrl))}
+                                onClick={() => {
+                                  const url = videoUrlInput[module.id] ?? module.videoUrl;
+                                  if (url) fetchTranscriptMutation.mutate({ moduleId: module.id, videoUrl: url });
+                                }}
+                              >
+                                {fetchTranscriptMutation.isPending && fetchTranscriptMutation.variables?.moduleId === module.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  "Fetch Transcript"
+                                )}
+                              </Button>
+                            </div>
+                            {/* YouTube Preview */}
+                            {(videoUrlInput[module.id] || module.videoUrl) && (() => {
+                              const url = videoUrlInput[module.id] || module.videoUrl || "";
+                              let vId: string | null = null;
+                              try {
+                                const parsed = new URL(url);
+                                if (parsed.hostname.includes("youtube.com")) vId = parsed.searchParams.get("v");
+                                else if (parsed.hostname === "youtu.be") vId = parsed.pathname.slice(1);
+                              } catch { /* ignore */ }
+                              if (!vId) return null;
+                              return (
+                                <div className="mt-2 aspect-video bg-black rounded overflow-hidden">
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${vId}?rel=0`}
+                                    className="w-full h-full"
+                                    allow="autoplay; fullscreen"
+                                    allowFullScreen
+                                  />
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Transcript */}
+                          <div className="space-y-2">
+                            <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                              Transcript (para generar quiz)
+                            </Label>
+                            <Textarea
+                              value={videoTranscriptInput[module.id] ?? module.videoTranscript ?? ""}
+                              onChange={(e) => setVideoTranscriptInput(prev => ({ ...prev, [module.id]: e.target.value }))}
+                              placeholder="El transcript se obtiene automáticamente o puedes pegarlo manualmente aquí..."
+                              rows={6}
+                              className="text-xs"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={saveTranscriptMutation.isPending}
+                                onClick={() => {
+                                  const url = videoUrlInput[module.id] ?? module.videoUrl ?? "";
+                                  const transcript = videoTranscriptInput[module.id] ?? module.videoTranscript ?? "";
+                                  if (!url) {
+                                    toast({ title: "Ingresa una URL de YouTube primero", variant: "destructive" });
+                                    return;
+                                  }
+                                  saveTranscriptMutation.mutate({ moduleId: module.id, videoUrl: url, videoTranscript: transcript });
+                                }}
+                              >
+                                {saveTranscriptMutation.isPending ? "Guardando..." : "Guardar Video + Transcript"}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Generate Quiz */}
+                          <div className="pt-3 border-t space-y-2">
+                            <Button
+                              type="button"
+                              className="w-full"
+                              style={{ backgroundColor: '#33CBFB', color: 'black' }}
+                              disabled={generateVideoQuizMutation.isPending || !(module.videoTranscript || videoTranscriptInput[module.id])}
+                              onClick={() => {
+                                // Save transcript first if changed, then generate
+                                const url = videoUrlInput[module.id] ?? module.videoUrl ?? "";
+                                const transcript = videoTranscriptInput[module.id] ?? module.videoTranscript ?? "";
+                                if (transcript && !module.videoTranscript) {
+                                  saveTranscriptMutation.mutate({ moduleId: module.id, videoUrl: url, videoTranscript: transcript });
+                                }
+                                generateVideoQuizMutation.mutate({ moduleId: module.id, numberOfQuestions: 10 });
+                              }}
+                            >
+                              {generateVideoQuizMutation.isPending && generateVideoQuizMutation.variables?.moduleId === module.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Generando Quiz con IA...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  Generar Quiz del Video (10 preguntas)
+                                </>
+                              )}
+                            </Button>
+                            {!module.videoTranscript && !videoTranscriptInput[module.id] && (
+                              <p className="text-xs text-muted-foreground text-center">
+                                Primero obtén o pega el transcript para generar el quiz
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
                   </div>
                 );
               })}

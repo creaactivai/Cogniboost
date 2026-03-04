@@ -25,8 +25,46 @@ import {
   Lock,
   Unlock,
   Loader2,
+  Youtube,
+  Layers,
 } from "lucide-react";
 import type { Course, Lesson, Quiz, QuizQuestion } from "@shared/schema";
+
+interface ModuleWithStatus {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  videoUrl: string | null;
+  videoSource: string | null;
+  videoQuizStatus: {
+    quizId: string;
+    passed: boolean;
+    bestScore: number | null;
+    attempts: number;
+  } | null;
+}
+
+interface VideoQuizData {
+  quiz: {
+    id: string;
+    title: string;
+    description: string | null;
+    passingScore: number;
+    timeLimit: number | null;
+    totalPoints: number;
+  };
+  questions: Array<{
+    id: string;
+    question: string;
+    options: string[];
+    orderIndex: number;
+  }>;
+  previousAttempts: number;
+  bestScore: number | null;
+  isPassed: boolean;
+}
 
 interface QuizWithQuestions extends Quiz {
   questions: Array<{
@@ -88,10 +126,13 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
   const isAdminPreview = isAdminPreviewProp || (user?.isAdmin && searchParams?.get('preview') === 'admin');
   
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(lessonId || null);
+  const [selectedVideoModuleId, setSelectedVideoModuleId] = useState<string | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showVideoQuiz, setShowVideoQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (lessonId && lessonId !== selectedLessonId) {
@@ -116,40 +157,38 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     enabled: !!courseId,
   });
 
-  // Auto-enroll student when opening a course (if not already enrolled)
-  const autoEnrollMutation = useMutation({
-    mutationFn: async (cId: string) => {
-      const response = await apiRequest("POST", "/api/enrollments", { courseId: cId });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "progress"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
-    },
+  const { data: modules = [] } = useQuery<ModuleWithStatus[]>({
+    queryKey: ["/api/courses", courseId, "modules"],
+    enabled: !!courseId,
   });
 
-  const hasAutoEnrolled = useRef(false);
+  const { data: videoQuizData, isLoading: videoQuizLoading, refetch: refetchVideoQuiz } = useQuery<VideoQuizData>({
+    queryKey: ["/api/modules", selectedVideoModuleId, "video-quiz"],
+    enabled: !!selectedVideoModuleId && showVideoQuiz,
+  });
 
-  useEffect(() => {
-    if (!courseId || !user || isAdminPreview || hasAutoEnrolled.current) return;
-    const checkAndEnroll = async () => {
-      try {
-        const res = await fetch("/api/enrollments/with-progress", { credentials: "include" });
-        if (!res.ok) return;
-        const existingEnrollments = await res.json();
-        const alreadyEnrolled = existingEnrollments.some((e: any) => e.courseId === courseId);
-        if (!alreadyEnrolled) {
-          hasAutoEnrolled.current = true;
-          autoEnrollMutation.mutate(courseId);
-        }
-      } catch (err) {
-        console.error("Auto-enroll check failed:", err);
+  const submitVideoQuizMutation = useMutation({
+    mutationFn: async (answers: number[]) => {
+      const response = await apiRequest("POST", `/api/quizzes/${videoQuizData?.quiz.id}/attempt`, { answers });
+      return response.json();
+    },
+    onSuccess: (result: QuizResult) => {
+      setQuizResult(result);
+      setTimeLeft(null);
+      if (result.isPassed) {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "modules"] });
       }
-    };
-    checkAndEnroll();
-  }, [courseId, user, isAdminPreview]);
+      toast({
+        title: result.isPassed ? "Congratulations!" : "Try again",
+        description: result.isPassed
+          ? `You passed with ${result.score}%`
+          : `You scored ${result.score}%. You need ${result.passingScore}% to pass.`,
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not submit quiz.", variant: "destructive" });
+    },
+  });
 
   // Create a map for quick lookup of lesson unlock status
   const lessonProgressMap = new Map(
@@ -170,18 +209,15 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     },
     onSuccess: () => {
       refetchProgress();
-      queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
       toast({
-        title: "Lesson completed!",
-        description: "You have successfully completed this lesson.",
+        title: "¡Lección completada!",
+        description: "Has completado esta lección exitosamente.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Could not mark the lesson as complete.",
+        description: "No se pudo marcar la lección como completada.",
         variant: "destructive",
       });
     },
@@ -198,22 +234,18 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       // Refetch progress to update unlock status if quiz passed
       if (result.isPassed) {
         refetchProgress();
-        queryClient.invalidateQueries({ queryKey: ["/api/enrollments"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/student/scores"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/user-stats"] });
       }
       toast({
-        title: result.isPassed ? "Congratulations!" : "Try again",
-        description: result.isPassed
-          ? `You passed with ${result.score}%`
-          : `You scored ${result.score}%. You need ${result.passingScore}% to pass.`,
+        title: result.isPassed ? "¡Felicidades!" : "Inténtalo de nuevo",
+        description: result.isPassed 
+          ? `Aprobaste con ${result.score}%`
+          : `Obtuviste ${result.score}%. Necesitas ${result.passingScore}% para aprobar.`,
       });
     },
     onError: () => {
-      hasSubmittedRef.current = false; // Reset so user can retry
       toast({
         title: "Error",
-        description: "Could not submit quiz. Please try again.",
+        description: "No se pudo enviar el quiz. Inténtalo de nuevo.",
         variant: "destructive",
       });
     },
@@ -238,15 +270,6 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
 
   const handleSubmitQuiz = () => {
     if (!quiz || hasSubmittedRef.current || submitQuizMutation.isPending) return;
-    if (!allQuestionsAnswered) {
-      const unanswered = sortedQuestions.filter((q) => quizAnswers[q.id] === undefined).length;
-      toast({
-        title: "Unanswered questions",
-        description: `You have ${unanswered} unanswered question(s). Answer all to submit.`,
-        variant: "destructive",
-      });
-      return;
-    }
     hasSubmittedRef.current = true;
     const answers = sortedQuestions.map((q) => quizAnswers[q.id] ?? -1);
     submitQuizMutation.mutate(answers);
@@ -279,11 +302,11 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
   if (!course) {
     return (
       <div className="text-center py-12">
-        <p className="font-mono text-muted-foreground">Course not found</p>
+        <p className="font-mono text-muted-foreground">Curso no encontrado</p>
         <Link href="/dashboard/courses">
           <Button className="mt-4" variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Courses
+            Volver a Cursos
           </Button>
         </Link>
       </div>
@@ -305,16 +328,16 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 <Play className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Admin Preview Mode</p>
+                <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Modo Vista Previa Admin</p>
                 <p className="text-xs text-muted-foreground">
-                  Viewing the course as a student. All lessons are unlocked.
+                  Viendo el curso como un estudiante. Todas las lecciones están desbloqueadas.
                 </p>
               </div>
             </div>
             <Link href="/admin/courses">
               <Button size="sm" variant="outline" data-testid="button-back-to-admin">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Admin
+                Volver al Admin
               </Button>
             </Link>
           </div>
@@ -330,7 +353,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         <div>
           <h1 className="text-2xl font-display uppercase">{course.title}</h1>
           <p className="text-sm font-mono text-muted-foreground">
-            {course.level} · {lessons?.length || 0} lessons
+            {course.level} · {lessons?.length || 0} lecciones
           </p>
         </div>
       </div>
@@ -343,16 +366,16 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 <Lock className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="font-mono font-semibold text-sm">Free Plan</p>
+                <p className="font-mono font-semibold text-sm">Plan Gratuito</p>
                 <p className="text-xs text-muted-foreground">
-                  {lockedLessonsCount} lessons locked. Upgrade to access all content.
+                  {lockedLessonsCount} lecciones bloqueadas. Actualiza para acceder a todo el contenido.
                 </p>
               </div>
             </div>
             <Link href="/#pricing">
               <Button size="sm" data-testid="button-upgrade-plan">
                 <Unlock className="w-4 h-4 mr-2" />
-                Upgrade Plan
+                Actualizar Plan
               </Button>
             </Link>
           </div>
@@ -362,105 +385,451 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-2">
           <h2 className="font-mono font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">
-            Course Content
+            Contenido del Curso
           </h2>
           {isLoadingProgress && (
             <div className="text-center py-4">
               <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
-              <p className="text-xs text-muted-foreground mt-2">Loading progress...</p>
+              <p className="text-xs text-muted-foreground mt-2">Cargando progreso...</p>
             </div>
           )}
-          {lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
-            const progress = lessonProgressMap.get(lesson.id);
-            // Admin preview mode unlocks all lessons for viewing
-            // Use strict server-side unlock status only - never fallback to client-side logic
-            // Default to locked if progress data is missing to prevent bypass
-            const isUnlocked = isAdminPreview 
-              ? true // Admin preview mode unlocks all lessons
-              : (isLoadingProgress 
-                ? false // While loading, treat all lessons as locked to prevent bypass
-                : (progress?.isUnlocked ?? false)); // Default to locked when no progress data
-            const isCompleted = progress?.isCompleted ?? false;
-            // Default to locked by subscription when no progress data (secure by default)
-            // Admin preview mode bypasses subscription locks
-            const isLockedBySubscription = isAdminPreview 
-              ? false 
-              : (progress?.isLockedBySubscription ?? (index >= 3));
-            
-            return (
-              <Card
-                key={lesson.id}
-                className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
-                  selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : ''
-                } ${isLockedBySubscription ? 'bg-gradient-to-r from-muted/50 to-muted/30' : ''}`}
-                onClick={() => {
-                  if (isLockedBySubscription) {
-                    toast({
-                      title: "Premium Content",
-                      description: "Upgrade your plan to access all lessons.",
-                      variant: "default",
-                    });
-                    return;
-                  }
-                  if (!isUnlocked) {
-                    toast({
-                      title: "Lesson locked",
-                      description: "Complete previous lessons to unlock this one.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  setSelectedLessonId(lesson.id);
-                  setShowQuiz(false);
-                  setQuizResult(null);
-                  setLocation(`/dashboard/courses/${courseId}/lessons/${lesson.id}`);
-                }}
-                data-testid={`card-lesson-select-${lesson.id}`}
-              >
-                <div className="flex items-center gap-3">
+          {modules.length > 0 ? (
+            // Module-grouped sidebar
+            modules.sort((a, b) => a.orderIndex - b.orderIndex).map((mod) => {
+              const moduleLessons = lessons?.filter(l => (l as any).moduleId === mod.id)
+                .sort((a, b) => a.orderIndex - b.orderIndex) || [];
+              const isCollapsed = collapsedModules.has(mod.id);
+              const toggleCollapse = () => setCollapsedModules(prev => {
+                const next = new Set(prev);
+                if (next.has(mod.id)) next.delete(mod.id);
+                else next.add(mod.id);
+                return next;
+              });
+
+              return (
+                <div key={mod.id} className="space-y-1">
+                  {/* Module header */}
                   <div
-                    className="w-8 h-8 flex items-center justify-center text-xs font-mono"
-                    style={{ 
-                      backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id ? '#33CBFB' : (isLockedBySubscription ? '#667EEA' : '#e5e5e5')),
-                      color: isCompleted || selectedLessonId === lesson.id || isLockedBySubscription ? 'white' : 'inherit'
-                    }}
+                    className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-muted/50 rounded"
+                    onClick={toggleCollapse}
                   >
-                    {isLockedBySubscription ? <Lock className="w-4 h-4" /> : (isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1)}
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <Layers className="w-4 h-4 flex-shrink-0" style={{ color: '#33CBFB' }} />
+                    <span className="font-mono text-xs font-semibold uppercase tracking-wider truncate">
+                      {mod.title}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-mono text-sm truncate ${isLockedBySubscription ? 'blur-[2px]' : ''}`}>{lesson.title}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {lesson.duration > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {lesson.duration} min
-                        </span>
-                      )}
-                      {lesson.isOpen && (
-                        <Badge variant="outline" className="text-[10px] px-1 py-0">Open</Badge>
-                      )}
-                      {isLockedBySubscription && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
+
+                  {!isCollapsed && (
+                    <div className="space-y-1 pl-2">
+                      {/* Lesson cards */}
+                      {moduleLessons.map((lesson, index) => {
+                        const progress = lessonProgressMap.get(lesson.id);
+                        const isUnlocked = isAdminPreview
+                          ? true
+                          : (isLoadingProgress ? false : (progress?.isUnlocked ?? false));
+                        const isCompleted = progress?.isCompleted ?? false;
+                        const isLockedBySubscription = isAdminPreview
+                          ? false
+                          : (progress?.isLockedBySubscription ?? false);
+
+                        return (
+                          <Card
+                            key={lesson.id}
+                            className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
+                              selectedLessonId === lesson.id && !selectedVideoModuleId ? 'border-primary bg-primary/5' : ''
+                            } ${isLockedBySubscription ? 'bg-gradient-to-r from-muted/50 to-muted/30' : ''}`}
+                            onClick={() => {
+                              if (isLockedBySubscription) {
+                                toast({ title: "Contenido Premium", description: "Actualiza tu plan para acceder a todas las lecciones.", variant: "default" });
+                                return;
+                              }
+                              if (!isUnlocked) {
+                                toast({ title: "Lección bloqueada", description: "Completa las lecciones anteriores para desbloquear esta.", variant: "destructive" });
+                                return;
+                              }
+                              setSelectedLessonId(lesson.id);
+                              setSelectedVideoModuleId(null);
+                              setShowQuiz(false);
+                              setShowVideoQuiz(false);
+                              setQuizResult(null);
+                              setLocation(`/dashboard/courses/${courseId}/lessons/${lesson.id}`);
+                            }}
+                            data-testid={`card-lesson-select-${lesson.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-7 h-7 flex items-center justify-center text-xs font-mono"
+                                style={{
+                                  backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id && !selectedVideoModuleId ? '#33CBFB' : (isLockedBySubscription ? '#667EEA' : '#e5e5e5')),
+                                  color: isCompleted || (selectedLessonId === lesson.id && !selectedVideoModuleId) || isLockedBySubscription ? 'white' : 'inherit'
+                                }}
+                              >
+                                {isLockedBySubscription ? <Lock className="w-3 h-3" /> : (isCompleted ? <CheckCircle className="w-3 h-3" /> : index + 1)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-mono text-sm truncate ${isLockedBySubscription ? 'blur-[2px]' : ''}`}>{lesson.title}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {lesson.duration > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {lesson.duration} min
+                                    </span>
+                                  )}
+                                  {isLockedBySubscription && (
+                                    <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+
+                      {/* Video Activity card */}
+                      {mod.videoUrl && (
+                        <Card
+                          className={`p-3 cursor-pointer hover-elevate ${
+                            selectedVideoModuleId === mod.id ? 'border-red-500 bg-red-500/5' : ''
+                          }`}
+                          style={{ borderColor: selectedVideoModuleId === mod.id ? '#FF0000' : undefined }}
+                          onClick={() => {
+                            setSelectedVideoModuleId(mod.id);
+                            setSelectedLessonId(null);
+                            setShowQuiz(false);
+                            setShowVideoQuiz(false);
+                            setQuizResult(null);
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-7 h-7 flex items-center justify-center"
+                              style={{
+                                backgroundColor: mod.videoQuizStatus?.passed ? '#10B981' : '#FF0000',
+                              }}
+                            >
+                              {mod.videoQuizStatus?.passed ? (
+                                <CheckCircle className="w-3 h-3 text-white" />
+                              ) : (
+                                <Youtube className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mono text-sm truncate">Video Activity</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {mod.videoQuizStatus?.passed ? (
+                                  <span className="text-green-600">Passed ({mod.videoQuizStatus.bestScore}%)</span>
+                                ) : mod.videoQuizStatus?.attempts ? (
+                                  <span>Best: {mod.videoQuizStatus.bestScore}%</span>
+                                ) : (
+                                  <span>Watch & Quiz</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
                       )}
                     </div>
-                  </div>
-                  {isLockedBySubscription ? (
-                    <Lock className="w-4 h-4 text-primary" />
-                  ) : !isUnlocked ? (
-                    <Lock className="w-4 h-4 text-muted-foreground" />
-                  ) : selectedLessonId === lesson.id ? (
-                    <ChevronDown className="w-4 h-4 text-primary" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   )}
                 </div>
-              </Card>
-            );
-          })}
+              );
+            })
+          ) : (
+            // Fallback: flat lesson list (no modules)
+            lessons?.sort((a, b) => a.orderIndex - b.orderIndex).map((lesson, index) => {
+              const progress = lessonProgressMap.get(lesson.id);
+              const isUnlocked = isAdminPreview
+                ? true
+                : (isLoadingProgress ? false : (progress?.isUnlocked ?? false));
+              const isCompleted = progress?.isCompleted ?? false;
+              const isLockedBySubscription = isAdminPreview
+                ? false
+                : (progress?.isLockedBySubscription ?? (index >= 3));
+
+              return (
+                <Card
+                  key={lesson.id}
+                  className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
+                    selectedLessonId === lesson.id ? 'border-primary bg-primary/5' : ''
+                  } ${isLockedBySubscription ? 'bg-gradient-to-r from-muted/50 to-muted/30' : ''}`}
+                  onClick={() => {
+                    if (isLockedBySubscription) {
+                      toast({ title: "Contenido Premium", description: "Actualiza tu plan para acceder a todas las lecciones.", variant: "default" });
+                      return;
+                    }
+                    if (!isUnlocked) {
+                      toast({ title: "Lección bloqueada", description: "Completa las lecciones anteriores para desbloquear esta.", variant: "destructive" });
+                      return;
+                    }
+                    setSelectedLessonId(lesson.id);
+                    setSelectedVideoModuleId(null);
+                    setShowQuiz(false);
+                    setQuizResult(null);
+                    setLocation(`/dashboard/courses/${courseId}/lessons/${lesson.id}`);
+                  }}
+                  data-testid={`card-lesson-select-${lesson.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 flex items-center justify-center text-xs font-mono"
+                      style={{
+                        backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id ? '#33CBFB' : (isLockedBySubscription ? '#667EEA' : '#e5e5e5')),
+                        color: isCompleted || selectedLessonId === lesson.id || isLockedBySubscription ? 'white' : 'inherit'
+                      }}
+                    >
+                      {isLockedBySubscription ? <Lock className="w-4 h-4" /> : (isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-mono text-sm truncate ${isLockedBySubscription ? 'blur-[2px]' : ''}`}>{lesson.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {lesson.duration > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {lesson.duration} min
+                          </span>
+                        )}
+                        {isLockedBySubscription && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
+                        )}
+                      </div>
+                    </div>
+                    {isLockedBySubscription ? (
+                      <Lock className="w-4 h-4 text-primary" />
+                    ) : !isUnlocked ? (
+                      <Lock className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </Card>
+              );
+            })
+          )}
         </div>
 
         <div className="lg:col-span-2">
-          {selectedLesson ? (
+          {selectedVideoModuleId ? (
+            // Video Activity View
+            (() => {
+              const selectedModule = modules.find(m => m.id === selectedVideoModuleId);
+              if (!selectedModule?.videoUrl) return null;
+
+              // Extract YouTube video ID for embed
+              let ytVideoId: string | null = null;
+              try {
+                const url = new URL(selectedModule.videoUrl);
+                if (url.hostname.includes("youtube.com")) ytVideoId = url.searchParams.get("v");
+                else if (url.hostname === "youtu.be") ytVideoId = url.pathname.slice(1);
+              } catch { /* ignore */ }
+
+              const videoQuizQuestions = videoQuizData?.questions?.slice().sort((a, b) => a.orderIndex - b.orderIndex) || [];
+              const allVideoQuestionsAnswered = videoQuizQuestions.length > 0 && videoQuizQuestions.every(q => quizAnswers[q.id] !== undefined);
+
+              const handleSubmitVideoQuiz = () => {
+                if (!videoQuizData || hasSubmittedRef.current || submitVideoQuizMutation.isPending) return;
+                hasSubmittedRef.current = true;
+                const answers = videoQuizQuestions.map(q => quizAnswers[q.id] ?? -1);
+                submitVideoQuizMutation.mutate(answers);
+              };
+
+              return (
+                <div className="space-y-6">
+                  {!showVideoQuiz ? (
+                    <>
+                      <Card className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 flex items-center justify-center" style={{ backgroundColor: '#FF0000' }}>
+                            <Youtube className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-display uppercase">Video Activity</h2>
+                            <p className="font-mono text-sm text-muted-foreground">{selectedModule.title}</p>
+                          </div>
+                        </div>
+
+                        {ytVideoId && (
+                          <div className="aspect-video bg-black mb-4 rounded overflow-hidden">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${ytVideoId}?rel=0&cc_load_policy=0`}
+                              className="w-full h-full"
+                              allow="autoplay; fullscreen; picture-in-picture"
+                              allowFullScreen
+                              title="Video Activity"
+                            />
+                          </div>
+                        )}
+
+                        <p className="font-mono text-sm text-muted-foreground">
+                          Watch the video carefully, then take the quiz to test your comprehension and listening skills.
+                        </p>
+                      </Card>
+
+                      {selectedModule.videoQuizStatus && (
+                        <Card className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 flex items-center justify-center" style={{ backgroundColor: '#FD335A' }}>
+                                <ClipboardList className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="font-mono font-semibold">Video Comprehension Quiz</h3>
+                                <p className="text-sm font-mono text-muted-foreground">
+                                  {selectedModule.videoQuizStatus.passed ? (
+                                    <span className="text-green-600">Passed! Best score: {selectedModule.videoQuizStatus.bestScore}%</span>
+                                  ) : selectedModule.videoQuizStatus.attempts > 0 ? (
+                                    <span>Best score: {selectedModule.videoQuizStatus.bestScore}% ({selectedModule.videoQuizStatus.attempts} attempts)</span>
+                                  ) : (
+                                    <span>Test your comprehension and listening</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                setShowVideoQuiz(true);
+                                setQuizAnswers({});
+                                setQuizResult(null);
+                                hasSubmittedRef.current = false;
+                              }}
+                            >
+                              <Play className="w-4 h-4 mr-2" />
+                              {selectedModule.videoQuizStatus.passed ? "Retake Quiz" : "Take Quiz"}
+                            </Button>
+                          </div>
+                        </Card>
+                      )}
+                    </>
+                  ) : (
+                    <Card className="p-6">
+                      {videoQuizLoading ? (
+                        <div className="flex items-center justify-center h-32">
+                          <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin" />
+                        </div>
+                      ) : !videoQuizData ? (
+                        <div className="text-center py-8">
+                          <ClipboardList className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                          <p className="font-mono text-muted-foreground">No quiz available for this video yet</p>
+                          <Button variant="outline" className="mt-4" onClick={() => setShowVideoQuiz(false)}>
+                            Back to Video
+                          </Button>
+                        </div>
+                      ) : quizResult ? (
+                        <div className="space-y-6">
+                          <div className="text-center py-6">
+                            <div
+                              className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
+                              style={{ backgroundColor: quizResult.isPassed ? '#33CBFB' : '#FD335A' }}
+                            >
+                              {quizResult.isPassed ? <Trophy className="w-10 h-10 text-white" /> : <XCircle className="w-10 h-10 text-white" />}
+                            </div>
+                            <h2 className="text-2xl font-display uppercase mb-2">
+                              {quizResult.isPassed ? 'You Passed!' : "Didn't Pass"}
+                            </h2>
+                            <p className="font-mono text-3xl font-bold" style={{ color: quizResult.isPassed ? '#33CBFB' : '#FD335A' }}>
+                              {quizResult.score}%
+                            </p>
+                            <p className="font-mono text-sm text-muted-foreground mt-2">
+                              Passing score: {quizResult.passingScore}%
+                            </p>
+                          </div>
+
+                          <div className="space-y-4">
+                            <h3 className="font-mono font-semibold text-sm uppercase tracking-wider">Answer Review</h3>
+                            {quizResult.results.map((result, index) => {
+                              const matchQ = videoQuizQuestions.find(q => q.id === result.questionId);
+                              return (
+                                <div key={result.questionId} className={`p-4 border ${result.isCorrect ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                                  <div className="flex items-start gap-3">
+                                    {result.isCorrect ? <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" /> : <XCircle className="w-5 h-5 text-red-500 mt-0.5" />}
+                                    <div className="flex-1">
+                                      <p className="font-mono font-semibold mb-2">{index + 1}. {result.question}</p>
+                                      {!result.isCorrect && matchQ && (
+                                        <p className="font-mono text-sm text-green-600 dark:text-green-400">
+                                          Correct answer: {matchQ.options[result.correctAnswer]}
+                                        </p>
+                                      )}
+                                      {result.explanation && (
+                                        <p className="font-mono text-sm text-muted-foreground mt-2">{result.explanation}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button variant="outline" onClick={() => { setShowVideoQuiz(false); setQuizResult(null); }} className="flex-1">
+                              Back to Video
+                            </Button>
+                            <Button onClick={() => { setQuizAnswers({}); setQuizResult(null); hasSubmittedRef.current = false; refetchVideoQuiz(); }} className="flex-1">
+                              <RotateCcw className="w-4 h-4 mr-2" />
+                              Try Again
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h2 className="text-xl font-display uppercase">{videoQuizData.quiz.title}</h2>
+                              <p className="font-mono text-sm text-muted-foreground">
+                                {videoQuizQuestions.length} questions · Passing score: {videoQuizData.quiz.passingScore}%
+                              </p>
+                            </div>
+                          </div>
+
+                          <Progress value={(Object.keys(quizAnswers).length / videoQuizQuestions.length) * 100} className="h-2" />
+
+                          <div className="space-y-6">
+                            {videoQuizQuestions.map((question, index) => (
+                              <div key={question.id} className="p-4 border">
+                                <p className="font-mono font-semibold mb-4">{index + 1}. {question.question}</p>
+                                <RadioGroup
+                                  value={quizAnswers[question.id]?.toString()}
+                                  onValueChange={(value) => setQuizAnswers(prev => ({ ...prev, [question.id]: parseInt(value) }))}
+                                >
+                                  {question.options.map((option, optIndex) => (
+                                    <div
+                                      key={optIndex}
+                                      className="flex items-center space-x-3 p-3 border hover-elevate cursor-pointer"
+                                      onClick={() => setQuizAnswers(prev => ({ ...prev, [question.id]: optIndex }))}
+                                    >
+                                      <RadioGroupItem value={optIndex.toString()} id={`vq${question.id}-opt${optIndex}`} />
+                                      <Label htmlFor={`vq${question.id}-opt${optIndex}`} className="font-mono cursor-pointer flex-1">
+                                        {option}
+                                      </Label>
+                                    </div>
+                                  ))}
+                                </RadioGroup>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button variant="outline" onClick={() => setShowVideoQuiz(false)} className="flex-1">
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleSubmitVideoQuiz}
+                              disabled={!allVideoQuestionsAnswered || submitVideoQuizMutation.isPending}
+                              className="flex-1"
+                            >
+                              {submitVideoQuizMutation.isPending ? "Submitting..." : "Submit Answers"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  )}
+                </div>
+              );
+            })()
+          ) : selectedLesson ? (
             <div className="space-y-6">
               {!showQuiz ? (
                 <>
@@ -504,7 +873,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     {selectedLesson.pdfMaterials && selectedLesson.pdfMaterials.length > 0 && (
                       <div className="space-y-2">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                          Materials
+                          Materiales
                         </h3>
                         {selectedLesson.pdfMaterials.map((url, index) => (
                           <a
@@ -542,12 +911,12 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                               {isCompleted ? (
                                 <>
                                   <CheckCircle className="w-4 h-4 mr-2" />
-                                  Lesson Completed
+                                  Lección Completada
                                 </>
                               ) : (
                                 <>
                                   <Play className="w-4 h-4 mr-2" />
-                                  Mark as Complete
+                                  Marcar como Completada
                                 </>
                               )}
                             </Button>
@@ -565,9 +934,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           <ClipboardList className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="font-mono font-semibold">Lesson Quiz</h3>
+                          <h3 className="font-mono font-semibold">Quiz de la Lección</h3>
                           <p className="text-sm font-mono text-muted-foreground">
-                            Test your understanding of the content
+                            Evalúa tu comprensión del contenido
                           </p>
                         </div>
                       </div>
@@ -576,7 +945,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         data-testid="button-start-quiz"
                       >
                         <Play className="w-4 h-4 mr-2" />
-                        Start Quiz
+                        Iniciar Quiz
                       </Button>
                     </div>
                   </Card>
@@ -591,14 +960,14 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     <div className="text-center py-8">
                       <ClipboardList className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="font-mono text-muted-foreground">
-                        No quiz available for this lesson
+                        No hay quiz disponible para esta lección
                       </p>
                       <Button
                         variant="outline"
                         className="mt-4"
                         onClick={() => setShowQuiz(false)}
                       >
-                        Back to Lesson
+                        Volver a la Lección
                       </Button>
                     </div>
                   ) : quizResult ? (
@@ -615,19 +984,19 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           )}
                         </div>
                         <h2 className="text-2xl font-display uppercase mb-2">
-                          {quizResult.isPassed ? 'You Passed!' : 'You Did Not Pass'}
+                          {quizResult.isPassed ? '¡Aprobaste!' : 'No Aprobaste'}
                         </h2>
                         <p className="font-mono text-3xl font-bold" style={{ color: quizResult.isPassed ? '#33CBFB' : '#FD335A' }}>
                           {quizResult.score}%
                         </p>
                         <p className="font-mono text-sm text-muted-foreground mt-2">
-                          Minimum score: {quizResult.passingScore}%
+                          Puntaje mínimo: {quizResult.passingScore}%
                         </p>
                       </div>
 
                       <div className="space-y-4">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider">
-                          Answer Review
+                          Revisión de Respuestas
                         </h3>
                         {quizResult.results.map((result, index) => {
                           const matchingQuestion = sortedQuestions.find(q => q.id === result.questionId);
@@ -648,7 +1017,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                                   </p>
                                   {!result.isCorrect && matchingQuestion && (
                                     <p className="font-mono text-sm text-green-600 dark:text-green-400">
-                                      Correct answer: {matchingQuestion.options[result.correctAnswer]}
+                                      Respuesta correcta: {matchingQuestion.options[result.correctAnswer]}
                                     </p>
                                   )}
                                   {result.explanation && (
@@ -669,7 +1038,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           onClick={() => setShowQuiz(false)}
                           className="flex-1"
                         >
-                          Back to Lesson
+                          Volver a la Lección
                         </Button>
                         <Button
                           onClick={resetQuiz}
@@ -677,7 +1046,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           data-testid="button-retry-quiz"
                         >
                           <RotateCcw className="w-4 h-4 mr-2" />
-                          Try Again
+                          Intentar de Nuevo
                         </Button>
                       </div>
                     </div>
@@ -687,7 +1056,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         <div>
                           <h2 className="text-xl font-display uppercase">{quiz.title}</h2>
                           <p className="font-mono text-sm text-muted-foreground">
-                            {quiz.questions.length} questions · Min score: {quiz.passingScore}%
+                            {quiz.questions.length} preguntas · Puntaje mínimo: {quiz.passingScore}%
                           </p>
                         </div>
                         {timeLeft !== null && (
@@ -733,34 +1102,22 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         ))}
                       </div>
 
-                      <div className="space-y-2">
-                        {!allQuestionsAnswered && sortedQuestions.length > 0 && (
-                          <p className="text-sm font-mono text-muted-foreground text-center">
-                            {Object.keys(quizAnswers).length}/{sortedQuestions.length} questions answered
-                          </p>
-                        )}
-                        <div className="flex gap-3">
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowQuiz(false)}
-                            className="flex-1"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleSubmitQuiz}
-                            disabled={!allQuestionsAnswered || submitQuizMutation.isPending}
-                            className="flex-1"
-                            data-testid="button-submit-quiz"
-                          >
-                            {submitQuizMutation.isPending ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Submitting...
-                              </>
-                            ) : "Submit Answers"}
-                          </Button>
-                        </div>
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowQuiz(false)}
+                          className="flex-1"
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          onClick={handleSubmitQuiz}
+                          disabled={!allQuestionsAnswered || submitQuizMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-quiz"
+                        >
+                          {submitQuizMutation.isPending ? "Enviando..." : "Enviar Respuestas"}
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -770,9 +1127,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
           ) : (
             <Card className="p-8 text-center">
               <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="font-mono font-semibold mb-2">Select a Lesson</h3>
+              <h3 className="font-mono font-semibold mb-2">Selecciona una Lección</h3>
               <p className="font-mono text-sm text-muted-foreground">
-                Choose a lesson from the menu to start learning
+                Elige una lección del menú para comenzar a aprender
               </p>
             </Card>
           )}

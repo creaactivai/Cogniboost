@@ -25,6 +25,9 @@ export const createModuleSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Title too long"),
   description: z.string().optional(),
   orderIndex: z.number().int().min(1, "Order index must be at least 1"),
+  videoUrl: z.string().url("Invalid video URL").optional().or(z.literal("")).or(z.null()),
+  videoTranscript: z.string().optional().or(z.null()),
+  videoSource: z.enum(["youtube", "custom"]).optional(),
 });
 
 export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: true });

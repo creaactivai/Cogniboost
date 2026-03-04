@@ -48,6 +48,9 @@ export const courseModules = pgTable("course_modules", {
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull(), // 1-based index for display order
+  videoUrl: text("video_url"), // YouTube URL (or custom video URL in future)
+  videoTranscript: text("video_transcript"), // Plain text transcript for quiz generation
+  videoSource: text("video_source").default("youtube"), // 'youtube' or 'custom'
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -239,6 +242,7 @@ export const courseModulesRelations = relations(courseModules, ({ one, many }) =
     references: [courses.id],
   }),
   lessons: many(lessons),
+  quizzes: many(quizzes),
 }));
 
 export const lessonsRelations = relations(lessons, ({ one }) => ({
@@ -347,11 +351,12 @@ export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
 export type RoomBooking = typeof roomBookings.$inferSelect;
 export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
 
-// Quizzes table - can be associated with a lesson or course
+// Quizzes table - can be associated with a lesson, course, or module
 export const quizzes = pgTable("quizzes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   lessonId: varchar("lesson_id").references(() => lessons.id),
   courseId: varchar("course_id").references(() => courses.id),
+  moduleId: varchar("module_id").references(() => courseModules.id), // for module video activity quizzes
   title: text("title").notNull(),
   description: text("description"),
   type: varchar("type").notNull().default("ai"), // 'ai' for AI-generated, 'manual' for admin-created
@@ -395,6 +400,10 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   course: one(courses, {
     fields: [quizzes.courseId],
     references: [courses.id],
+  }),
+  module: one(courseModules, {
+    fields: [quizzes.moduleId],
+    references: [courseModules.id],
   }),
   questions: many(quizQuestions),
   attempts: many(quizAttempts),
