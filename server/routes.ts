@@ -4699,14 +4699,14 @@ Important:
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const activeUsers7Days = studentUsers.filter(u =>
-        u.lastActive && new Date(u.lastActive) > sevenDaysAgo
+        u.lastActiveAt && new Date(u.lastActiveAt) > sevenDaysAgo
       ).length;
 
       // Active users (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const activeUsers30Days = studentUsers.filter(u =>
-        u.lastActive && new Date(u.lastActive) > thirtyDaysAgo
+        u.lastActiveAt && new Date(u.lastActiveAt) > thirtyDaysAgo
       ).length;
 
       // Get all enrollments
@@ -4715,7 +4715,7 @@ Important:
       // Enrollments over time (grouped by date)
       const enrollmentsByDate: Record<string, number> = {};
       allEnrollments.forEach(enrollment => {
-        const date = new Date(enrollment.enrolledAt).toISOString().split('T')[0];
+        const date = new Date(enrollment.enrolledAt!).toISOString().split('T')[0];
         enrollmentsByDate[date] = (enrollmentsByDate[date] || 0) + 1;
       });
 
@@ -4733,7 +4733,7 @@ Important:
         const courseEnrollments = allEnrollments.filter(e => e.courseId === course.id);
         if (courseEnrollments.length > 0) {
           // Get lessons for this course
-          const lessons = await storage.getLessonsByCourse(course.id);
+          const lessons = await storage.getLessonsByCourseId(course.id);
           const totalLessons = lessons.length;
 
           if (totalLessons > 0) {
@@ -4741,8 +4741,8 @@ Important:
 
             for (const enrollment of courseEnrollments) {
               // Get progress for this enrollment
-              const progress = await storage.getLessonProgress(enrollment.userId, course.id);
-              const completedLessons = progress.filter(p => p.isCompleted).length;
+              const progress = await storage.getLessonProgressByUserId(enrollment.userId);
+              const completedLessons = progress.filter((p: any) => p.isCompleted).length;
               if (completedLessons === totalLessons) {
                 totalCompleted++;
               }
@@ -4760,9 +4760,9 @@ Important:
       }
 
       // Revenue metrics (already exists but including for completeness)
-      const allPayments = await storage.getAllPayments();
-      const completedPayments = allPayments.filter(p => p.status === "completed");
-      const totalRevenue = completedPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const allPayments = await storage.getPayments();
+      const completedPayments = allPayments.filter((p: any) => p.status === "completed");
+      const totalRevenue = completedPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
 
       // Calculate MRR (Monthly Recurring Revenue from active subscriptions)
       const PLAN_PRICES: Record<string, number> = {
