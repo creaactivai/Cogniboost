@@ -25,6 +25,7 @@ import {
   Loader2
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 export function Settings() {
@@ -92,9 +93,9 @@ export function Settings() {
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
-              <Button 
-                size="icon" 
-                variant="secondary" 
+              <Button
+                size="icon"
+                variant="secondary"
                 className="absolute -bottom-2 -right-2 w-8 h-8"
                 data-testid="button-change-avatar"
               >
@@ -109,18 +110,18 @@ export function Settings() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="font-mono text-sm">First Name</Label>
-                <Input 
-                  id="firstName" 
-                  defaultValue={user?.firstName || ""} 
+                <Input
+                  id="firstName"
+                  defaultValue={user?.firstName || ""}
                   className="font-mono"
                   data-testid="input-first-name"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName" className="font-mono text-sm">Last Name</Label>
-                <Input 
-                  id="lastName" 
-                  defaultValue={user?.lastName || ""} 
+                <Input
+                  id="lastName"
+                  defaultValue={user?.lastName || ""}
                   className="font-mono"
                   data-testid="input-last-name"
                 />
@@ -128,10 +129,10 @@ export function Settings() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email" className="font-mono text-sm">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                defaultValue={user?.email || ""} 
+              <Input
+                id="email"
+                type="email"
+                defaultValue={user?.email || ""}
                 className="font-mono"
                 disabled
                 data-testid="input-email"
@@ -298,9 +299,28 @@ export function Settings() {
                   )}
                 </Button>
               )}
-              {user?.subscriptionTier !== 'premium' && (
-                <Button className="bg-accent text-accent-foreground font-mono" data-testid="button-upgrade">
-                  {user?.subscriptionTier === 'free' ? 'Upgrade Plan' : 'Upgrade to Premium'}
+              {user?.subscriptionTier !== 'premium' && user?.subscriptionTier === 'free' && (
+                <Link href="/choose-plan">
+                  <Button className="bg-accent text-accent-foreground font-mono" data-testid="button-upgrade">
+                    Upgrade Plan
+                  </Button>
+                </Link>
+              )}
+              {user?.subscriptionTier !== 'premium' && user?.subscriptionTier !== 'free' && (
+                <Button
+                  className="bg-accent text-accent-foreground font-mono"
+                  data-testid="button-upgrade"
+                  onClick={handleManageSubscription}
+                  disabled={isManagingSubscription}
+                >
+                  {isManagingSubscription ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Upgrade to Premium"
+                  )}
                 </Button>
               )}
             </div>
