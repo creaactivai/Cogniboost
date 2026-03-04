@@ -293,6 +293,7 @@ export interface IStorage {
   // Quizzes
   getQuizzesByLessonId(lessonId: string): Promise<Quiz[]>;
   getQuizzesByCourseId(courseId: string): Promise<Quiz[]>;
+  getQuizByModuleId(moduleId: string): Promise<Quiz | undefined>;
   getQuizById(id: string): Promise<Quiz | undefined>;
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   updateQuiz(id: string, quiz: Partial<InsertQuiz>): Promise<Quiz | undefined>;
@@ -741,103 +742,104 @@ export class DatabaseStorage implements IStorage {
     const isFreeUser = subscriptionTier === 'free';
     const FREE_LESSON_LIMIT = 3; // First 3 lessons of Module 1 are free
     
-    // Get all lessons for the course ordered by orderIndex
-    const courseLessons = await db.select()
+    // Get all lessons for the course
+    const courseLessonsRaw = await db.select()
       .from(lessons)
-      .where(eq(lessons.courseId, courseId))
-      .orderBy(lessons.orderIndex);
-    
-    // Get all modules for the course to identify Module 1
+      .where(eq(lessons.courseId, courseId));
+
+    // Get all modules for the course sorted by orderIndex
     const courseModulesData = await db.select()
       .from(courseModules)
       .where(eq(courseModules.courseId, courseId))
       .orderBy(courseModules.orderIndex);
-    
-    // Find Module 1 (first module with orderIndex 1)
-    const module1 = courseModulesData.find(m => m.orderIndex === 1);
+
+    // Build module-aware lesson order: Module 1 lessons (sorted), then Module 2, etc.
+    // This ensures the unlock chain follows the admin's module ordering.
+    const orderedLessons: typeof courseLessonsRaw = [];
+    for (const mod of courseModulesData) {
+      const moduleLessons = courseLessonsRaw
+        .filter(l => l.moduleId === mod.id)
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+      orderedLessons.push(...moduleLessons);
+    }
+    // Append any orphan lessons (no moduleId) at the end, sorted by orderIndex
+    const orphanLessons = courseLessonsRaw
+      .filter(l => !l.moduleId || !courseModulesData.some(m => m.id === l.moduleId))
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    orderedLessons.push(...orphanLessons);
+
+    // Find Module 1 (first module by orderIndex)
+    const module1 = courseModulesData.length > 0 ? courseModulesData[0] : null;
     const module1Id = module1?.id;
-    
+
     // Get user's progress for all lessons in this course
     const userProgress = await db.select()
       .from(lessonProgress)
       .where(eq(lessonProgress.userId, userId));
-    
+
     // Get all quizzes for lessons in this course
     const lessonQuizzes = await db.select()
       .from(quizzes)
       .where(eq(quizzes.courseId, courseId));
-    
+
     // Create a map of lessonId -> progress
     const progressMap = new Map(userProgress.map(p => [p.lessonId, p]));
-    
+
     // Create a map of lessonId -> has quiz
     const quizMap = new Map(lessonQuizzes.map(q => [q.lessonId, true]));
-    
-    // Group lessons by module to count within each module
-    const module1Lessons = courseLessons.filter(l => l.moduleId === module1Id);
-    
-    // Calculate unlock status for each lesson
-    const lessonsWithStatus = courseLessons.map((lesson, index) => {
+
+    // Module 1 lessons for free-tier gating
+    const module1Lessons = orderedLessons.filter(l => l.moduleId === module1Id);
+
+    // Calculate unlock status for each lesson using module-aware order
+    const lessonsWithStatus = orderedLessons.map((lesson, index) => {
       const progress = progressMap.get(lesson.id);
       const hasQuiz = quizMap.has(lesson.id);
       const isCompleted = progress?.isCompleted ?? false;
       const quizPassed = progress?.quizPassed ?? false;
-      
+
       // Check if locked by subscription for free users:
       // - Only first 3 lessons of Module 1 are accessible
       // - Lessons not in Module 1 are always locked
-      // - Lessons beyond position 3 in Module 1 are locked
-      // - If no Module 1 exists (missing data), lock all lessons for free users (secure default)
       let isLockedBySubscription = false;
       if (isFreeUser) {
         if (!module1Id) {
-          // No Module 1 found - lock all lessons for free users (secure default)
           isLockedBySubscription = true;
         } else if (lesson.moduleId !== module1Id) {
-          // Not in Module 1 - locked for free users
           isLockedBySubscription = true;
         } else {
-          // In Module 1 - check position within module
           const positionInModule1 = module1Lessons.findIndex(l => l.id === lesson.id);
-          // If not found or beyond limit, lock it
           isLockedBySubscription = positionInModule1 < 0 || positionInModule1 >= FREE_LESSON_LIMIT;
         }
       }
-      
-      // Determine if lesson is unlocked (sequential progression):
-      // 1. First lesson is always unlocked
-      // 2. Open lessons are always unlocked
-      // 3. Preview lessons are always unlocked
-      // 4. Sequential lessons require previous lesson to be completed AND quiz passed (if it has one)
+
+      // Determine if lesson is unlocked (sequential progression within module-aware order):
       let isUnlockedByProgress = false;
-      
+
       if (index === 0 || lesson.isOpen || lesson.isPreview) {
         isUnlockedByProgress = true;
       } else {
         // Check previous sequential lesson (skip open lessons)
         let prevIndex = index - 1;
-        while (prevIndex >= 0 && courseLessons[prevIndex].isOpen) {
+        while (prevIndex >= 0 && orderedLessons[prevIndex].isOpen) {
           prevIndex--;
         }
-        
+
         if (prevIndex < 0) {
-          // No previous sequential lesson, this one is unlocked
           isUnlockedByProgress = true;
         } else {
-          const prevLesson = courseLessons[prevIndex];
+          const prevLesson = orderedLessons[prevIndex];
           const prevProgress = progressMap.get(prevLesson.id);
           const prevHasQuiz = quizMap.has(prevLesson.id);
           const prevCompleted = prevProgress?.isCompleted ?? false;
           const prevQuizPassed = prevProgress?.quizPassed ?? false;
-          
-          // Unlock if previous is completed AND (no quiz OR quiz passed)
+
           isUnlockedByProgress = prevCompleted && (!prevHasQuiz || prevQuizPassed);
         }
       }
-      
-      // Final unlock status: must be unlocked by progress AND not locked by subscription
+
       const isUnlocked = isUnlockedByProgress && !isLockedBySubscription;
-      
+
       return {
         id: lesson.id,
         title: lesson.title,
@@ -854,8 +856,8 @@ export class DatabaseStorage implements IStorage {
     
     // Calculate overall progress (percentage of completed lessons)
     const completedCount = lessonsWithStatus.filter(l => l.isCompleted).length;
-    const overallProgress = courseLessons.length > 0 
-      ? Math.round((completedCount / courseLessons.length) * 100) 
+    const overallProgress = orderedLessons.length > 0
+      ? Math.round((completedCount / orderedLessons.length) * 100)
       : 0;
     
     return {
@@ -1501,6 +1503,11 @@ export class DatabaseStorage implements IStorage {
 
   async getQuizById(id: string): Promise<Quiz | undefined> {
     const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, id));
+    return quiz;
+  }
+
+  async getQuizByModuleId(moduleId: string): Promise<Quiz | undefined> {
+    const [quiz] = await db.select().from(quizzes).where(eq(quizzes.moduleId, moduleId)).limit(1);
     return quiz;
   }
 

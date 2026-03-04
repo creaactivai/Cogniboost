@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { createHash } from "crypto";
 import multer from "multer";
 import OpenAI from "openai";
+import { YoutubeTranscript } from "youtube-transcript";
 import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { uploadToGcs } from "./gcsDirectUpload";
@@ -377,59 +378,69 @@ export async function registerRoutes(
         }
       }
       
-      const lessons = await storage.getLessonsByCourseId(courseId);
+      const lessonsRaw = await storage.getLessonsByCourseId(courseId);
       const FREE_LESSON_LIMIT = 3; // First 3 lessons of Module 1 are free
-      
+
+      // Build module-aware ordering: lessons grouped by module (sorted by module orderIndex),
+      // then sorted by lesson orderIndex within each module. This matches the admin dashboard order.
+      const modules = await storage.getModulesByCourseId(courseId);
+      const sortedLessons: typeof lessonsRaw = [];
+      for (const mod of modules) {
+        const moduleLessons = lessonsRaw
+          .filter(l => l.moduleId === mod.id)
+          .sort((a, b) => a.orderIndex - b.orderIndex);
+        sortedLessons.push(...moduleLessons);
+      }
+      // Append orphan lessons (no module) at the end
+      const orphans = lessonsRaw
+        .filter(l => !l.moduleId || !modules.some(m => m.id === l.moduleId))
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+      sortedLessons.push(...orphans);
+
       // Check user's subscription tier - default to free for unauthenticated users
       let subscriptionTier = 'free';
       if (userId) {
         const user = await storage.getUser(userId);
         subscriptionTier = user?.subscriptionTier || 'free';
       }
-      
-      // Sort by order index and gate content for premium lessons
-      const sortedLessons = lessons.sort((a, b) => a.orderIndex - b.orderIndex);
-      
+
       // If user has paid subscription, return full content
       if (subscriptionTier !== 'free') {
         return res.json(sortedLessons.map(l => ({ ...l, isLockedBySubscription: false })));
       }
-      
-      // Get modules for this course to identify Module 1
-      const modules = await storage.getModulesByCourseId(courseId);
-      const module1 = modules.find(m => m.orderIndex === 1);
+
+      // Module 1 = first module by orderIndex
+      const module1 = modules.length > 0 ? modules[0] : null;
       const module1Id = module1?.id;
-      
+
       // Get lessons in Module 1 for counting position
       const module1Lessons = sortedLessons.filter(l => l.moduleId === module1Id);
-      
+
       // For free/unauthenticated users, redact premium lesson content
       const gatedLessons = sortedLessons.map((lesson) => {
-        // Check if locked by subscription for free users:
-        // - Only first 3 lessons of Module 1 are accessible
-        // - Lessons not in Module 1 are always locked
         let isLocked = false;
-        if (lesson.moduleId !== module1Id) {
+        if (!module1Id) {
+          isLocked = true;
+        } else if (lesson.moduleId !== module1Id) {
           isLocked = true;
         } else {
           const positionInModule1 = module1Lessons.findIndex(l => l.id === lesson.id);
-          isLocked = positionInModule1 >= FREE_LESSON_LIMIT;
+          isLocked = positionInModule1 < 0 || positionInModule1 >= FREE_LESSON_LIMIT;
         }
-        
+
         if (isLocked) {
-          // Redact premium content
           return {
             ...lesson,
-            vimeoId: null, // Hide video content
-            pdfMaterials: [], // Hide materials
-            audioMaterials: [], // Hide audio files
-            content: null, // Hide lesson content
-            isLockedBySubscription: true, // Flag for frontend
+            vimeoId: null,
+            pdfMaterials: [],
+            audioMaterials: [],
+            content: null,
+            isLockedBySubscription: true,
           };
         }
         return { ...lesson, isLockedBySubscription: false };
       });
-      
+
       res.json(gatedLessons);
     } catch (error) {
       console.error("Error fetching lessons:", error);
@@ -906,9 +917,9 @@ export async function registerRoutes(
     }
     
     // For free users, only first 3 lessons of Module 1 are accessible
-    // Get modules for this course to identify Module 1
+    // Get modules for this course to identify Module 1 (first by orderIndex)
     const modules = await storage.getModulesByCourseId(lesson.courseId);
-    const module1 = modules.find(m => m.orderIndex === 1);
+    const module1 = modules.length > 0 ? modules[0] : null;
     const module1Id = module1?.id;
     
     // If no Module 1 exists (legacy course or data issue), deny access by default for free users
@@ -1559,6 +1570,284 @@ Guidelines:
     } catch (error) {
       console.error("Error deleting module:", error);
       res.status(500).json({ error: "Failed to delete module" });
+    }
+  });
+
+  // Admin: Fetch YouTube transcript for module video activity
+  app.post("/api/admin/modules/:id/fetch-transcript", requireAdmin, async (req, res) => {
+    try {
+      const { videoUrl } = req.body;
+      if (!videoUrl) {
+        return res.status(400).json({ error: "videoUrl is required" });
+      }
+
+      const moduleData = await storage.getModuleById(req.params.id);
+      if (!moduleData) {
+        return res.status(404).json({ error: "Module not found" });
+      }
+
+      // Extract YouTube video ID from various URL formats
+      let videoId: string | null = null;
+      try {
+        const url = new URL(videoUrl);
+        if (url.hostname.includes("youtube.com")) {
+          videoId = url.searchParams.get("v");
+        } else if (url.hostname === "youtu.be") {
+          videoId = url.pathname.slice(1);
+        }
+      } catch {
+        // Try as raw video ID
+        if (/^[a-zA-Z0-9_-]{11}$/.test(videoUrl)) {
+          videoId = videoUrl;
+        }
+      }
+
+      if (!videoId) {
+        return res.status(400).json({ error: "Could not extract YouTube video ID from URL" });
+      }
+
+      // Fetch transcript from YouTube
+      let transcript: string;
+      try {
+        const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+        transcript = transcriptItems.map(item => item.text).join(" ");
+      } catch (err: any) {
+        return res.status(422).json({
+          error: "Could not fetch transcript automatically. The video may not have captions available. Please paste the transcript manually.",
+          details: err?.message
+        });
+      }
+
+      // Save to module
+      await storage.updateModule(req.params.id, {
+        videoUrl,
+        videoTranscript: transcript,
+        videoSource: "youtube",
+      });
+
+      res.json({ transcript, videoId });
+    } catch (error) {
+      console.error("Error fetching transcript:", error);
+      res.status(500).json({ error: "Failed to fetch transcript" });
+    }
+  });
+
+  // Admin: Generate video quiz for a module
+  app.post("/api/admin/modules/:id/generate-video-quiz", requireAdmin, async (req, res) => {
+    try {
+      const { numberOfQuestions = 10 } = req.body;
+      const moduleData = await storage.getModuleById(req.params.id);
+      if (!moduleData) {
+        return res.status(404).json({ error: "Module not found" });
+      }
+
+      if (!moduleData.videoTranscript) {
+        return res.status(400).json({ error: "Module has no video transcript. Fetch or paste a transcript first." });
+      }
+
+      // Get course level
+      const course = await storage.getCourseById(moduleData.courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+
+      // Check if a quiz already exists for this module
+      let quiz = await storage.getQuizByModuleId(req.params.id);
+      if (quiz) {
+        // Delete existing questions to regenerate
+        await storage.deleteQuizQuestionsByQuizId(quiz.id);
+      } else {
+        // Create new quiz
+        quiz = await storage.createQuiz({
+          moduleId: req.params.id,
+          courseId: moduleData.courseId,
+          title: `Video Activity: ${moduleData.title}`,
+          description: `Comprehension and listening quiz based on the module video`,
+          type: "ai",
+          passingScore: 70,
+          totalPoints: numberOfQuestions * 10,
+          isPublished: true,
+        });
+      }
+
+      // Limit transcript to ~4000 chars for context window
+      const transcriptText = moduleData.videoTranscript.slice(0, 4000);
+
+      const prompt = `Generate ${numberOfQuestions} multiple choice quiz questions IN ENGLISH based on a video transcript.
+The student watched a video WITHOUT subtitles. Test their comprehension and listening skills.
+
+Video Source: YouTube
+Course Level: ${course.level} (CEFR)
+Module: ${moduleData.title}
+Video Transcript:
+${transcriptText}
+
+Generate questions in these categories:
+- COMPREHENSION (60%): Test understanding of main ideas, arguments, and details discussed in the video
+- LISTENING DETAIL (40%): Test specific details, numbers, names, or phrases that require careful listening
+
+CRITICAL RULES:
+- ALL questions, options, and explanations must be written entirely in ENGLISH
+- Questions must ONLY reference content from the transcript above
+- Each question must have exactly 4 options, with one correct answer
+- Difficulty must match ${course.level} CEFR level
+- Include a brief explanation for each correct answer
+- Prefix each explanation with [COMPREHENSION] or [LISTENING] to indicate the skill tested
+
+Return a JSON array with this exact format:
+[
+  {
+    "question": "What was the main topic discussed in the video?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctOptionIndex": 0,
+    "explanation": "[COMPREHENSION] The video primarily discusses..."
+  }
+]`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert English teacher creating quiz questions to test listening comprehension. Students watched a video without subtitles. All output must be in English. Generate questions strictly based on the transcript. Always respond with valid JSON only."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from AI");
+      }
+
+      let generatedQuestions;
+      try {
+        const parsed = JSON.parse(content);
+        generatedQuestions = parsed.questions || parsed;
+      } catch {
+        throw new Error("Invalid JSON response from AI");
+      }
+
+      // Create questions in database
+      const createdQuestions = [];
+      for (let i = 0; i < generatedQuestions.length; i++) {
+        const q = generatedQuestions[i];
+        const question = await storage.createQuizQuestion({
+          quizId: quiz.id,
+          question: q.question,
+          options: q.options,
+          correctOptionIndex: q.correctOptionIndex,
+          explanation: q.explanation,
+          orderIndex: i,
+        });
+        createdQuestions.push(question);
+      }
+
+      res.json({ quiz, questions: createdQuestions });
+    } catch (error) {
+      console.error("Error generating video quiz:", error);
+      res.status(500).json({ error: "Failed to generate video quiz" });
+    }
+  });
+
+  // Student: Get modules with video quiz status for a course
+  app.get("/api/courses/:courseId/modules", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const modules = await storage.getModulesByCourseId(req.params.courseId);
+
+      // For each module with a video, check if student passed the quiz
+      const modulesWithStatus = await Promise.all(
+        modules.map(async (mod) => {
+          let videoQuizStatus = null;
+          if (mod.videoUrl) {
+            const quiz = await storage.getQuizByModuleId(mod.id);
+            if (quiz && userId) {
+              const attempts = await storage.getQuizAttemptsByQuizId(quiz.id);
+              const userAttempts = attempts.filter(a => a.userId === userId);
+              const passed = userAttempts.some(a => a.isPassed);
+              const bestScore = userAttempts.length > 0
+                ? Math.max(...userAttempts.map(a => a.score))
+                : null;
+              videoQuizStatus = {
+                quizId: quiz.id,
+                passed,
+                bestScore,
+                attempts: userAttempts.length,
+              };
+            }
+          }
+          return {
+            id: mod.id,
+            courseId: mod.courseId,
+            title: mod.title,
+            description: mod.description,
+            orderIndex: mod.orderIndex,
+            videoUrl: mod.videoUrl,
+            videoSource: mod.videoSource,
+            // Do NOT expose transcript to students
+            videoQuizStatus,
+          };
+        })
+      );
+
+      res.json(modulesWithStatus);
+    } catch (error) {
+      console.error("Error fetching course modules:", error);
+      res.status(500).json({ error: "Failed to fetch modules" });
+    }
+  });
+
+  // Student: Get video quiz for a module
+  app.get("/api/modules/:moduleId/video-quiz", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const quiz = await storage.getQuizByModuleId(req.params.moduleId);
+      if (!quiz || !quiz.isPublished) {
+        return res.status(404).json({ error: "No video quiz found for this module" });
+      }
+
+      const questions = await storage.getQuizQuestions(quiz.id);
+
+      // Strip correctOptionIndex for students
+      const studentQuestions = questions.map(q => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        orderIndex: q.orderIndex,
+      }));
+
+      // Get previous attempts
+      const attempts = await storage.getQuizAttemptsByQuizId(quiz.id);
+      const userAttempts = attempts.filter(a => a.userId === userId);
+
+      res.json({
+        quiz: {
+          id: quiz.id,
+          title: quiz.title,
+          description: quiz.description,
+          passingScore: quiz.passingScore,
+          timeLimit: quiz.timeLimit,
+          totalPoints: quiz.totalPoints,
+        },
+        questions: studentQuestions,
+        previousAttempts: userAttempts.length,
+        bestScore: userAttempts.length > 0
+          ? Math.max(...userAttempts.map(a => a.score))
+          : null,
+        isPassed: userAttempts.some(a => a.isPassed),
+      });
+    } catch (error) {
+      console.error("Error fetching video quiz:", error);
+      res.status(500).json({ error: "Failed to fetch video quiz" });
     }
   });
 
