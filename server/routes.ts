@@ -628,8 +628,28 @@ export async function registerRoutes(
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
+
+      // Primary source of truth: users.subscriptionTier (updated by Stripe webhooks + checkout)
+      const user = await storage.getUser(userId);
+      const tier = user?.subscriptionTier || "free";
+
+      // Also check subscriptions table as fallback (legacy)
       const subscription = await storage.getSubscriptionByUserId(userId);
-      res.json(subscription || { tier: "free" });
+
+      if (subscription) {
+        // If subscriptions table has a record, prefer the higher-privilege tier
+        const tierPriority: Record<string, number> = { free: 0, flex: 1, basic: 2, premium: 3 };
+        const effectiveTier = (tierPriority[tier] || 0) >= (tierPriority[subscription.tier] || 0) ? tier : subscription.tier;
+        res.json({ ...subscription, tier: effectiveTier });
+      } else {
+        // No subscriptions record — return user's tier directly
+        res.json({
+          tier,
+          stripeCustomerId: user?.stripeCustomerId || null,
+          stripeSubscriptionId: user?.stripeSubscriptionId || null,
+          cancelAtPeriodEnd: false,
+        });
+      }
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription" });
