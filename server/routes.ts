@@ -2822,15 +2822,32 @@ Return a JSON array with this exact format:
       
       const subscriptionTier = user.subscriptionTier || 'free';
       
-      // Server-side tier access check: Free and Flex users cannot book labs
-      if (subscriptionTier === 'free' || subscriptionTier === 'flex') {
-        return res.status(403).json({ 
-          error: "Upgrade required", 
-          message: "Tu plan actual no incluye acceso a Conversation Labs. Actualiza a Básico o Premium.",
+      // Server-side tier access check: Only free users cannot book labs
+      if (subscriptionTier === 'free') {
+        return res.status(403).json({
+          error: "Upgrade required",
+          message: "Tu plan actual no incluye acceso a Conversation Labs. Actualiza a Flex, Básico o Premium.",
           code: "TIER_ACCESS_DENIED"
         });
       }
-      
+
+      // Server-side monthly limit check for Flex tier (1 lab per month)
+      if (subscriptionTier === 'flex') {
+        const MONTHLY_LIMIT = 1;
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const monthlyBookings = await storage.getRoomBookingsByUserIdSince(userId, startOfMonth);
+        if (monthlyBookings.length >= MONTHLY_LIMIT) {
+          return res.status(403).json({
+            error: "Monthly limit reached",
+            message: `Has alcanzado el límite de ${MONTHLY_LIMIT} lab por mes. Actualiza a Básico para 2 labs por semana.`,
+            code: "MONTHLY_LIMIT_EXCEEDED"
+          });
+        }
+      }
+
       // Server-side weekly limit check for Basic tier (2 labs per week)
       if (subscriptionTier === 'basic') {
         const WEEKLY_LIMIT = 2;
@@ -2839,16 +2856,18 @@ Return a JSON array with this exact format:
         const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
         startOfWeek.setDate(diff);
         startOfWeek.setHours(0, 0, 0, 0);
-        
+
         const weeklyBookings = await storage.getRoomBookingsByUserIdSince(userId, startOfWeek);
         if (weeklyBookings.length >= WEEKLY_LIMIT) {
-          return res.status(403).json({ 
-            error: "Weekly limit reached", 
+          return res.status(403).json({
+            error: "Weekly limit reached",
             message: `Has alcanzado el límite de ${WEEKLY_LIMIT} labs por semana. Actualiza a Premium para labs ilimitados.`,
             code: "WEEKLY_LIMIT_EXCEEDED"
           });
         }
       }
+
+      // Premium tier: unlimited labs, no check needed
       
       // Server-side level check: User can only book rooms matching their level
       const room = await storage.getSessionRoomById(roomId);
