@@ -7,62 +7,63 @@ import { Badge } from "@/components/ui/badge";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/lib/i18n";
 import { Loader2, Check, Star, Crown, Zap, ArrowLeft, LogOut } from "lucide-react";
 import type { Subscription } from "@shared/schema";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const plans = [
+const planDefs = [
   {
     id: "flex",
     name: "Flex",
     price: 14.99,
     priceId: "price_1SrrJiBe5iAM2felXxQFAzwZ",
-    description: "Para aprendizaje a tu ritmo",
+    descKey: "plan.flex.desc",
     icon: Zap,
-    features: [
-      "Biblioteca completa de cursos",
-      "Todos los módulos y lecciones",
-      "Seguimiento avanzado",
-      "Certificado descargable",
-      "Sin acceso a Conversation Labs",
+    featureKeys: [
+      "plan.feature.courseLibrary",
+      "plan.feature.allModules",
+      "plan.feature.tracking",
+      "plan.feature.certificate",
+      "plan.feature.noLabs",
     ],
     popular: false,
-    highlight: null,
+    highlightKey: null,
   },
   {
     id: "basic",
-    name: "Básico",
+    name: "Basic",
     price: 49.99,
     priceId: "price_1SrrdGBe5iAM2felxVv0eF4H",
-    description: "La opción más popular",
+    descKey: "plan.basic.desc",
     icon: Star,
-    features: [
-      "Biblioteca completa de cursos",
-      "2 Conversation Labs por semana",
-      "Clases en vivo por nivel (A1-C2)",
-      "Seguimiento avanzado",
-      "Certificado descargable",
+    featureKeys: [
+      "plan.feature.courseLibrary",
+      "plan.feature.2labs",
+      "plan.feature.liveClasses",
+      "plan.feature.tracking",
+      "plan.feature.certificate",
     ],
     popular: true,
-    highlight: null,
+    highlightKey: null,
   },
   {
     id: "premium",
     name: "Premium",
     price: 99.99,
     priceId: "price_1SrrgOBe5iAM2fel0N4oRbWS",
-    description: "Para resultados acelerados",
+    descKey: "plan.premium.desc",
     icon: Crown,
-    features: [
-      "Biblioteca completa de cursos",
-      "Conversation Labs ILIMITADOS",
-      "Clases en vivo por nivel (A1-C2)",
-      "Prioridad de agenda en labs",
-      "Soporte prioritario",
-      "Certificados para LinkedIn",
+    featureKeys: [
+      "plan.feature.courseLibrary",
+      "plan.feature.unlimitedLabs",
+      "plan.feature.liveClasses",
+      "plan.feature.priority",
+      "plan.feature.prioritySupport",
+      "plan.feature.linkedinCerts",
     ],
     popular: false,
-    highlight: "Conversation Labs ILIMITADOS",
+    highlightKey: "plan.feature.unlimitedLabs",
   },
 ];
 
@@ -70,6 +71,7 @@ export default function ChoosePlan() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
@@ -109,7 +111,7 @@ export default function ChoosePlan() {
       });
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al procesar");
+        throw new Error(error.error || t("plan.errorProcessing"));
       }
       return response.json();
     },
@@ -120,8 +122,8 @@ export default function ChoosePlan() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "No se pudo iniciar el proceso de pago",
+        title: t("error"),
+        description: error.message || t("plan.errorPayment"),
         variant: "destructive",
       });
     },
@@ -139,15 +141,15 @@ export default function ChoosePlan() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "No se pudo seleccionar el plan gratis",
+        title: t("error"),
+        description: error.message || t("plan.errorFree"),
         variant: "destructive",
       });
     },
   });
 
   const handleSelectPlan = (planId: string) => {
-    const plan = plans.find(p => p.id === planId);
+    const plan = planDefs.find(p => p.id === planId);
     if (!plan) return;
     setSelectedPlan(planId);
     checkoutMutation.mutate({ priceId: plan.priceId, planName: plan.name });
@@ -163,7 +165,7 @@ export default function ChoosePlan() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Cargando...</p>
+          <p className="font-mono text-muted-foreground">{t("loading")}</p>
         </div>
       </div>
     );
@@ -175,7 +177,7 @@ export default function ChoosePlan() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+          <p className="font-mono text-muted-foreground">{t("redirecting")}</p>
         </div>
       </div>
     );
@@ -187,7 +189,7 @@ export default function ChoosePlan() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+          <p className="font-mono text-muted-foreground">{t("redirecting")}</p>
         </div>
       </div>
     );
@@ -199,7 +201,7 @@ export default function ChoosePlan() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Redirigiendo...</p>
+          <p className="font-mono text-muted-foreground">{t("redirecting")}</p>
         </div>
       </div>
     );
@@ -212,7 +214,7 @@ export default function ChoosePlan() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Redirigiendo al dashboard...</p>
+          <p className="font-mono text-muted-foreground">{t("redirectingDashboard")}</p>
         </div>
       </div>
     );
@@ -235,7 +237,7 @@ export default function ChoosePlan() {
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={() => logout()} data-testid="button-logout">
               <LogOut className="w-4 h-4 mr-2" />
-              Cerrar Sesión
+              {t("plan.signOut")}
             </Button>
           </div>
         </div>
@@ -244,23 +246,22 @@ export default function ChoosePlan() {
       <main className="max-w-6xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-display uppercase mb-4">
-            Elige tu Plan
+            {t("plan.title")}
           </h1>
           <p className="font-mono text-muted-foreground max-w-xl mx-auto">
-            ¡Hola, {user?.firstName || "Estudiante"}! Para acceder a todo el contenido de CogniBoost,
-            selecciona el plan que mejor se adapte a tus necesidades.
+            {t("plan.subtitle", { name: user?.firstName || "Student" })}
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {plans.map((plan) => (
-            <Card 
+          {planDefs.map((plan) => (
+            <Card
               key={plan.id}
               className={`relative hover-elevate ${plan.popular ? "border-primary border-2" : ""}`}
             >
               {plan.popular && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-                  Más Popular
+                  {t("plan.mostPopular")}
                 </Badge>
               )}
               <CardHeader className="text-center pb-2">
@@ -270,23 +271,27 @@ export default function ChoosePlan() {
                   <plan.icon className="w-6 h-6" />
                 </div>
                 <CardTitle className="font-display uppercase text-xl">{plan.name}</CardTitle>
-                <p className="text-sm font-mono text-muted-foreground">{plan.description}</p>
+                <p className="text-sm font-mono text-muted-foreground">{t(plan.descKey)}</p>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="text-center">
                   <span className="text-4xl font-display">${plan.price}</span>
-                  <span className="text-muted-foreground font-mono">/mes</span>
+                  <span className="text-muted-foreground font-mono">{t("plan.perMonth")}</span>
                 </div>
-                
+
                 <ul className="space-y-3">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <Check className={`w-5 h-5 flex-shrink-0 mt-0.5 ${plan.highlight === feature ? "text-amber-500" : "text-success"}`} />
-                      <span className={`font-mono text-sm ${plan.highlight === feature ? "font-semibold text-amber-500" : ""}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
+                  {plan.featureKeys.map((featureKey, i) => {
+                    const feature = t(featureKey);
+                    const isHighlight = plan.highlightKey && featureKey === plan.highlightKey;
+                    return (
+                      <li key={i} className="flex items-start gap-2">
+                        <Check className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isHighlight ? "text-amber-500" : "text-success"}`} />
+                        <span className={`font-mono text-sm ${isHighlight ? "font-semibold text-amber-500" : ""}`}>
+                          {feature}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <Button
@@ -299,10 +304,10 @@ export default function ChoosePlan() {
                   {checkoutMutation.isPending && selectedPlan === plan.id ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Procesando...
+                      {t("processing")}
                     </>
                   ) : (
-                    `Elegir ${plan.name}`
+                    t("plan.choose", { name: plan.name })
                   )}
                 </Button>
               </CardContent>
@@ -312,11 +317,11 @@ export default function ChoosePlan() {
 
         <div className="text-center space-y-4">
           <p className="font-mono text-sm text-muted-foreground">
-            Todos los planes incluyen garantía de satisfacción de 7 días
+            {t("plan.guarantee")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleSelectFree}
               disabled={selectFreeMutation.isPending}
               data-testid="button-continue-free"
@@ -324,15 +329,15 @@ export default function ChoosePlan() {
               {selectFreeMutation.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              Continuar con Plan Gratis
+              {t("plan.continueFree")}
             </Button>
             <Button variant="ghost" onClick={() => setLocation("/")} data-testid="link-back-home">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver al inicio
+              {t("plan.backHome")}
             </Button>
           </div>
           <p className="font-mono text-xs text-muted-foreground">
-            El plan gratis incluye las primeras 3 lecciones del Módulo 1
+            {t("plan.freeIncludes")}
           </p>
         </div>
       </main>

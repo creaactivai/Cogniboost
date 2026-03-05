@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "@/lib/i18n";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft,
@@ -119,6 +120,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const hasSubmittedRef = useRef(false);
   
   // Check for admin preview mode via prop or URL parameter (legacy support)
@@ -212,14 +214,14 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
     onSuccess: () => {
       refetchProgress();
       toast({
-        title: "¡Lección completada!",
-        description: "Has completado esta lección exitosamente.",
+        title: t("lesson.completed"),
+        description: t("lesson.completedDesc"),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "No se pudo marcar la lección como completada.",
+        title: t("error"),
+        description: t("lesson.completedError"),
         variant: "destructive",
       });
     },
@@ -238,17 +240,17 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         refetchProgress();
       }
       toast({
-        title: result.isPassed ? "¡Felicidades!" : "Inténtalo de nuevo",
-        description: result.isPassed 
-          ? `Aprobaste con ${result.score}%`
-          : `Obtuviste ${result.score}%. Necesitas ${result.passingScore}% para aprobar.`,
+        title: result.isPassed ? t("quiz.congrats") : t("quiz.tryAgain"),
+        description: result.isPassed
+          ? `Score: ${result.score}%`
+          : `Score: ${result.score}%. Need ${result.passingScore}% to pass.`,
       });
     },
     onError: () => {
       hasSubmittedRef.current = false;
       toast({
-        title: "Error",
-        description: "No se pudo enviar el quiz. Inténtalo de nuevo.",
+        title: t("error"),
+        description: t("quiz.submitError"),
         variant: "destructive",
       });
     },
@@ -333,7 +335,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
               <div>
                 <p className="font-mono font-semibold text-sm text-purple-700 dark:text-purple-300">Modo Vista Previa Admin</p>
                 <p className="text-xs text-muted-foreground">
-                  Viendo el curso como un estudiante. Todas las lecciones están desbloqueadas.
+                  {t("lesson.adminPreview")}
                 </p>
               </div>
             </div>
@@ -369,9 +371,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 <Lock className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="font-mono font-semibold text-sm">Plan Gratuito</p>
+                <p className="font-mono font-semibold text-sm">Free Plan</p>
                 <p className="text-xs text-muted-foreground">
-                  {lockedLessonsCount} lecciones bloqueadas. Actualiza para acceder a todo el contenido.
+                  {t("lesson.lockedCount", { count: lockedLessonsCount })}
                 </p>
               </div>
             </div>
@@ -393,7 +395,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
           {isLoadingProgress && (
             <div className="text-center py-4">
               <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
-              <p className="text-xs text-muted-foreground mt-2">Cargando progreso...</p>
+              <p className="text-xs text-muted-foreground mt-2">{t("lesson.loadingProgress")}</p>
             </div>
           )}
           {modules.length > 0 ? (
@@ -452,7 +454,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                                 return;
                               }
                               if (!isUnlocked) {
-                                toast({ title: "Lección bloqueada", description: "Completa las lecciones anteriores para desbloquear esta.", variant: "destructive" });
+                                toast({ title: t("lesson.locked"), description: t("lesson.lockedDesc"), variant: "destructive" });
                                 return;
                               }
                               setSelectedLessonId(lesson.id);
@@ -565,7 +567,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                       return;
                     }
                     if (!isUnlocked) {
-                      toast({ title: "Lección bloqueada", description: "Completa las lecciones anteriores para desbloquear esta.", variant: "destructive" });
+                      toast({ title: t("lesson.locked"), description: t("lesson.lockedDesc"), variant: "destructive" });
                       return;
                     }
                     setSelectedLessonId(lesson.id);
@@ -858,12 +860,10 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                       >
                         <iframe
                           srcDoc={
-                            selectedLesson.audioMaterials && selectedLesson.audioMaterials.length > 0
-                              ? selectedLesson.htmlContent.replace(
-                                  /var\s+AUDIO_BASE_URL\s*=\s*['"][^'"]*['"]\s*;/,
-                                  `var AUDIO_BASE_URL = '/api/audio/${selectedLesson.id}/';`
-                                )
-                              : selectedLesson.htmlContent
+                            selectedLesson.htmlContent.replace(
+                              /(var|const|let)\s+AUDIO_BASE_URL\s*=\s*['"][^'"]*['"]\s*;/,
+                              `var AUDIO_BASE_URL = '/api/audio/${selectedLesson.id}/';`
+                            )
                           }
                           className="w-full border-0 rounded-lg bg-white"
                           style={{ minHeight: "800px", height: "auto" }}
@@ -914,7 +914,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                               {isCompleted ? (
                                 <>
                                   <CheckCircle className="w-4 h-4 mr-2" />
-                                  Lección Completada
+                                  {t("quiz.completed")}
                                 </>
                               ) : (
                                 <>
@@ -937,7 +937,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           <ClipboardList className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="font-mono font-semibold">Quiz de la Lección</h3>
+                          <h3 className="font-mono font-semibold">{t("quiz.title")}</h3>
                           <p className="text-sm font-mono text-muted-foreground">
                             Evalúa tu comprensión del contenido
                           </p>
@@ -970,7 +970,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         className="mt-4"
                         onClick={() => setShowQuiz(false)}
                       >
-                        Volver a la Lección
+                        {t("quiz.backToLesson")}
                       </Button>
                     </div>
                   ) : quizResult ? (
@@ -1041,7 +1041,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           onClick={() => setShowQuiz(false)}
                           className="flex-1"
                         >
-                          Volver a la Lección
+                          {t("quiz.backToLesson")}
                         </Button>
                         <Button
                           onClick={resetQuiz}
@@ -1130,7 +1130,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
           ) : (
             <Card className="p-8 text-center">
               <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="font-mono font-semibold mb-2">Selecciona una Lección</h3>
+              <h3 className="font-mono font-semibold mb-2">{t("lesson.select")}</h3>
               <p className="font-mono text-sm text-muted-foreground">
                 Elige una lección del menú para comenzar a aprender
               </p>

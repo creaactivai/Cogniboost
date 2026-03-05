@@ -11,6 +11,7 @@ import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,31 +21,32 @@ import type { Subscription } from "@shared/schema";
 const ANONYMOUS_ID_KEY = "cogniboost_anonymous_id";
 
 function HelpSupport() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-display uppercase mb-2">Ayuda y Soporte</h1>
+        <h1 className="text-3xl font-display uppercase mb-2">{t("help.title")}</h1>
         <p className="font-mono text-muted-foreground">
-          Obtén ayuda con tu camino de aprendizaje
+          {t("help.subtitle")}
         </p>
       </div>
       <div className="grid gap-4 max-w-2xl">
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">Preguntas Frecuentes</h3>
+          <h3 className="font-mono font-semibold mb-2">{t("help.faq")}</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Encuentra respuestas a preguntas comunes sobre cursos, labs y tu cuenta.
+            {t("help.faqDesc")}
           </p>
         </div>
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">Contactar Soporte</h3>
+          <h3 className="font-mono font-semibold mb-2">{t("help.contact")}</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Escríbenos a support@cogniboost.co para asistencia personalizada.
+            {t("help.contactDesc")}
           </p>
         </div>
         <div className="p-6 border border-border hover-elevate">
-          <h3 className="font-mono font-semibold mb-2">Comunidad</h3>
+          <h3 className="font-mono font-semibold mb-2">{t("help.community")}</h3>
           <p className="text-sm font-mono text-muted-foreground">
-            Únete a nuestra comunidad de Discord para conectar con otros estudiantes.
+            {t("help.communityDesc")}
           </p>
         </div>
       </div>
@@ -126,7 +128,7 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="font-mono text-muted-foreground">Cargando...</p>
+          <p className="font-mono text-muted-foreground">Loading...</p>
         </div>
       </div>
     );

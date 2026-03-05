@@ -35,6 +35,7 @@ import AcceptInvitation from "@/pages/accept-invitation";
 import ActivatePage from "@/pages/activate";
 import VerifyEmailPage from "@/pages/verify-email";
 import { CookieConsent } from "@/components/cookie-consent";
+import { I18nProvider } from "@/lib/i18n";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { initAnalytics, trackPageView, setUserId, setUserProperties } from "@/lib/analytics";
@@ -248,14 +249,16 @@ function AnalyticsTracker() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BookingProvider>
-          <AnalyticsTracker />
-          <Toaster />
-          <Router />
-          <CookieConsent />
-        </BookingProvider>
-      </TooltipProvider>
+      <I18nProvider>
+        <TooltipProvider>
+          <BookingProvider>
+            <AnalyticsTracker />
+            <Toaster />
+            <Router />
+            <CookieConsent />
+          </BookingProvider>
+        </TooltipProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

@@ -167,6 +167,16 @@ export default function AdminCourseLessons() {
     enabled: !!courseId,
   });
 
+  const { data: audioDiag } = useQuery<{
+    htmlRefs: string[];
+    uploaded: string[];
+    missing: string[];
+    summary: string;
+  }>({
+    queryKey: [`/api/admin/lessons/${editingLesson?.id}/audio-diagnostics`],
+    enabled: !!editingLesson?.id,
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => 
       apiRequest("POST", "/api/admin/lessons", { ...data, courseId }),
@@ -696,6 +706,29 @@ export default function AdminCourseLessons() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {editingLesson && audioDiag && audioDiag.htmlRefs.length > 0 && (
+                    <div className="mt-3 p-3 border rounded" style={{ backgroundColor: audioDiag.missing.length > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)' }}>
+                      <p className="text-xs font-mono font-semibold mb-1" style={{ color: audioDiag.missing.length > 0 ? '#EF4444' : '#10B981' }}>
+                        {audioDiag.missing.length > 0 ? (
+                          <><AlertTriangle className="w-3 h-3 inline mr-1" />{audioDiag.summary}</>
+                        ) : (
+                          <><CheckCircle className="w-3 h-3 inline mr-1" />All audio files uploaded</>
+                        )}
+                      </p>
+                      {audioDiag.missing.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs font-mono cursor-pointer text-muted-foreground hover:text-foreground">
+                            Show {audioDiag.missing.length} missing files
+                          </summary>
+                          <div className="mt-1 max-h-32 overflow-y-auto space-y-0.5">
+                            {audioDiag.missing.map((f, i) => (
+                              <p key={i} className="text-xs font-mono text-destructive">{f}</p>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   )}
                 </div>

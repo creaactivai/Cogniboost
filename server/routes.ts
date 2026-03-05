@@ -2176,6 +2176,35 @@ Return a JSON array with this exact format:
     }
   });
 
+  // Admin: Audio diagnostics for a lesson — shows which MP3s are referenced vs uploaded
+  app.get("/api/admin/lessons/:id/audio-diagnostics", requireAdmin, async (req, res) => {
+    try {
+      const lesson = await storage.getLessonById(req.params.id);
+      if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+      // Extract MP3 filenames referenced in HTML
+      const htmlRefs = [...new Set((lesson.htmlContent || "").match(/[\w-]+\.mp3/g) || [])];
+
+      // Extract uploaded filenames from audioMaterials
+      const uploaded = (lesson.audioMaterials || []).map((m: string) => m.split("::")[0]);
+
+      // Compute missing
+      const missing = htmlRefs.filter(f => !uploaded.includes(f));
+
+      res.json({
+        lessonId: lesson.id,
+        title: lesson.title,
+        htmlRefs,
+        uploaded,
+        missing,
+        summary: `${uploaded.length}/${htmlRefs.length} audio files uploaded (${missing.length} missing)`,
+      });
+    } catch (error) {
+      console.error("Error running audio diagnostics:", error);
+      res.status(500).json({ error: "Failed to run audio diagnostics" });
+    }
+  });
+
   // Admin: Get all enrollments
   app.get("/api/admin/enrollments", requireAdmin, async (req, res) => {
     try {

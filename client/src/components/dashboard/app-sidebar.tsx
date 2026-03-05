@@ -10,18 +10,20 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { 
-  BookOpen, 
-  Users, 
-  BarChart3, 
-  Settings, 
+import {
+  BookOpen,
+  Users,
+  BarChart3,
+  Settings,
   HelpCircle,
   Home,
   LogOut,
   GraduationCap,
+  Globe,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation, type Locale } from "@/lib/i18n";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const menuItems = [
@@ -62,6 +64,7 @@ const secondaryItems = [
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
+  const { locale, setLocale } = useTranslation();
   const currentPath = window.location.pathname;
 
   const getInitials = () => {
@@ -154,7 +157,15 @@ export function AppSidebar() {
             </p>
           </div>
         </div>
-        <SidebarMenuButton 
+        <SidebarMenuButton
+          className="w-full justify-start"
+          onClick={() => setLocale(locale === "en" ? "es" : "en")}
+          data-testid="button-language-toggle"
+        >
+          <Globe className="w-4 h-4" />
+          <span className="font-mono">{locale === "en" ? "Español" : "English"}</span>
+        </SidebarMenuButton>
+        <SidebarMenuButton
           className="w-full justify-start text-destructive hover:text-destructive"
           onClick={() => window.location.href = "/api/logout"}
           data-testid="button-logout"
