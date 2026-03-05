@@ -139,6 +139,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       setSelectedLessonId(lessonId);
       setShowQuiz(false);
       setQuizResult(null);
+      hasSubmittedRef.current = false;
     }
   }, [lessonId]);
 
@@ -186,6 +187,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       });
     },
     onError: () => {
+      hasSubmittedRef.current = false;
       toast({ title: "Error", description: "Could not submit quiz.", variant: "destructive" });
     },
   });
@@ -243,6 +245,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       });
     },
     onError: () => {
+      hasSubmittedRef.current = false;
       toast({
         title: "Error",
         description: "No se pudo enviar el quiz. Inténtalo de nuevo.",

@@ -68,7 +68,7 @@ import {
   type InsertStaffInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, count, and, isNull, isNotNull, gte, inArray } from "drizzle-orm";
+import { eq, ne, desc, sql, count, and, isNull, isNotNull, gte, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Course Categories
@@ -950,10 +950,12 @@ export class DatabaseStorage implements IStorage {
     totalRevenue: string;
     activeSubscriptions: number;
   }> {
-    const [studentsResult] = await db.select({ count: count() }).from(userStats);
+    const [studentsResult] = await db.select({ count: count() }).from(users).where(eq(users.isAdmin, false));
     const [coursesResult] = await db.select({ count: count() }).from(courses);
     const [labsResult] = await db.select({ count: count() }).from(conversationLabs);
-    const [subsResult] = await db.select({ count: count() }).from(subscriptions).where(eq(subscriptions.cancelAtPeriodEnd, false));
+    const [subsResult] = await db.select({ count: count() }).from(users).where(
+      and(eq(users.isAdmin, false), ne(users.subscriptionTier, 'free'))
+    );
     const [revenueResult] = await db.select({ total: sql<string>`COALESCE(SUM(amount), 0)` }).from(payments).where(eq(payments.status, "completed"));
 
     return {

@@ -42,6 +42,12 @@ export class WebhookHandlers {
       case 'payment_intent.succeeded':
         await WebhookHandlers.handlePaymentSucceeded(event.data.object);
         break;
+      case 'invoice.payment_succeeded':
+        await WebhookHandlers.handleInvoicePaymentSucceeded(event.data.object);
+        break;
+      case 'invoice.payment_failed':
+        await WebhookHandlers.handleInvoicePaymentFailed(event.data.object);
+        break;
       default:
         console.log(`Unhandled webhook event: ${event.type}`);
     }
@@ -258,6 +264,32 @@ export class WebhookHandlers {
 
     await db.update(users).set({
       status: 'active',
+      updatedAt: new Date(),
+    }).where(eq(users.id, user.id));
+  }
+
+  static async handleInvoicePaymentSucceeded(invoice: any) {
+    const customerId = invoice.customer;
+    console.log(`[Webhook] invoice.payment_succeeded: customer=${customerId}, amount=${invoice.amount_paid}`);
+
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    if (!user) return;
+
+    await db.update(users).set({
+      status: 'active',
+      updatedAt: new Date(),
+    }).where(eq(users.id, user.id));
+  }
+
+  static async handleInvoicePaymentFailed(invoice: any) {
+    const customerId = invoice.customer;
+    console.log(`[Webhook] invoice.payment_failed: customer=${customerId}`);
+
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    if (!user) return;
+
+    await db.update(users).set({
+      status: 'hold',
       updatedAt: new Date(),
     }).where(eq(users.id, user.id));
   }

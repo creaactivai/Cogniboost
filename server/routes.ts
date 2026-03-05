@@ -2220,6 +2220,22 @@ Return a JSON array with this exact format:
     }
   });
 
+  // Admin: Get subscription tier distribution from users table (source of truth)
+  app.get("/api/admin/subscription-stats", requireAdmin, async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const tierCounts: Record<string, number> = { free: 0, flex: 0, basic: 0, premium: 0 };
+      for (const user of allUsers) {
+        const tier = user.subscriptionTier || 'free';
+        tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+      }
+      res.json(tierCounts);
+    } catch (error) {
+      console.error("Error fetching subscription stats:", error);
+      res.status(500).json({ error: "Failed to fetch subscription stats" });
+    }
+  });
+
   // Admin: Get all payments
   app.get("/api/admin/payments", requireAdmin, async (req, res) => {
     try {

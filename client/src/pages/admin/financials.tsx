@@ -4,19 +4,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DollarSign, TrendingUp, CreditCard, Users, ArrowUpRight, ArrowDownRight, TrendingDown, UserCheck } from "lucide-react";
-import type { Payment, Subscription } from "@shared/schema";
+import type { Payment } from "@shared/schema";
 
 const tierLabels: Record<string, string> = {
   free: "Gratis",
   flex: "Flex",
+  basic: "Básico",
   standard: "Estándar",
   premium: "Prémium",
 };
 
-const PLAN_PRICES = {
+const PLAN_PRICES: Record<string, number> = {
   free: 0,
   flex: 14.99,
-  standard: 49.99,
+  basic: 49.99,
   premium: 99.99,
 };
 
@@ -54,24 +55,16 @@ export default function AdminFinancials() {
     refetchInterval: 30000,
   });
 
-  const { data: subscriptions } = useQuery<Subscription[]>({
-    queryKey: ["/api/admin/subscriptions"],
+  const { data: tierCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/admin/subscription-stats"],
     refetchInterval: 30000,
   });
 
-  const tierCounts = subscriptions?.reduce(
-    (acc, sub) => {
-      acc[sub.tier] = (acc[sub.tier] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  ) || {};
-
-  const totalSubs = subscriptions?.length || 1;
-  const mrr = 
-    (tierCounts.flex || 0) * PLAN_PRICES.flex + 
-    (tierCounts.standard || 0) * PLAN_PRICES.standard + 
-    (tierCounts.premium || 0) * PLAN_PRICES.premium;
+  const totalSubs = Object.values(tierCounts || {}).reduce((sum, n) => sum + n, 0) || 1;
+  const mrr =
+    ((tierCounts?.flex || 0) * PLAN_PRICES.flex) +
+    ((tierCounts?.basic || 0) * PLAN_PRICES.basic) +
+    ((tierCounts?.premium || 0) * PLAN_PRICES.premium);
   const arr = mrr * 12;
 
   return (
@@ -264,30 +257,30 @@ export default function AdminFinancials() {
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-mono">Gratis</span>
-                  <span className="font-bold">{tierCounts.free || 0}</span>
+                  <span className="font-bold">{tierCounts?.free || 0}</span>
                 </div>
-                <Progress value={((tierCounts.free || 0) / totalSubs) * 100} className="h-2" />
+                <Progress value={((tierCounts?.free || 0) / totalSubs) * 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-mono">Flex (${PLAN_PRICES.flex}/mes)</span>
-                  <span className="font-bold">{tierCounts.flex || 0}</span>
+                  <span className="font-bold">{tierCounts?.flex || 0}</span>
                 </div>
-                <Progress value={((tierCounts.flex || 0) / totalSubs) * 100} className="h-2" />
+                <Progress value={((tierCounts?.flex || 0) / totalSubs) * 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm font-mono">Estándar (${PLAN_PRICES.standard}/mes)</span>
-                  <span className="font-bold">{tierCounts.standard || 0}</span>
+                  <span className="text-sm font-mono">Básico (${PLAN_PRICES.basic}/mes)</span>
+                  <span className="font-bold">{tierCounts?.basic || 0}</span>
                 </div>
-                <Progress value={((tierCounts.standard || 0) / totalSubs) * 100} className="h-2" />
+                <Progress value={((tierCounts?.basic || 0) / totalSubs) * 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-mono">Prémium (${PLAN_PRICES.premium}/mes)</span>
-                  <span className="font-bold">{tierCounts.premium || 0}</span>
+                  <span className="font-bold">{tierCounts?.premium || 0}</span>
                 </div>
-                <Progress value={((tierCounts.premium || 0) / totalSubs) * 100} className="h-2" />
+                <Progress value={((tierCounts?.premium || 0) / totalSubs) * 100} className="h-2" />
               </div>
 
               <div className="pt-4 border-t border-border">
@@ -328,8 +321,8 @@ export default function AdminFinancials() {
                     <span className="font-bold text-accent">${PLAN_PRICES.flex}/mes</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Estándar</span>
-                    <span className="font-bold text-primary">${PLAN_PRICES.standard}/mes</span>
+                    <span>Básico</span>
+                    <span className="font-bold text-primary">${PLAN_PRICES.basic}/mes</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Prémium</span>
