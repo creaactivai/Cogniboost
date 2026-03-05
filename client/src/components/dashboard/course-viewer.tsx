@@ -857,7 +857,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           srcDoc={
                             selectedLesson.audioMaterials && selectedLesson.audioMaterials.length > 0
                               ? selectedLesson.htmlContent.replace(
-                                  /var\s+AUDIO_BASE_URL\s*=\s*['"]\.\/audio\/['"]\s*;/,
+                                  /var\s+AUDIO_BASE_URL\s*=\s*['"][^'"]*['"]\s*;/,
                                   `var AUDIO_BASE_URL = '/api/audio/${selectedLesson.id}/';`
                                 )
                               : selectedLesson.htmlContent
