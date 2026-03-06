@@ -1560,9 +1560,26 @@ Guidelines:
   // Admin: Create modules for a course
   app.post("/api/admin/courses/:id/modules", requireAdmin, async (req, res) => {
     try {
-      const { count } = req.body;
+      const { count, title, description } = req.body;
+
+      // If title is provided, create a single named module
+      if (title) {
+        const existingModules = await storage.getModulesByCourseId(req.params.id);
+        const maxOrder = existingModules.length > 0
+          ? Math.max(...existingModules.map(m => m.orderIndex))
+          : 0;
+        const newModule = await storage.createModule({
+          courseId: req.params.id,
+          title,
+          description: description || null,
+          orderIndex: maxOrder + 1,
+        });
+        return res.status(201).json(newModule);
+      }
+
+      // Otherwise batch-create by count
       if (!count || count < 1) {
-        return res.status(400).json({ error: "Count must be at least 1" });
+        return res.status(400).json({ error: "Provide title or count" });
       }
       const modules = await storage.createModulesForCourse(req.params.id, count);
       res.status(201).json(modules);
@@ -2222,6 +2239,106 @@ Return a JSON array with this exact format:
     } catch (error) {
       console.error("Error running audio diagnostics:", error);
       res.status(500).json({ error: "Failed to run audio diagnostics" });
+    }
+  });
+
+  // Admin: Audio health check - weekly maintenance endpoint
+  app.get("/api/admin/audio-health", requireAdmin, async (req, res) => {
+    try {
+      const allCourses = await storage.getAllCourses();
+      const allLessons: any[] = [];
+      for (const course of allCourses) {
+        const courseLessons = await storage.getLessonsByCourseId(course.id);
+        allLessons.push(...courseLessons.map(l => ({ ...l, courseName: course.title })));
+      }
+      const htmlLessons = allLessons.filter((l: any) => l.htmlContent && l.htmlContent.trim() !== "");
+
+      const report: any[] = [];
+
+      for (const lesson of htmlLessons) {
+        const html = lesson.htmlContent as string;
+        const audioMaterials = (lesson as any).audioMaterials as string[] | null;
+
+        // Extract MP3 references from HTML
+        const mp3Regex = /['"]([\w\-]+\.mp3)['"]/g;
+        const htmlAudioRefs: string[] = [];
+        let match;
+        while ((match = mp3Regex.exec(html)) !== null) {
+          if (!htmlAudioRefs.includes(match[1])) htmlAudioRefs.push(match[1]);
+        }
+
+        // Check AUDIO_BASE_URL pattern
+        const baseUrlMatch = html.match(/var\s+AUDIO_BASE_URL\s*=\s*['"]([^'"]*)['"]\s*;/);
+        const hasBaseUrl = !!baseUrlMatch;
+        const baseUrlValue = baseUrlMatch ? baseUrlMatch[1] : null;
+
+        // Check speech fallback
+        const hasSpeechFallback = /speakText|speechSynthesis/.test(html);
+
+        // Get uploaded files
+        const uploadedFiles = (audioMaterials || []).map(entry => entry.split("::")[0]);
+        const uploadedCount = uploadedFiles.length;
+
+        // Find mismatches
+        const missingUploads = htmlAudioRefs.filter(f => !uploadedFiles.includes(f));
+        const extraUploads = uploadedFiles.filter(f => !htmlAudioRefs.includes(f));
+
+        // Determine status
+        let status: "ok" | "warning" | "error" = "ok";
+        const issues: string[] = [];
+
+        if (htmlAudioRefs.length > 0 && uploadedCount === 0) {
+          status = "error";
+          issues.push("HTML references audio files but none are uploaded");
+        }
+        if (missingUploads.length > 0) {
+          status = status === "error" ? "error" : "warning";
+          issues.push(`${missingUploads.length} audio files referenced in HTML but not uploaded`);
+        }
+        if (htmlAudioRefs.length > 0 && !hasBaseUrl) {
+          status = "error";
+          issues.push("HTML references MP3 files but has no AUDIO_BASE_URL variable");
+        }
+        if (uploadedCount > 0 && htmlAudioRefs.length === 0 && !hasBaseUrl) {
+          status = "warning";
+          issues.push("Audio files uploaded but HTML has no audio player code");
+        }
+        if (htmlAudioRefs.length > 0 && !hasSpeechFallback) {
+          status = status === "error" ? "error" : "warning";
+          issues.push("No Web Speech API fallback — audio will be silent if MP3s fail");
+        }
+
+        report.push({
+          lessonId: lesson.id,
+          title: lesson.title,
+          courseId: lesson.courseId,
+          courseName: (lesson as any).courseName,
+          status,
+          htmlAudioRefs: htmlAudioRefs.length,
+          uploadedAudio: uploadedCount,
+          missingUploads: missingUploads.length > 0 ? missingUploads : undefined,
+          extraUploads: extraUploads.length > 0 ? extraUploads : undefined,
+          hasBaseUrl,
+          baseUrlValue,
+          hasSpeechFallback,
+          issues: issues.length > 0 ? issues : undefined,
+        });
+      }
+
+      const summary = {
+        totalHtmlLessons: htmlLessons.length,
+        withAudioUploaded: report.filter(r => r.uploadedAudio > 0).length,
+        withoutAudioUploaded: report.filter(r => r.uploadedAudio === 0).length,
+        errors: report.filter(r => r.status === "error").length,
+        warnings: report.filter(r => r.status === "warning").length,
+        ok: report.filter(r => r.status === "ok").length,
+        checkedAt: new Date().toISOString(),
+      };
+
+      res.json({ summary, lessons: report });
+    } catch (error) {
+      console.error("Error running audio health check:", error);
+      res.status(500).json({ error: "Failed to run audio health check" });
     }
   });
 
@@ -2904,16 +3021,17 @@ Return a JSON array with this exact format:
         startOfMonth.setHours(0, 0, 0, 0);
 
         const monthlyBookings = await storage.getRoomBookingsByUserIdSince(userId, startOfMonth);
-        if (monthlyBookings.length >= MONTHLY_LIMIT) {
+        const activeMonthlyBookings = monthlyBookings.filter(b => !b.cancelledAt);
+        if (activeMonthlyBookings.length >= MONTHLY_LIMIT) {
           return res.status(403).json({
             error: "Monthly limit reached",
-            message: `Has alcanzado el límite de ${MONTHLY_LIMIT} lab por mes. Actualiza a Básico para 2 labs por semana.`,
+            message: `Has alcanzado el límite de ${MONTHLY_LIMIT} lab por mes. Actualiza a Standard o Premium para más labs.`,
             code: "MONTHLY_LIMIT_EXCEEDED"
           });
         }
       }
 
-      // Server-side weekly limit check for Basic tier (2 labs per week)
+      // Server-side weekly limit check for Basic tier (2 labs per week = 8 per month)
       if (subscriptionTier === 'basic') {
         const WEEKLY_LIMIT = 2;
         const startOfWeek = new Date();
@@ -2923,7 +3041,8 @@ Return a JSON array with this exact format:
         startOfWeek.setHours(0, 0, 0, 0);
 
         const weeklyBookings = await storage.getRoomBookingsByUserIdSince(userId, startOfWeek);
-        if (weeklyBookings.length >= WEEKLY_LIMIT) {
+        const activeWeeklyBookings = weeklyBookings.filter(b => !b.cancelledAt);
+        if (activeWeeklyBookings.length >= WEEKLY_LIMIT) {
           return res.status(403).json({
             error: "Weekly limit reached",
             message: `Has alcanzado el límite de ${WEEKLY_LIMIT} labs por semana. Actualiza a Premium para labs ilimitados.`,
@@ -3345,6 +3464,21 @@ Return a JSON array with this exact format:
     } catch (error) {
       console.error("Error fetching quizzes:", error);
       res.status(500).json({ error: "Failed to fetch quizzes" });
+    }
+  });
+
+  // Admin: Get video quiz by module ID with questions
+  app.get("/api/admin/modules/:moduleId/quiz", requireAdmin, async (req, res) => {
+    try {
+      const quiz = await storage.getQuizByModuleId(req.params.moduleId);
+      if (!quiz) {
+        return res.status(404).json({ error: "No quiz found for this module" });
+      }
+      const questions = await storage.getQuizQuestions(quiz.id);
+      res.json({ ...quiz, questions });
+    } catch (error) {
+      console.error("Error fetching module quiz:", error);
+      res.status(500).json({ error: "Failed to fetch module quiz" });
     }
   });
 
@@ -3789,6 +3923,90 @@ Important:
   });
 
   // Admin: Export students as CSV
+  // Admin: Get detailed student progress
+  app.get("/api/admin/students/:id/progress", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+
+      const [lessonProgressData, quizAttempts, enrollments, userStatsData] = await Promise.all([
+        storage.getLessonProgressByUserId(userId),
+        storage.getQuizAttemptsByUserId(userId),
+        storage.getEnrollmentsByUserId(userId),
+        storage.getUserStats(userId),
+      ]);
+
+      // For each enrollment, get the course details and lesson completion
+      const courseProgress = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const course = await storage.getCourseById(enrollment.courseId);
+          const courseLessons = await storage.getLessonsByCourseId(enrollment.courseId);
+          const completedLessons = lessonProgressData.filter(
+            lp => courseLessons.some(l => l.id === lp.lessonId) && lp.isCompleted
+          );
+          return {
+            courseId: enrollment.courseId,
+            courseTitle: course?.title || "Unknown",
+            courseLevel: course?.level || "N/A",
+            enrolledAt: enrollment.enrolledAt,
+            completedAt: enrollment.completedAt,
+            totalLessons: courseLessons.length,
+            completedLessons: completedLessons.length,
+            progressPercent: courseLessons.length > 0
+              ? Math.round((completedLessons.length / courseLessons.length) * 100)
+              : 0,
+          };
+        })
+      );
+
+      // Get quiz details for each attempt
+      const quizDetails = await Promise.all(
+        quizAttempts.map(async (attempt) => {
+          const quiz = await storage.getQuizById(attempt.quizId);
+          return {
+            ...attempt,
+            quizTitle: quiz?.title || "Unknown Quiz",
+            quizType: quiz?.type || "unknown",
+          };
+        })
+      );
+
+      // Enrich lesson progress with lesson titles
+      const lessonProgressWithTitles = await Promise.all(
+        lessonProgressData.map(async (lp) => {
+          const lesson = await storage.getLessonById(lp.lessonId);
+          return {
+            ...lp,
+            lessonTitle: lesson?.title || lp.lessonId.substring(0, 8),
+          };
+        })
+      );
+
+      res.json({
+        student: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: user.status,
+          englishLevel: user.placementLevel || user.englishLevel,
+          createdAt: user.createdAt,
+          subscriptionTier: user.subscriptionTier,
+        },
+        stats: userStatsData,
+        courseProgress,
+        quizAttempts: quizDetails,
+        lessonProgress: lessonProgressWithTitles,
+      });
+    } catch (error) {
+      console.error("Error fetching student progress:", error);
+      res.status(500).json({ error: "Failed to fetch student progress" });
+    }
+  });
+
   app.get("/api/admin/students/export", requireAdmin, async (req, res) => {
     try {
       const { status } = req.query;

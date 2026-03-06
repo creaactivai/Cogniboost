@@ -255,10 +255,47 @@ export default function AdminCourseLessons() {
     },
   });
 
+  const [isAddModuleDialogOpen, setIsAddModuleDialogOpen] = useState(false);
+  const [newModuleTitle, setNewModuleTitle] = useState("");
+
+  const createModuleMutation = useMutation({
+    mutationFn: (data: { title: string }) =>
+      apiRequest("POST", `/api/admin/courses/${courseId}/modules`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      toast({ title: "Módulo creado exitosamente" });
+      setIsAddModuleDialogOpen(false);
+      setNewModuleTitle("");
+    },
+    onError: () => {
+      toast({ title: "Error al crear módulo", variant: "destructive" });
+    },
+  });
+
   // Video Activity state
   const [expandedVideoModule, setExpandedVideoModule] = useState<string | null>(null);
   const [videoUrlInput, setVideoUrlInput] = useState<Record<string, string>>({});
   const [videoTranscriptInput, setVideoTranscriptInput] = useState<Record<string, string>>({});
+  const [viewingQuizModule, setViewingQuizModule] = useState<string | null>(null);
+
+  interface QuizQuestion {
+    id: string;
+    question: string;
+    options: string[];
+    correctOptionIndex: number;
+    explanation: string;
+    orderIndex: number;
+  }
+  interface ModuleQuiz {
+    id: string;
+    title: string;
+    questions: QuizQuestion[];
+  }
+
+  const { data: moduleQuizData } = useQuery<ModuleQuiz>({
+    queryKey: [`/api/admin/modules/${viewingQuizModule}/quiz`],
+    enabled: !!viewingQuizModule,
+  });
 
   const fetchTranscriptMutation = useMutation({
     mutationFn: async ({ moduleId, videoUrl }: { moduleId: string; videoUrl: string }) => {
@@ -296,8 +333,10 @@ export default function AdminCourseLessons() {
       const res = await apiRequest("POST", `/api/admin/modules/${moduleId}/generate-video-quiz`, { numberOfQuestions });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/courses/${courseId}/modules`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/modules/${variables.moduleId}/quiz`] });
+      setViewingQuizModule(variables.moduleId);
       toast({ title: `Quiz generado: ${data.questions?.length || 0} preguntas` });
     },
     onError: () => {
@@ -500,6 +539,36 @@ export default function AdminCourseLessons() {
           <p className="text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
             {lessons?.length || 0} lecciones en este curso
           </p>
+          <div className="flex gap-2">
+            <Dialog open={isAddModuleDialogOpen} onOpenChange={setIsAddModuleDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-create-module">
+                  <Layers className="w-4 h-4 mr-2" />
+                  Nuevo Módulo
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+                    Crear Nuevo Módulo
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={(e) => { e.preventDefault(); if (newModuleTitle.trim()) createModuleMutation.mutate({ title: newModuleTitle.trim() }); }} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label style={{ fontFamily: 'JetBrains Mono, monospace' }}>Título del Módulo</Label>
+                    <Input
+                      value={newModuleTitle}
+                      onChange={(e) => setNewModuleTitle(e.target.value)}
+                      placeholder="Ej: Module 5 - Travel Vocabulary"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={createModuleMutation.isPending || !newModuleTitle.trim()}>
+                    {createModuleMutation.isPending ? "Creando..." : "Crear Módulo"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-lesson">
@@ -781,6 +850,7 @@ export default function AdminCourseLessons() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -987,6 +1057,63 @@ export default function AdminCourseLessons() {
                             {!module.videoTranscript && !videoTranscriptInput[module.id] && (
                               <p className="text-xs text-muted-foreground text-center">
                                 Primero obtén o pega el transcript para generar el quiz
+                              </p>
+                            )}
+
+                            {/* View/Hide Quiz Questions Button */}
+                            {(module.videoTranscript || videoTranscriptInput[module.id]) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full mt-2"
+                                onClick={() => {
+                                  if (viewingQuizModule === module.id) {
+                                    setViewingQuizModule(null);
+                                  } else {
+                                    setViewingQuizModule(module.id);
+                                  }
+                                }}
+                              >
+                                <ClipboardList className="w-4 h-4 mr-2" />
+                                {viewingQuizModule === module.id ? "Ocultar Preguntas" : "Ver Preguntas del Quiz"}
+                              </Button>
+                            )}
+
+                            {/* Quiz Questions Display */}
+                            {viewingQuizModule === module.id && moduleQuizData?.questions && (
+                              <div className="mt-3 space-y-3">
+                                <h4 className="text-sm font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                                  {moduleQuizData.questions.length} Preguntas Generadas
+                                </h4>
+                                {moduleQuizData.questions.map((q, i) => (
+                                  <div key={q.id} className="p-3 bg-background border text-sm space-y-2">
+                                    <p className="font-medium" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                                      {i + 1}. {q.question}
+                                    </p>
+                                    <div className="space-y-1 pl-4">
+                                      {q.options.map((opt, oi) => (
+                                        <p
+                                          key={oi}
+                                          className={`text-xs ${oi === q.correctOptionIndex ? 'font-bold' : 'text-muted-foreground'}`}
+                                          style={oi === q.correctOptionIndex ? { color: '#10B981' } : {}}
+                                        >
+                                          {String.fromCharCode(65 + oi)}) {opt} {oi === q.correctOptionIndex && "✓"}
+                                        </p>
+                                      ))}
+                                    </div>
+                                    {q.explanation && (
+                                      <p className="text-xs text-muted-foreground italic pl-4">
+                                        {q.explanation}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {viewingQuizModule === module.id && !moduleQuizData?.questions && (
+                              <p className="text-xs text-muted-foreground text-center mt-2">
+                                No se ha generado un quiz aún para este módulo.
                               </p>
                             )}
                           </div>

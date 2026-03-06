@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle, UserPlus, Trash2, Download } from "lucide-react";
+import { Users, Search, BookOpen, Clock, Star, Lock, Unlock, TrendingDown, UserCheck, UserX, AlertTriangle, UserPlus, Trash2, Download, Eye } from "lucide-react";
+import { Link } from "wouter";
 import { useState } from "react";
 import type { UserStats, Enrollment } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -550,6 +551,16 @@ export default function AdminStudents() {
                         {statusLabels[student.status]}
                       </Badge>
 
+                      <Link href={`/admin/students/${student.id}`}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Ver progreso"
+                          data-testid={`button-progress-${student.id}`}
+                        >
+                          <Eye className="w-4 h-4" style={{ color: '#33CBFB' }} />
+                        </Button>
+                      </Link>
                       {activeTab !== 'deleted' && (
                         <>
                           {student.isLocked ? (
