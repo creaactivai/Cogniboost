@@ -47,8 +47,16 @@ class AuthStorage implements IAuthStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
-    return user;
+    const matches = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    if (matches.length === 0) return undefined;
+    if (matches.length === 1) return matches[0];
+    // Duplicates exist (legacy data). Prefer verified + unlocked + has-passwordHash so
+    // login resolves to the account the user can actually use.
+    const score = (u: User) =>
+      (u.emailVerified ? 4 : 0) +
+      (u.isLocked ? 0 : 2) +
+      (u.passwordHash ? 1 : 0);
+    return matches.slice().sort((a, b) => score(b) - score(a))[0];
   }
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {

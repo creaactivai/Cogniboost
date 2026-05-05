@@ -4,6 +4,47 @@ import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail } from './resendClient';
 
+/**
+ * Resolve a Stripe customerId to a CogniBoost user record.
+ *
+ * 1. Look up by `users.stripeCustomerId`.
+ * 2. If miss, fetch the customer from Stripe, take its email, and look up by email.
+ *    If a user is found that way, rewrite their `stripeCustomerId` to the live one
+ *    so future webhooks resolve directly. This recovers from the case where an
+ *    admin deletes a duplicate Stripe customer and the surviving customer's
+ *    webhook events would otherwise be orphaned (Reinilza-class bug).
+ */
+async function findUserForCustomer(customerId: string): Promise<typeof users.$inferSelect | undefined> {
+  if (!customerId) return undefined;
+
+  const [byCustomerId] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+  if (byCustomerId) return byCustomerId;
+
+  try {
+    const stripe = await getUncachableStripeClient();
+    const customer: any = await stripe.customers.retrieve(customerId);
+    if (customer?.deleted) {
+      console.warn(`[Webhook] Stripe customer ${customerId} is deleted; cannot resolve user.`);
+      return undefined;
+    }
+    const email = customer?.email;
+    if (!email) return undefined;
+
+    const [byEmail] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    if (!byEmail) return undefined;
+
+    await db.update(users).set({
+      stripeCustomerId: customerId,
+      updatedAt: new Date(),
+    }).where(eq(users.id, byEmail.id));
+    console.log(`[Webhook] Re-linked user ${byEmail.id} (${email}) to live Stripe customer ${customerId}`);
+    return { ...byEmail, stripeCustomerId: customerId };
+  } catch (err) {
+    console.error(`[Webhook] Failed to resolve customer ${customerId} via email fallback:`, err);
+    return undefined;
+  }
+}
+
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
     if (!Buffer.isBuffer(payload)) {
@@ -152,7 +193,7 @@ export class WebhookHandlers {
     const subscriptionId = subscription.id;
     const status = subscription.status;
 
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    const user = await findUserForCustomer(customerId);
     if (!user) {
       console.log(`[Webhook] subscription.${status}: No user found for customer ${customerId} (likely guest checkout, will be handled via link-customer)`);
       return;
@@ -247,7 +288,7 @@ export class WebhookHandlers {
   static async handlePaymentFailed(paymentIntent: any) {
     const customerId = paymentIntent.customer;
 
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    const user = await findUserForCustomer(customerId);
     if (!user) return;
 
     await db.update(users).set({
@@ -259,7 +300,7 @@ export class WebhookHandlers {
   static async handlePaymentSucceeded(paymentIntent: any) {
     const customerId = paymentIntent.customer;
 
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    const user = await findUserForCustomer(customerId);
     if (!user) return;
 
     await db.update(users).set({
@@ -272,7 +313,7 @@ export class WebhookHandlers {
     const customerId = invoice.customer;
     console.log(`[Webhook] invoice.payment_succeeded: customer=${customerId}, amount=${invoice.amount_paid}`);
 
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    const user = await findUserForCustomer(customerId);
     if (!user) return;
 
     await db.update(users).set({
@@ -285,7 +326,7 @@ export class WebhookHandlers {
     const customerId = invoice.customer;
     console.log(`[Webhook] invoice.payment_failed: customer=${customerId}`);
 
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    const user = await findUserForCustomer(customerId);
     if (!user) return;
 
     await db.update(users).set({
