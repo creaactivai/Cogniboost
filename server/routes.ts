@@ -1773,10 +1773,27 @@ Return a JSON array with this exact format:
         throw new Error("Invalid JSON response from AI");
       }
 
+      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+        throw new Error("AI returned no questions. Try regenerating, or check the transcript content.");
+      }
+
+      const validQuestions = generatedQuestions.filter((q: any) =>
+        q &&
+        typeof q.question === "string" && q.question.trim().length > 0 &&
+        Array.isArray(q.options) && q.options.length === 4 &&
+        q.options.every((o: any) => typeof o === "string" && o.trim().length > 0) &&
+        Number.isInteger(q.correctOptionIndex) &&
+        q.correctOptionIndex >= 0 && q.correctOptionIndex <= 3
+      );
+
+      if (validQuestions.length === 0) {
+        throw new Error("AI returned malformed questions (missing options or invalid correctOptionIndex). Try regenerating.");
+      }
+
       // Create questions in database
       const createdQuestions = [];
-      for (let i = 0; i < generatedQuestions.length; i++) {
-        const q = generatedQuestions[i];
+      for (let i = 0; i < validQuestions.length; i++) {
+        const q = validQuestions[i];
         const question = await storage.createQuizQuestion({
           quizId: quiz.id,
           question: q.question,
@@ -1789,9 +1806,9 @@ Return a JSON array with this exact format:
       }
 
       res.json({ quiz, questions: createdQuestions });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating video quiz:", error);
-      res.status(500).json({ error: "Failed to generate video quiz" });
+      res.status(500).json({ error: error?.message || "Failed to generate video quiz" });
     }
   });
 
@@ -3659,13 +3676,30 @@ Important:
         throw new Error("Invalid JSON response from AI");
       }
 
+      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+        throw new Error("AI returned no questions. Try regenerating, or check the lesson content.");
+      }
+
+      const validQuestions = generatedQuestions.filter((q: any) =>
+        q &&
+        typeof q.question === "string" && q.question.trim().length > 0 &&
+        Array.isArray(q.options) && q.options.length === 4 &&
+        q.options.every((o: any) => typeof o === "string" && o.trim().length > 0) &&
+        Number.isInteger(q.correctOptionIndex) &&
+        q.correctOptionIndex >= 0 && q.correctOptionIndex <= 3
+      );
+
+      if (validQuestions.length === 0) {
+        throw new Error("AI returned malformed questions (missing options or invalid correctOptionIndex). Try regenerating.");
+      }
+
       // Get existing question count for orderIndex
       const existingQuestions = await storage.getQuizQuestions(quizId);
       let orderIndex = existingQuestions.length;
 
       // Create questions in database
       const createdQuestions = [];
-      for (const q of generatedQuestions) {
+      for (const q of validQuestions) {
         const question = await storage.createQuizQuestion({
           quizId,
           question: q.question,
@@ -3678,9 +3712,9 @@ Important:
       }
 
       res.json({ success: true, questions: createdQuestions });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating quiz:", error);
-      res.status(500).json({ error: "Failed to generate quiz questions" });
+      res.status(500).json({ error: error?.message || "Failed to generate quiz questions" });
     }
   });
 
@@ -3745,7 +3779,11 @@ Important:
       }
 
       const questions = await storage.getQuizQuestions(quizId);
-      
+
+      if (questions.length === 0) {
+        return res.status(400).json({ error: "Quiz has no questions yet. Please contact support." });
+      }
+
       // Calculate score
       let correctCount = 0;
       const results = questions.map((q, index) => {
