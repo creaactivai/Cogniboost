@@ -180,6 +180,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       setTimeLeft(null);
       if (result.isPassed) {
         queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "modules"] });
+        refetchProgress();
       }
       toast({
         title: result.isPassed ? "Congratulations!" : "Try again",
