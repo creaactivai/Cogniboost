@@ -2,7 +2,10 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm ci']
+# --include=dev: tsx, vite, esbuild (build), and drizzle-kit (db:push at start)
+# all live in devDependencies. Railway's NODE_ENV=production would otherwise
+# omit them and break both the build and the start command.
+cmds = ['npm ci --include=dev']
 
 [phases.build]
 cmds = ['npm run build']
