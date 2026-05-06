@@ -111,13 +111,16 @@ export function setupRateLimiting(app: Express) {
   app.use("/auth/google", loginRateLimiter);
   app.use("/auth/apple", loginRateLimiter);
   app.use("/api/auth/activate", loginRateLimiter);
-  app.use("/api/login", loginRateLimiter);
+  app.use("/api/auth/login", loginRateLimiter);
+  app.use("/api/auth/verify-email", loginRateLimiter);
+  app.use("/api/auth/resend-verification", loginRateLimiter);
 
   // Apply admin rate limiter to admin routes
   app.use("/api/admin", adminRateLimiter);
 
   // Apply payment rate limiter to payment routes
-  app.use("/api/create-checkout-session", paymentRateLimiter);
+  app.use("/api/stripe/create-checkout-session", paymentRateLimiter);
+  app.use("/api/stripe/link-customer", paymentRateLimiter);
 
   console.log("✅ Rate limiting configured");
 }
