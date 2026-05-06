@@ -225,6 +225,16 @@ export const payments = pgTable("payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Idempotency log for Stripe webhook deliveries.
+// Stripe retries failed deliveries and may also send duplicates; without this
+// table, a `customer.subscription.updated` event can be applied twice and
+// double-mutate user state (tier flip, status flip, duplicate emails).
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at").notNull().defaultNow(),
+});
+
 // Relations
 export const coursesRelations = relations(courses, ({ one, many }) => ({
   instructor: one(instructors, {
