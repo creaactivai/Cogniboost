@@ -1,6 +1,6 @@
 import { getUncachableStripeClient } from './stripeClient';
 import { db } from './db';
-import { users } from '@shared/schema';
+import { users, stripeWebhookEvents } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail } from './resendClient';
 
@@ -64,33 +64,55 @@ export class WebhookHandlers {
     const stripe = await getUncachableStripeClient();
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
-    console.log(`Stripe webhook received: ${event.type}`);
+    console.log(`Stripe webhook received: ${event.type} (id=${event.id})`);
 
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await WebhookHandlers.handleCheckoutCompleted(event.data.object);
-        break;
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        await WebhookHandlers.handleSubscriptionUpdate(event.data.object);
-        break;
-      case 'charge.failed':
-      case 'payment_intent.payment_failed':
-        await WebhookHandlers.handlePaymentFailed(event.data.object);
-        break;
-      case 'charge.succeeded':
-      case 'payment_intent.succeeded':
-        await WebhookHandlers.handlePaymentSucceeded(event.data.object);
-        break;
-      case 'invoice.payment_succeeded':
-        await WebhookHandlers.handleInvoicePaymentSucceeded(event.data.object);
-        break;
-      case 'invoice.payment_failed':
-        await WebhookHandlers.handleInvoicePaymentFailed(event.data.object);
-        break;
-      default:
-        console.log(`Unhandled webhook event: ${event.type}`);
+    // Idempotency: claim this event.id atomically. ON CONFLICT DO NOTHING means
+    // a concurrent retry delivery loses the race and skips the handler instead
+    // of double-applying it.
+    const claimed = await db.insert(stripeWebhookEvents).values({
+      eventId: event.id,
+      eventType: event.type,
+    }).onConflictDoNothing({ target: stripeWebhookEvents.eventId }).returning({ eventId: stripeWebhookEvents.eventId });
+
+    if (claimed.length === 0) {
+      console.log(`[Webhook] Skipping duplicate event ${event.id} (${event.type})`);
+      return;
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await WebhookHandlers.handleCheckoutCompleted(event.data.object);
+          break;
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+          await WebhookHandlers.handleSubscriptionUpdate(event.data.object);
+          break;
+        case 'charge.failed':
+        case 'payment_intent.payment_failed':
+          await WebhookHandlers.handlePaymentFailed(event.data.object);
+          break;
+        case 'charge.succeeded':
+        case 'payment_intent.succeeded':
+          await WebhookHandlers.handlePaymentSucceeded(event.data.object);
+          break;
+        case 'invoice.payment_succeeded':
+          await WebhookHandlers.handleInvoicePaymentSucceeded(event.data.object);
+          break;
+        case 'invoice.payment_failed':
+          await WebhookHandlers.handleInvoicePaymentFailed(event.data.object);
+          break;
+        default:
+          console.log(`Unhandled webhook event: ${event.type}`);
+      }
+    } catch (err) {
+      // Release the idempotency claim so Stripe's retry can re-process this
+      // event. Without this, a transient handler failure would permanently
+      // skip the event on retry.
+      await db.delete(stripeWebhookEvents).where(eq(stripeWebhookEvents.eventId, event.id))
+        .catch((delErr) => console.error(`[Webhook] Failed to release idempotency claim for ${event.id}:`, delErr));
+      throw err;
     }
   }
 
