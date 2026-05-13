@@ -89,14 +89,28 @@ export function validateEnv() {
       default: undefined,
     }),
 
-    // AI/OpenAI - Optional
+    // AI/OpenAI - Optional (legacy path: quiz generation)
     AI_INTEGRATIONS_OPENAI_API_KEY: optionalStr({
-      desc: "OpenAI API key for AI features",
+      desc: "OpenAI API key for AI features (legacy quiz gen)",
       default: undefined,
     }),
     AI_INTEGRATIONS_OPENAI_BASE_URL: optionalUrl({
-      desc: "OpenAI API base URL (optional custom endpoint)",
+      desc: "OpenAI API base URL (must remain UNSET on Railway — was Replit proxy)",
       default: undefined,
+    }),
+
+    // Anthropic Claude - Optional (Phase 0+: AI-graded writing/reading, Lab Packs, content gen)
+    ANTHROPIC_API_KEY: optionalStr({
+      desc: "Anthropic Claude API key (sk-ant-...); enables AI-graded writing/reading and Lab Pack generation",
+      default: undefined,
+    }),
+    ANTHROPIC_MODEL_GRADING: optionalStr({
+      desc: "Claude model for grading (fast/cheap); default claude-sonnet-4-6",
+      default: "claude-sonnet-4-6",
+    }),
+    ANTHROPIC_MODEL_CONTENT: optionalStr({
+      desc: "Claude model for content generation (high-stakes); default claude-opus-4-7",
+      default: "claude-opus-4-7",
     }),
 
     // Sentry (Error tracking) - Optional
