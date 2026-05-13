@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar, boolean, text, pgEnum } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, timestamp, varchar, boolean, text, pgEnum } from "drizzle-orm/pg-core";
 
 // User status enum: active (paying/using), hold (pending payment), inactive (churned/locked)
 export const userStatusEnum = pgEnum("user_status", ["active", "hold", "inactive"]);
@@ -73,6 +73,17 @@ export const users = pgTable("users", {
   placementLevel: text("placement_level"), // A1, A2, B1, B2, C1, C2 from placement quiz
   placementConfidence: text("placement_confidence"), // low, medium, high
   placementAttemptId: varchar("placement_attempt_id"), // Reference to last placement quiz attempt
+  // Phase 0+ — v2.0 self-paced curriculum tracking (Master Plan v2.0 §3).
+  // currentLevel is the student's working level (distinct from placementLevel
+  // which is where they tested in). currentWeek is the 1-8 curriculum week
+  // they are on within that level — pure self-paced (no cohorts).
+  currentLevel: text("current_level"), // A1, A2, B1, B2, C1, C2 — current working level
+  currentWeek: integer("current_week").default(1), // 1-8 within current level
+  preferredLanguage: text("preferred_language").default("es"),
+  enrollmentDate: timestamp("enrollment_date"),
+  targetCertificationDate: timestamp("target_certification_date"),
+  totalSpeakingMinutes: integer("total_speaking_minutes").default(0),
+  streakDays: integer("streak_days").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

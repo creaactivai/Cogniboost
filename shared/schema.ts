@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, pgEnum, jsonb, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -233,6 +233,204 @@ export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
   eventId: text("event_id").primaryKey(),
   eventType: text("event_type").notNull(),
   processedAt: timestamp("processed_at").notNull().defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Master Plan v2.0 — Self-paced curriculum + AI grading + Lab Packs.
+//
+// Decision 1 (locked, Coral's response): SELF-PACED ONLY. No cohorts table.
+// Decision 2: Labs are LEVEL × THEME — `lab_topics` defines reusable Lab Packs;
+//             `lab_sessions` schedules instances; `lab_registrations` tracks
+//             per-student attendance; `lab_feedback` collects the 2-question
+//             end-of-class form.
+// Decision 3: Ms. Coral integration deferred — no `speaking_sessions` here.
+// All schema additions auto-apply on next Railway deploy via `npm run db:push`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// AI-graded open-ended submissions (writing, reading short-answer, listening
+// summary, speaking transcripts later). Distinct from quizAttempts (closed
+// MCQ). Per Master Plan v2.0 §3 + §4.
+export const submissionStatusEnum = pgEnum("submission_status", [
+  "pending_ai",
+  "ai_graded",
+  "teacher_reviewed",
+  "returned",
+]);
+
+export const submissionTypeEnum = pgEnum("submission_type", [
+  "writing",
+  "reading_quiz",
+  "listening_quiz",
+  "speaking_recording",
+  "project",
+]);
+
+export const submissions = pgTable("submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  lessonId: varchar("lesson_id"),
+  assignmentType: submissionTypeEnum("assignment_type").notNull(),
+  content: text("content").notNull(),                       // raw student submission
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  aiGrade: jsonb("ai_grade"),                               // full WritingGradeResponse shape
+  aiScore: decimal("ai_score", { precision: 5, scale: 2 }), // 0-100
+  teacherScore: decimal("teacher_score", { precision: 5, scale: 2 }),
+  teacherFeedback: text("teacher_feedback"),
+  teacherReviewedAt: timestamp("teacher_reviewed_at"),
+  finalScore: decimal("final_score", { precision: 5, scale: 2 }),
+  status: submissionStatusEnum("status").notNull().default("pending_ai"),
+});
+
+// Vocabulary — global word bank, per-level. Used by Lab Packs + lessons.
+export const vocabulary = pgTable("vocabulary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  word: text("word").notNull(),
+  translationEs: text("translation_es").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  partOfSpeech: text("part_of_speech"),
+  exampleSentenceEn: text("example_sentence_en"),
+  exampleSentenceEs: text("example_sentence_es"),
+  phonetic: text("phonetic"),                               // IPA
+  audioUrl: text("audio_url"),
+  collocations: text("collocations").array(),
+  isIdiom: boolean("is_idiom").default(false),
+  falseFriendWarning: text("false_friend_warning"),         // L1 interference flag
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Per-student vocabulary mastery — only counts PRODUCTIVE use (writing, speaking,
+// typed gap-fill) per Master Plan v2.0 §9. Recognition does not count.
+export const vocabularyMastery = pgTable(
+  "vocabulary_mastery",
+  {
+    studentId: varchar("student_id").notNull(),
+    vocabularyId: varchar("vocabulary_id").notNull().references(() => vocabulary.id),
+    exposureCount: integer("exposure_count").default(0),
+    correctUses: integer("correct_uses").default(0),
+    incorrectUses: integer("incorrect_uses").default(0),
+    lastReviewedAt: timestamp("last_reviewed_at"),
+    masteryLevel: text("mastery_level").default("new"),     // new | learning | familiar | mastered
+    nextReviewDue: timestamp("next_review_due"),            // SRS schedule
+  },
+  (t) => [primaryKey({ columns: [t.studentId, t.vocabularyId] })],
+);
+
+// Lab Packs — reusable conversation kit per level × theme.
+// Generated once via the One-Click AI Generator Flow 2; reused across hundreds
+// of Lab sessions. Target: 30-50 total (6-10 themes × 5 levels).
+export const labTopics = pgTable("lab_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  level: courseLevelEnum("level").notNull(),                // A1, A2, B1, B2, C1, C2
+  levelRange: text("level_range"),                          // optional: 'A1-A2', 'B1-B2'
+  theme: text("theme").notNull(),                           // 'Travel Stories', 'Job Interviews'
+  description: text("description"),
+  vocabularyWordIds: text("vocabulary_word_ids").array(),   // FK to vocabulary.id
+  grammarFocus: text("grammar_focus").array(),              // structures fitting the theme
+  activities: jsonb("activities"),                          // 5-7 conversational activities
+  commonErrors: jsonb("common_errors"),                     // Top 5 Spanish-speaker pitfalls
+  culturalNotes: text("cultural_notes"),
+  detonatingQuestions: text("detonating_questions").array(),// 5-10 fallback questions
+  approvedBy: varchar("approved_by"),                       // userId of admin who approved
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lab sessions — scheduled instances of a Lab Pack on the calendar.
+export const labSessionStatusEnum = pgEnum("lab_session_status", [
+  "scheduled",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+
+export const labSessions = pgTable("lab_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  labTopicId: varchar("lab_topic_id").notNull().references(() => labTopics.id),
+  teacherId: varchar("teacher_id"),                         // FK to users.id (rotates)
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  maxStudents: integer("max_students").notNull().default(6),// per Coral: 6 is the conversation-quality ceiling
+  meetingUrl: text("meeting_url"),                          // Jitsi or whatever video provider
+  status: labSessionStatusEnum("status").notNull().default("scheduled"),
+  recurrenceRule: text("recurrence_rule"),                  // e.g. 'WEEKLY' for recurring slots
+  reminderSent: boolean("reminder_sent").notNull().default(false),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Lab registrations — one student per session, tracks attendance + teacher notes.
+export const labRegistrations = pgTable(
+  "lab_registrations",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    labSessionId: varchar("lab_session_id").notNull().references(() => labSessions.id),
+    studentId: varchar("student_id").notNull(),
+    registeredAt: timestamp("registered_at").defaultNow(),
+    attended: boolean("attended").notNull().default(false),
+    attendanceDurationMinutes: integer("attendance_duration_minutes"),
+    // teacherObservations: vocabulary_used, errors_heard, participation
+    // (low/medium/high), praise, improvement
+    teacherObservations: jsonb("teacher_observations"),
+  },
+  (t) => [primaryKey({ name: "lab_registrations_unique_per_student", columns: [t.labSessionId, t.studentId] })],
+);
+
+// Lab feedback — 2-question form fired automatically at end of each Lab,
+// emailed to info@cognimight.com per Master Plan v2.0 §12.5.
+export const labFeedback = pgTable("lab_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  labSessionId: varchar("lab_session_id").notNull().references(() => labSessions.id),
+  rating: integer("rating").notNull(),                      // 1-5 stars
+  improvementText: text("improvement_text"),                // free-text, optional
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  emailedToAdmin: boolean("emailed_to_admin").notNull().default(false),
+});
+
+// Listening assessments — 1-3 min audio clips, no transcript visible to student.
+// Per Master Plan v2.0 §11.
+export const listeningAssessments = pgTable("listening_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id"),                           // optional — sometimes tied to a lesson
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  audioUrl: text("audio_url").notNull(),
+  transcript: text("transcript"),                           // HIDDEN from students during play
+  durationSeconds: integer("duration_seconds"),
+  questions: jsonb("questions"),                            // mix of closed + open
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reading passages — Lab/lesson-tied 200-800 word texts with comprehension Qs.
+// Per Master Plan v2.0 §5.
+export const readingPassages = pgTable("reading_passages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id"),                           // optional
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  passage: text("passage").notNull(),
+  wordCount: integer("word_count"),
+  vocabularyWordIds: text("vocabulary_word_ids").array(),
+  grammarFeaturesUsed: jsonb("grammar_features_used"),
+  questions: jsonb("questions"),                            // MCQ + T/F + short-answer mix
+  sourceAttribution: text("source_attribution"),            // for adapted authentic content
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Certificates — CEFR-aligned completion credentials with public verification.
+// Per Master Plan v2.0 §10. Conservative wording (Coral Q3): "aligned with CEFR".
+export const certificates = pgTable("certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  issuedAt: timestamp("issued_at").defaultNow(),
+  finalExamScore: decimal("final_exam_score", { precision: 5, scale: 2 }),
+  projectScore: decimal("project_score", { precision: 5, scale: 2 }),
+  attendancePercentage: decimal("attendance_percentage", { precision: 5, scale: 2 }),
+  verificationCode: text("verification_code").notNull().unique(),
+  qrCodeUrl: text("qr_code_url"),
+  pdfUrl: text("pdf_url"),
 });
 
 // Relations
