@@ -346,9 +346,18 @@ export async function gradeWriting(input: GradeWritingInput): Promise<{
   const client = getAnthropicClient();
   const userPrompt = buildUserPrompt(input);
 
-  const message = await client.messages.create({
+  // Stream the response to avoid SDK request timeouts. With adaptive thinking
+  // + ~4K max_tokens, grading can take 30-90s — non-streaming requests hit
+  // the SDK's HTTP timeout and surface as opaque "Connection error" failures.
+  // .finalMessage() collects the full response after the stream completes;
+  // the call signature is otherwise identical to .messages.create().
+  // max_tokens 8192: covers adaptive-thinking + full structured JSON
+  // (5 dimensions × ~150 words feedback + 5-10 annotations + strengths +
+  // improvements + L1 patterns + vocabulary lists). Previous 4096 was too
+  // tight and truncated the response mid-JSON, causing a parse failure.
+  const stream = client.messages.stream({
     model: ANTHROPIC_MODELS.grading,
-    max_tokens: 4096,
+    max_tokens: 8192,
     thinking: { type: 'adaptive' },
     system: [
       {
@@ -364,6 +373,7 @@ export async function gradeWriting(input: GradeWritingInput): Promise<{
       },
     ],
   });
+  const message = await stream.finalMessage();
 
   const text = extractTextContent(message);
   const grade = parseJsonFromResponse<WritingGradeResponse>(text);
