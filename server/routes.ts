@@ -5148,6 +5148,278 @@ Important:
     }
   });
 
+  // ============== SUBMISSION API (Phase 1, Master Plan v2.0 §4) ==============
+  //
+  // AI-graded writing submissions. Students POST their work, the API persists
+  // it immediately with status='pending_ai' and returns the row, then grading
+  // runs in the background (setImmediate) using the Anthropic Claude grader.
+  // Frontend polls GET /api/submissions/:id until status flips to 'ai_graded'.
+  //
+  // Teacher-review-first per Coral's Q6 lock — until override rate drops
+  // <10% for 2 consecutive weeks we keep teachers in the loop before
+  // students see finalized grades.
+
+  app.post("/api/submissions", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { lessonId, assignmentType, content, writingPrompt, assignment } = req.body ?? {};
+
+      if (typeof content !== "string" || content.trim().length < 10) {
+        return res.status(400).json({ error: "content must be a string of at least 10 characters" });
+      }
+      const validTypes = ["writing", "reading_quiz", "listening_quiz", "speaking_recording", "project"];
+      if (!validTypes.includes(assignmentType)) {
+        return res.status(400).json({ error: `assignmentType must be one of: ${validTypes.join(", ")}` });
+      }
+      // v1 = writing only; other types come in Phase 2.
+      if (assignmentType !== "writing") {
+        return res.status(501).json({ error: `assignmentType '${assignmentType}' grader not yet implemented — Phase 2` });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Determine target level for grading. Priority: currentLevel (set by
+      // self-paced curriculum) -> englishLevel (onboarding) -> placementLevel
+      // (quiz result) -> default B1.
+      const targetLevel =
+        ((user as any).currentLevel ||
+          user.englishLevel ||
+          user.placementLevel ||
+          "B1") as "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [submission] = await db
+        .insert(submissions)
+        .values({
+          studentId: userId,
+          lessonId: lessonId ?? null,
+          assignmentType: assignmentType as any,
+          content,
+          status: "pending_ai",
+        })
+        .returning();
+
+      // Return 201 immediately so the client doesn't wait the ~60-120s for
+      // adaptive grading. Frontend polls GET /api/submissions/:id.
+      res.status(201).json(submission);
+
+      // Background grading. setImmediate keeps it in this request's event
+      // loop tick but doesn't block the response. No queue/Redis needed for
+      // v1 per the revised plan — synchronous-in-process is fine until we
+      // hit >100 concurrent submissions.
+      setImmediate(async () => {
+        try {
+          const { gradeWriting } = await import("./grading/writingPrompt");
+          const { grade } = await gradeWriting({
+            targetLevel,
+            currentWeek: (user as any).currentWeek ?? undefined,
+            assignment:
+              typeof assignment === "string" && assignment.length > 0
+                ? assignment
+                : `${targetLevel} writing assignment`,
+            writingPrompt:
+              typeof writingPrompt === "string" && writingPrompt.length > 0
+                ? writingPrompt
+                : "Write about the given topic in your own words.",
+            studentText: content,
+          });
+
+          await db
+            .update(submissions)
+            .set({
+              aiGrade: grade as any,
+              aiScore: String(grade.overall_score),
+              finalScore: String(grade.overall_score),
+              status: "ai_graded",
+            })
+            .where(eq(submissions.id, submission.id));
+
+          console.log(`[grading] submission=${submission.id} graded score=${grade.overall_score}`);
+        } catch (err: any) {
+          console.error(`[grading] submission=${submission.id} failed:`, err);
+          // Persist the error inside ai_grade so teachers can see what
+          // happened. Status stays at pending_ai so a manual retry (or a
+          // future cron retry job) can re-process the submission.
+          await db
+            .update(submissions)
+            .set({
+              aiGrade: { error: err?.message ?? "Unknown grading error" } as any,
+            })
+            .where(eq(submissions.id, submission.id))
+            .catch((e) => console.error("[grading] also failed to persist error:", e));
+        }
+      });
+    } catch (error) {
+      console.error("Error creating submission:", error);
+      res.status(500).json({ error: "Failed to create submission" });
+    }
+  });
+
+  // Student's own submissions list (paginated by recency).
+  app.get("/api/submissions/me", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+
+      const rows = await db
+        .select()
+        .from(submissions)
+        .where(eq(submissions.studentId, userId))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(100);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching submissions:", error);
+      res.status(500).json({ error: "Failed to fetch submissions" });
+    }
+  });
+
+  // Teacher-facing grading queue — submissions awaiting review.
+  app.get("/api/submissions/queue", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden — teacher access required" });
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, desc, or } = await import("drizzle-orm");
+
+      // ai_graded submissions await teacher signoff; pending_ai may be
+      // still grading (useful for ops visibility) or failed (ai_grade.error).
+      const rows = await db
+        .select()
+        .from(submissions)
+        .where(or(eq(submissions.status, "ai_graded"), eq(submissions.status, "pending_ai")))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(50);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching submission queue:", error);
+      res.status(500).json({ error: "Failed to fetch submission queue" });
+    }
+  });
+
+  // Single submission. Students can read their own; teachers can read any.
+  app.get("/api/submissions/:id", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [submission] = await db
+        .select()
+        .from(submissions)
+        .where(eq(submissions.id, req.params.id));
+
+      if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+      const user = await storage.getUser(userId);
+      const isOwner = submission.studentId === userId;
+      const isTeacher = !!user?.isAdmin;
+      if (!isOwner && !isTeacher) return res.status(403).json({ error: "Forbidden" });
+
+      res.json(submission);
+    } catch (error) {
+      console.error("Error fetching submission:", error);
+      res.status(500).json({ error: "Failed to fetch submission" });
+    }
+  });
+
+  // Teacher override — replaces the AI score with the teacher's adjustment
+  // and persists feedback. Default UX path per Coral's Q6 lock until override
+  // rate <10% for 2 consecutive weeks.
+  app.post("/api/submissions/:id/teacher-review", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden — teacher access required" });
+
+      const { teacherScore, teacherFeedback } = req.body ?? {};
+      if (teacherScore !== undefined) {
+        if (typeof teacherScore !== "number" || teacherScore < 0 || teacherScore > 100) {
+          return res.status(400).json({ error: "teacherScore must be a number 0-100" });
+        }
+      }
+      if (teacherFeedback !== undefined && typeof teacherFeedback !== "string") {
+        return res.status(400).json({ error: "teacherFeedback must be a string" });
+      }
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const updateFields: Record<string, any> = {
+        teacherReviewedAt: new Date(),
+        status: "teacher_reviewed",
+      };
+      if (teacherScore !== undefined) {
+        updateFields.teacherScore = String(teacherScore);
+        updateFields.finalScore = String(teacherScore);
+      }
+      if (teacherFeedback !== undefined) {
+        updateFields.teacherFeedback = teacherFeedback;
+      }
+
+      const updated = await db
+        .update(submissions)
+        .set(updateFields)
+        .where(eq(submissions.id, req.params.id))
+        .returning();
+
+      if (updated.length === 0) return res.status(404).json({ error: "Submission not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error applying teacher review:", error);
+      res.status(500).json({ error: "Failed to apply teacher review" });
+    }
+  });
+
+  // Mark a teacher-reviewed submission as "returned to student" — final
+  // status. From here the student sees it as a finalized grade in their
+  // dashboard.
+  app.post("/api/submissions/:id/return", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden — teacher access required" });
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const updated = await db
+        .update(submissions)
+        .set({ status: "returned" })
+        .where(eq(submissions.id, req.params.id))
+        .returning();
+
+      if (updated.length === 0) return res.status(404).json({ error: "Submission not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error returning submission:", error);
+      res.status(500).json({ error: "Failed to return submission" });
+    }
+  });
+
   return httpServer;
 }
 
