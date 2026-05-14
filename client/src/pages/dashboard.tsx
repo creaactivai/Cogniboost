@@ -12,6 +12,8 @@ import { EmailVerificationBanner } from "@/components/dashboard/email-verificati
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import WritingAssignmentPage from "@/pages/writing-assignment";
 import SubmissionViewPage from "@/pages/submission-view";
+import TeacherGradingQueuePage from "@/pages/teacher-grading-queue";
+import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
@@ -175,6 +177,9 @@ export default function Dashboard() {
               {/* Phase 1 — AI-graded writing (Master Plan v2.0 §4) */}
               <Route path="/dashboard/writing/new" component={WritingAssignmentPage} />
               <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
+              {/* Phase 1 — Teacher review surface (Master Plan v2.0 §4.4 + §7.1) */}
+              <Route path="/dashboard/teacher/submissions/:id" component={TeacherSubmissionReviewPage} />
+              <Route path="/dashboard/teacher" component={TeacherGradingQueuePage} />
               <Route path="/dashboard" component={DashboardOverview} />
             </Switch>
           </main>
