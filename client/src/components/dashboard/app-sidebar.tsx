@@ -20,6 +20,8 @@ import {
   LogOut,
   GraduationCap,
   Globe,
+  PenLine,
+  ClipboardList,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,6 +40,11 @@ const menuItems = [
     icon: BookOpen,
   },
   {
+    title: "Writing",
+    url: "/dashboard/writing/new",
+    icon: PenLine,
+  },
+  {
     title: "Conversation Labs",
     url: "/dashboard/labs",
     icon: Users,
@@ -46,6 +53,14 @@ const menuItems = [
     title: "My Progress",
     url: "/dashboard/progress",
     icon: BarChart3,
+  },
+];
+
+const teacherMenuItems = [
+  {
+    title: "Grading queue",
+    url: "/dashboard/teacher",
+    icon: ClipboardList,
   },
 ];
 
@@ -112,6 +127,31 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
+              Teacher
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {teacherMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
+                    >
+                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span className="font-mono">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
