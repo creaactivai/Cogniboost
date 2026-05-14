@@ -5420,6 +5420,109 @@ Important:
     }
   });
 
+  // ============== TEACHER LESSON LIBRARY (Phase 1.5, Master Plan v2.0 §7.4) ==============
+  //
+  // Read endpoints over the full lessons catalog, designed for the teacher
+  // dashboard Lesson Library. The existing /api/admin/lessons/:id returns a
+  // single lesson; this adds a flat catalog endpoint that joins course
+  // metadata so the Library can render with level/skill filters in one fetch.
+  //
+  // Also adds a teacher-facing PATCH for the new `teacherLessonPlan` JSON
+  // field — Coral can author the 17-section plan inline. Wires into the same
+  // `isAdmin` gate as the rest of the teacher surface for v1; can split into
+  // a separate teacher role later.
+
+  app.get("/api/teacher/lessons", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden — teacher access required" });
+
+      const { db } = await import("./db");
+      const { lessons, courses, courseModules } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+
+      // Single query joining lessons → modules → courses so the Library can
+      // group by course/level/module without a per-row roundtrip. Tradeoff:
+      // returns the full lesson HTML field — fine at current catalog size
+      // (~160 lessons projected) but we'll paginate when it grows.
+      const rows = await db
+        .select({
+          id: lessons.id,
+          courseId: lessons.courseId,
+          moduleId: lessons.moduleId,
+          title: lessons.title,
+          description: lessons.description,
+          duration: lessons.duration,
+          orderIndex: lessons.orderIndex,
+          videoUrl: lessons.videoUrl,
+          isPublished: lessons.isPublished,
+          teacherLessonPlan: lessons.teacherLessonPlan,
+          createdAt: lessons.createdAt,
+          courseTitle: courses.title,
+          courseLevel: courses.level,
+          courseTopic: courses.topic,
+          moduleTitle: courseModules.title,
+          moduleOrderIndex: courseModules.orderIndex,
+        })
+        .from(lessons)
+        .leftJoin(courses, eq(lessons.courseId, courses.id))
+        .leftJoin(courseModules, eq(lessons.moduleId, courseModules.id))
+        .orderBy(courses.level, courses.title, courseModules.orderIndex, lessons.orderIndex);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching teacher lessons:", error);
+      res.status(500).json({ error: "Failed to fetch teacher lessons" });
+    }
+  });
+
+  // Teacher PATCH for the 17-section lesson plan. Accepts a partial doc and
+  // merges with whatever's already stored (deep-merge on top-level keys
+  // only — sub-objects are fully replaced). Phase 2's One-Click Generator
+  // will write to this same endpoint.
+  app.patch("/api/teacher/lessons/:id/plan", async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden — teacher access required" });
+
+      const incoming = req.body ?? {};
+      if (typeof incoming !== "object" || Array.isArray(incoming)) {
+        return res.status(400).json({ error: "Request body must be an object" });
+      }
+
+      const { db } = await import("./db");
+      const { lessons } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [existing] = await db
+        .select({ teacherLessonPlan: lessons.teacherLessonPlan })
+        .from(lessons)
+        .where(eq(lessons.id, req.params.id));
+
+      if (!existing) return res.status(404).json({ error: "Lesson not found" });
+
+      const merged = {
+        ...((existing.teacherLessonPlan as Record<string, unknown>) ?? {}),
+        ...incoming,
+      };
+
+      const [updated] = await db
+        .update(lessons)
+        .set({ teacherLessonPlan: merged as any })
+        .where(eq(lessons.id, req.params.id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating lesson plan:", error);
+      res.status(500).json({ error: "Failed to update lesson plan" });
+    }
+  });
+
   return httpServer;
 }
 

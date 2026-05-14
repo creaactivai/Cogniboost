@@ -85,6 +85,15 @@ export const lessons = pgTable("lessons", {
   isPreview: boolean("is_preview").notNull().default(false),
   isOpen: boolean("is_open").notNull().default(false), // Open lessons bypass prerequisite checks
   isPublished: boolean("is_published").notNull().default(false),
+  // Phase 1.5 (Master Plan v2.0 §7.4) — teacher-facing 17-section lesson plan.
+  // Stored as a single JSON doc so the structure can evolve without schema
+  // churn; the Phase 2 One-Click Generator writes directly to this field.
+  // Shape: { learningObjectives, grammarFocus, vocabularyTarget,
+  // lessonStructure, videoResources, authenticMaterials, quizPreview,
+  // writingPrompt, speakingAppPrompts, labActivities, teacherNotes,
+  // differentiation, culturalNotes, assessmentCriteria, commonMistakes,
+  // homework } — all sections optional.
+  teacherLessonPlan: jsonb("teacher_lesson_plan"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
