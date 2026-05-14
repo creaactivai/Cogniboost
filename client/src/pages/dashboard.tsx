@@ -10,6 +10,8 @@ import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
+import WritingAssignmentPage from "@/pages/writing-assignment";
+import SubmissionViewPage from "@/pages/submission-view";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
@@ -170,6 +172,9 @@ export default function Dashboard() {
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
+              {/* Phase 1 — AI-graded writing (Master Plan v2.0 §4) */}
+              <Route path="/dashboard/writing/new" component={WritingAssignmentPage} />
+              <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
               <Route path="/dashboard" component={DashboardOverview} />
             </Switch>
           </main>
