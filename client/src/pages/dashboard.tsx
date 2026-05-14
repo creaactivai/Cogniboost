@@ -14,6 +14,8 @@ import WritingAssignmentPage from "@/pages/writing-assignment";
 import SubmissionViewPage from "@/pages/submission-view";
 import TeacherGradingQueuePage from "@/pages/teacher-grading-queue";
 import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
+import TeacherLessonLibraryPage from "@/pages/teacher-lesson-library";
+import TeacherLessonPlanPage from "@/pages/teacher-lesson-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
@@ -179,6 +181,9 @@ export default function Dashboard() {
               <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
               {/* Phase 1 — Teacher review surface (Master Plan v2.0 §4.4 + §7.1) */}
               <Route path="/dashboard/teacher/submissions/:id" component={TeacherSubmissionReviewPage} />
+              {/* Phase 1.5 — Lesson Library (Master Plan v2.0 §7.4) */}
+              <Route path="/dashboard/teacher/lessons/:id" component={TeacherLessonPlanPage} />
+              <Route path="/dashboard/teacher/lessons" component={TeacherLessonLibraryPage} />
               <Route path="/dashboard/teacher" component={TeacherGradingQueuePage} />
               <Route path="/dashboard" component={DashboardOverview} />
             </Switch>

@@ -22,6 +22,7 @@ import {
   Globe,
   PenLine,
   ClipboardList,
+  Library,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -61,6 +62,11 @@ const teacherMenuItems = [
     title: "Grading queue",
     url: "/dashboard/teacher",
     icon: ClipboardList,
+  },
+  {
+    title: "Lesson Library",
+    url: "/dashboard/teacher/lessons",
+    icon: Library,
   },
 ];
 
