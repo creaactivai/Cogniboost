@@ -240,28 +240,26 @@ async function runStartupMigrations() {
         created_at timestamp DEFAULT now()
       )
     `);
+
+    // lab_sessions — each scheduled instance carries its OWN grammar / vocab /
+    // expressions (per-session, not per-topic). This is Coral's refined design:
+    // within the same Interest × Level, different sessions over time rotate
+    // through different grammars (e.g. A1 Movies rotates through M1..M8
+    // grammar across 8 weeks). Students self-select by interest and can
+    // attend any session matching their level regardless of where they are
+    // in the self-paced curriculum.
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS lab_topics (
+      CREATE TABLE IF NOT EXISTS lab_sessions (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         interest_topic_id varchar NOT NULL,
         level course_level NOT NULL,
         title text NOT NULL,
-        grammar_focus text NOT NULL,
+        description text,
+        grammar_focus text,
         vocabulary text[] DEFAULT '{}',
         expressions text[] DEFAULT '{}',
-        description text,
-        is_active boolean NOT NULL DEFAULT true,
-        created_at timestamp DEFAULT now(),
-        updated_at timestamp DEFAULT now()
-      )
-    `);
-    // One topic per (interest, level) combo — A1 Movies, B1 Movies, etc.
-    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_topics_interest_level_unique ON lab_topics(interest_topic_id, level)`);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS lab_sessions (
-        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
-        lab_topic_id varchar NOT NULL,
+        module_reference text,
+        rotation_week integer,
         instructor_id varchar,
         scheduled_at timestamp NOT NULL,
         duration_minutes integer NOT NULL DEFAULT 60,
@@ -276,9 +274,21 @@ async function runStartupMigrations() {
         updated_at timestamp DEFAULT now()
       )
     `);
+    // Idempotent migrations on top of the CREATE TABLE — these ensure the
+    // columns exist even on databases that were created from the older,
+    // pre-refactor schema (which had lab_topic_id + minimal fields).
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS interest_topic_id varchar`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS level course_level`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS title text`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS description text`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS grammar_focus text`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS vocabulary text[] DEFAULT '{}'`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS expressions text[] DEFAULT '{}'`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS module_reference text`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS rotation_week integer`);
     await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_scheduled_idx ON lab_sessions(scheduled_at)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_topic_idx ON lab_sessions(lab_topic_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_status_idx ON lab_sessions(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_interest_level_idx ON lab_sessions(interest_topic_id, level)`);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lab_registrations (

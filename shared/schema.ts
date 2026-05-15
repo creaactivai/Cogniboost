@@ -335,28 +335,23 @@ export const labInterestTopics = pgTable("lab_interest_topics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Per-level adaptation of an interest topic to a grammar focus.
-// Example: A1 × Movies → "A1 — Movies: Who IS the hero?" (teaches verb TO BE)
-//          B1 × Movies → "B1 — Movies: What WERE you watching?" (teaches past simple + continuous)
-export const labTopics = pgTable("lab_topics", {
+// Scheduled instance — each session carries its OWN grammar / vocab /
+// expressions. The same (Interest × Level) cycles through different
+// grammars over time (rotation_week 1..8 typically tracks the curriculum's
+// 8 modules). Students self-select by Interest and may attend any session
+// matching their level regardless of their personal curriculum progress.
+// Distinct from the legacy `live_sessions` table (kept for backwards compat).
+export const labSessionsV2 = pgTable("lab_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   interestTopicId: varchar("interest_topic_id").notNull(),
   level: courseLevelEnum("level").notNull(),
   title: text("title").notNull(),                            // shown to students
-  grammarFocus: text("grammar_focus").notNull(),             // what grammar this Lab practices
+  description: text("description"),                          // session abstract
+  grammarFocus: text("grammar_focus"),                       // what grammar this session practices
   vocabulary: text("vocabulary").array().default(sql`'{}'::text[]`),
   expressions: text("expressions").array().default(sql`'{}'::text[]`),
-  description: text("description"),                          // lab abstract for student
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Scheduled instance of a lab_topic at a specific date/time.
-// Distinct from the legacy `live_sessions` table (kept for backwards compat).
-export const labSessionsV2 = pgTable("lab_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  labTopicId: varchar("lab_topic_id").notNull(),
+  moduleReference: text("module_reference"),                 // optional, e.g. "A1 Module 1"
+  rotationWeek: integer("rotation_week"),                    // optional, 1..8 within the rotation
   instructorId: varchar("instructor_id"),
   scheduledAt: timestamp("scheduled_at").notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(60),
