@@ -54,6 +54,13 @@ async function runStartupMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_speaking_minutes integer DEFAULT 0`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_days integer DEFAULT 0`);
     console.log('Startup migrations: Phase 0 v2.0 curriculum columns verified');
+
+    // Phase 1.5 (Master Plan v2.0 §7.4) — teacher-facing 17-section lesson plan
+    // stored as JSON on the lessons table. Without this column, SELECT * FROM
+    // lessons fails and the teacher Lesson Library at /dashboard/teacher/lessons
+    // returns empty. Added 2026-05-14.
+    await pool.query(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS teacher_lesson_plan jsonb`);
+    console.log('Startup migrations: Phase 1.5 lesson-plan column verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }
