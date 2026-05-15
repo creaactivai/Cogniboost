@@ -702,14 +702,65 @@ export async function registerRoutes(
   app.post("/api/stripe/create-checkout-session", async (req, res) => {
     try {
       const userId = (req.user as any)?.id;
-      const { priceId, planName } = req.body;
-      
+      const { priceId, planName, email: guestEmail } = req.body;
+
       if (!priceId) {
         return res.status(400).json({ error: "Price ID is required" });
       }
 
       const stripe = await getUncachableStripeClient();
       const baseUrl = process.env.APP_URL || "https://cogniboost.co";
+
+      // ─── DOUBLE-CHECKOUT GUARD ────────────────────────────────────────────
+      // Prevents the recurring double-charge bug where a user (logged-in or
+      // guest) already has an active Stripe subscription but creates another
+      // checkout — typically because the platform briefly shows them as
+      // "free" while the webhook linkage propagates, so they click subscribe
+      // again. Each previous duplicate ended in a manual cancellation +
+      // refund in Stripe. We now block the second checkout up-front.
+      //
+      // Strategy:
+      //   1. Determine the email we should check (logged-in user.email or
+      //      `req.body.email` for guest-with-email-collected flows).
+      //   2. List the customer(s) in Stripe with that email.
+      //   3. For each, list their subscriptions and look for one whose
+      //      status is in the active-ish set ('trialing','active','past_due','unpaid').
+      //   4. If found, return 409 Conflict with a friendly message + a
+      //      direction to log in or contact support — DO NOT create a
+      //      second Stripe checkout session.
+      const ACTIVEISH = new Set(['trialing', 'active', 'past_due', 'unpaid']);
+      let emailForCheck: string | null = null;
+      let loggedInUser: Awaited<ReturnType<typeof storage.getUser>> | undefined;
+
+      if (userId) {
+        loggedInUser = await storage.getUser(userId);
+        emailForCheck = loggedInUser?.email?.toLowerCase() || null;
+      } else if (typeof guestEmail === 'string' && guestEmail.includes('@')) {
+        emailForCheck = guestEmail.toLowerCase();
+      }
+
+      if (emailForCheck) {
+        try {
+          const matchingCustomers = await stripe.customers.list({ email: emailForCheck, limit: 5 });
+          for (const cust of matchingCustomers.data) {
+            const subs = await stripe.subscriptions.list({ customer: cust.id, limit: 5, status: 'all' });
+            const activeSub = subs.data.find(s => ACTIVEISH.has(s.status));
+            if (activeSub) {
+              console.warn(`[Checkout Guard] Blocked duplicate checkout for ${emailForCheck} (customer=${cust.id}, sub=${activeSub.id}, status=${activeSub.status})`);
+              return res.status(409).json({
+                error: 'duplicate_subscription',
+                message: 'Ya tienes una suscripción activa con este correo. Ingresa a tu cuenta para acceder a la plataforma. Si crees que esto es un error, escríbenos a clozano@cognimight.com.',
+                loginUrl: `${baseUrl}/login`,
+                accountUrl: `${baseUrl}/dashboard`,
+              });
+            }
+          }
+        } catch (guardErr: any) {
+          // Guard failure shouldn't block the checkout — but log loudly so we notice.
+          console.error('[Checkout Guard] Failed to verify duplicate subscription (allowing checkout to proceed):', guardErr?.message);
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────
 
       let sessionConfig: any = {
         payment_method_types: ["card"],
@@ -733,30 +784,30 @@ export async function registerRoutes(
       };
 
       // If user is logged in, attach to their account
-      if (userId) {
-        const user = await storage.getUser(userId);
-        
-        if (user) {
-          let customerId = user.stripeCustomerId;
-          
-          if (!customerId) {
-            const customer = await stripe.customers.create({
-              email: user.email || undefined,
-              name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || undefined,
-              metadata: { userId },
-            });
-            customerId = customer.id;
-            await storage.updateUser(userId, { stripeCustomerId: customerId });
-          }
-          
-          sessionConfig.customer = customerId;
-          sessionConfig.subscription_data.metadata.userId = userId;
-          sessionConfig.metadata.userId = userId;
-          sessionConfig.success_url = `${baseUrl}/dashboard?payment=success`;
-          sessionConfig.cancel_url = `${baseUrl}/#pricing`;
+      if (userId && loggedInUser) {
+        let customerId = loggedInUser.stripeCustomerId;
+
+        if (!customerId) {
+          const customer = await stripe.customers.create({
+            email: loggedInUser.email || undefined,
+            name: `${loggedInUser.firstName || ""} ${loggedInUser.lastName || ""}`.trim() || undefined,
+            metadata: { userId },
+          });
+          customerId = customer.id;
+          await storage.updateUser(userId, { stripeCustomerId: customerId });
         }
+
+        sessionConfig.customer = customerId;
+        sessionConfig.subscription_data.metadata.userId = userId;
+        sessionConfig.metadata.userId = userId;
+        sessionConfig.success_url = `${baseUrl}/dashboard?payment=success`;
+        sessionConfig.cancel_url = `${baseUrl}/#pricing`;
       } else {
         // Guest checkout - Stripe will collect email and create customer automatically for subscriptions
+        // Pre-fill the email if the client already collected it (and it passed the guard).
+        if (emailForCheck) {
+          sessionConfig.customer_email = emailForCheck;
+        }
         sessionConfig.success_url = `${baseUrl}/purchase-complete?session_id={CHECKOUT_SESSION_ID}`;
         sessionConfig.cancel_url = `${baseUrl}/#pricing`;
       }
