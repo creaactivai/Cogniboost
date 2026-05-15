@@ -16,6 +16,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVertical, Upload, X, ClipboardList, Layers, ExternalLink, AlertTriangle, MoreVertical, Volume2, Youtube, Loader2, ChevronDown, ChevronRight, Sparkles, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
+import { ProjectEditorDialog, type ProjectData } from "@/components/admin/project-editor-dialog";
+import { Mic, PenTool } from "lucide-react";
 
 interface LessonCardProps {
   lesson: Lesson;
@@ -161,6 +163,24 @@ export default function AdminCourseLessons() {
     queryKey: [`/api/admin/courses/${courseId}/lessons`],
     enabled: !!courseId,
   });
+
+  // Speaking + Writing projects for this course (one per module). Admin
+  // gets BOTH published and draft rows (the requireAuth + isStaff gate on
+  // the API returns drafts to staff).
+  const { data: speakingProjects = [] } = useQuery<(ProjectData & { moduleOrderIndex?: number })[]>({
+    queryKey: [`/api/admin/speaking-projects/by-course/${courseId}`],
+    enabled: !!courseId,
+  });
+  const { data: writingProjects = [] } = useQuery<(ProjectData & { moduleOrderIndex?: number })[]>({
+    queryKey: [`/api/admin/writing-projects/by-course/${courseId}`],
+    enabled: !!courseId,
+  });
+  const speakingProjectByModule = new Map<string, ProjectData>(
+    speakingProjects.map((p) => [p.moduleId, p])
+  );
+  const writingProjectByModule = new Map<string, ProjectData>(
+    writingProjects.map((p) => [p.moduleId, p])
+  );
 
   const { data: modules = [] } = useQuery<CourseModule[]>({
     queryKey: [`/api/admin/courses/${courseId}/modules`],
@@ -1129,6 +1149,66 @@ export default function AdminCourseLessons() {
                         </div>
                       )}
                     </Card>
+
+                    {/* Speaking Project card — one per module, admin can
+                        edit prompt / vocab / grammar / expressions / duration
+                        / published flag in a modal dialog. */}
+                    {(() => {
+                      const sp = speakingProjectByModule.get(module.id);
+                      if (!sp) return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#9333EA', backgroundColor: 'rgba(147, 51, 234, 0.03)' }}>
+                          <div className="flex items-center gap-2 text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                            <Mic className="w-4 h-4" style={{ color: '#9333EA' }} />
+                            <span className="font-bold">Speaking Project</span>
+                            <Badge variant="secondary" className="text-[10px]">No creado para este módulo</Badge>
+                          </div>
+                        </Card>
+                      );
+                      return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#9333EA', backgroundColor: 'rgba(147, 51, 234, 0.03)' }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                              <Mic className="w-4 h-4 flex-shrink-0" style={{ color: '#9333EA' }} />
+                              <span className="font-bold text-sm">Speaking Project</span>
+                              <Badge variant={sp.isPublished ? "default" : "secondary"} className="text-[10px]" style={{ backgroundColor: sp.isPublished ? '#10B981' : undefined }}>
+                                {sp.isPublished ? 'Publicado' : 'Borrador'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground truncate ml-2">{sp.title}</span>
+                            </div>
+                            <ProjectEditorDialog type="speaking" project={sp} />
+                          </div>
+                        </Card>
+                      );
+                    })()}
+
+                    {/* Writing Project card — same pattern. */}
+                    {(() => {
+                      const wp = writingProjectByModule.get(module.id);
+                      if (!wp) return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#0EA5E9', backgroundColor: 'rgba(14, 165, 233, 0.03)' }}>
+                          <div className="flex items-center gap-2 text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                            <PenTool className="w-4 h-4" style={{ color: '#0EA5E9' }} />
+                            <span className="font-bold">Writing Project</span>
+                            <Badge variant="secondary" className="text-[10px]">No creado para este módulo</Badge>
+                          </div>
+                        </Card>
+                      );
+                      return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#0EA5E9', backgroundColor: 'rgba(14, 165, 233, 0.03)' }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                              <PenTool className="w-4 h-4 flex-shrink-0" style={{ color: '#0EA5E9' }} />
+                              <span className="font-bold text-sm">Writing Project</span>
+                              <Badge variant={wp.isPublished ? "default" : "secondary"} className="text-[10px]" style={{ backgroundColor: wp.isPublished ? '#10B981' : undefined }}>
+                                {wp.isPublished ? 'Publicado' : 'Borrador'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground truncate ml-2">{wp.title}</span>
+                            </div>
+                            <ProjectEditorDialog type="writing" project={wp} />
+                          </div>
+                        </Card>
+                      );
+                    })()}
                   </div>
                 );
               })}

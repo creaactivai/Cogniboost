@@ -5673,10 +5673,91 @@ Important:
     }
   );
 
+  // Admin PATCH for Speaking Projects — edit prompt, vocab, grammar, expressions,
+  // duration, published flag. Required for the admin course-lessons UI.
+  const isStaffUser = (req: any) => {
+    const role = (req.user as any)?.role;
+    return role === 'admin' || role === 'teacher' || (req.user as any)?.isAdmin === true;
+  };
+  app.patch('/api/admin/speaking-projects/:id', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { id } = req.params;
+      const { speakingProjects } = await import('@shared/schema');
+      const allowedFields = ['title','prompt','targetVocabulary','targetGrammar','targetExpressions','targetDurationSeconds','isPublished'] as const;
+      const updates: Record<string, any> = { updatedAt: new Date() };
+      for (const k of allowedFields) {
+        if (k in req.body) updates[k] = req.body[k];
+      }
+      const [updated] = await db.update(speakingProjects).set(updates).where(eq(speakingProjects.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: 'Speaking project not found' });
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[admin/speaking-projects PATCH] Error:', err?.message, err?.stack);
+      res.status(500).json({ error: 'Failed to update speaking project', debug: { message: err?.message } });
+    }
+  });
+
+  // Admin GET — list ALL projects for a course (admin sees drafts + published).
+  // Used by the admin course-lessons page to render the Speaking/Writing
+  // project sections per module.
+  app.get('/api/admin/speaking-projects/by-course/:courseId', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { courseId } = req.params;
+      const { speakingProjects, courseModules } = await import('@shared/schema');
+      const rows = await db
+        .select({ project: speakingProjects, moduleOrderIndex: courseModules.orderIndex })
+        .from(speakingProjects)
+        .innerJoin(courseModules, eq(speakingProjects.moduleId, courseModules.id))
+        .where(eq(courseModules.courseId, courseId));
+      res.json(rows.map(r => ({ ...r.project, moduleOrderIndex: r.moduleOrderIndex })));
+    } catch (err: any) {
+      console.error('[admin/speaking-projects/by-course] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch speaking projects', debug: { message: err?.message } });
+    }
+  });
+
   // ════════════════════════════════════════════════════════════════════
   // WRITING PROJECTS — student-facing text writing assessments per module
   // (mirrors Speaking Projects shape)
   // ════════════════════════════════════════════════════════════════════
+
+  app.patch('/api/admin/writing-projects/:id', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { id } = req.params;
+      const { writingProjects } = await import('@shared/schema');
+      const allowedFields = ['title','prompt','targetVocabulary','targetGrammar','targetExpressions','targetWordCountMin','targetWordCountMax','isPublished'] as const;
+      const updates: Record<string, any> = { updatedAt: new Date() };
+      for (const k of allowedFields) {
+        if (k in req.body) updates[k] = req.body[k];
+      }
+      const [updated] = await db.update(writingProjects).set(updates).where(eq(writingProjects.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: 'Writing project not found' });
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[admin/writing-projects PATCH] Error:', err?.message, err?.stack);
+      res.status(500).json({ error: 'Failed to update writing project', debug: { message: err?.message } });
+    }
+  });
+
+  app.get('/api/admin/writing-projects/by-course/:courseId', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { courseId } = req.params;
+      const { writingProjects, courseModules } = await import('@shared/schema');
+      const rows = await db
+        .select({ project: writingProjects, moduleOrderIndex: courseModules.orderIndex })
+        .from(writingProjects)
+        .innerJoin(courseModules, eq(writingProjects.moduleId, courseModules.id))
+        .where(eq(courseModules.courseId, courseId));
+      res.json(rows.map(r => ({ ...r.project, moduleOrderIndex: r.moduleOrderIndex })));
+    } catch (err: any) {
+      console.error('[admin/writing-projects/by-course] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch writing projects', debug: { message: err?.message } });
+    }
+  });
 
   app.get('/api/writing-projects/by-module/:moduleId', requireAuth, async (req: any, res) => {
     try {
