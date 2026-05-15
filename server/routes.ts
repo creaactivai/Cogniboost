@@ -5608,8 +5608,11 @@ Important:
       }
       res.json(proj);
     } catch (err: any) {
-      console.error('Error fetching speaking project:', err);
-      res.status(500).json({ error: 'Failed to fetch speaking project' });
+      console.error('[speaking-projects/by-module] Error:', err?.message, err?.stack);
+      res.status(500).json({
+        error: 'Failed to fetch speaking project',
+        debug: { message: err?.message, code: err?.code, name: err?.name },
+      });
     }
   });
 
@@ -5688,8 +5691,11 @@ Important:
       }
       res.json(proj);
     } catch (err: any) {
-      console.error('Error fetching writing project:', err);
-      res.status(500).json({ error: 'Failed to fetch writing project' });
+      console.error('[writing-projects/by-module] Error:', err?.message, err?.stack);
+      res.status(500).json({
+        error: 'Failed to fetch writing project',
+        debug: { message: err?.message, code: err?.code, name: err?.name },
+      });
     }
   });
 
