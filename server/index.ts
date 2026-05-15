@@ -218,6 +218,86 @@ async function runStartupMigrations() {
       );
     }
     console.log('Startup migrations: A1 speaking projects seeded (8 drafts, unpublished)');
+
+    // Class Labs (Phase 1.6 — Coral, 2026-05-15). Re-modeled per Coral's
+    // "interest-driven stealth grammar" design: students self-select by
+    // INTEREST (Movies, Sports, Food, etc.) and each (interest × level)
+    // combination is ADAPTED to teach a specific grammar focus. Same
+    // interest, different grammar across levels — e.g. "Movies" at A1
+    // teaches verb TO BE; at B1 teaches past simple + past continuous.
+    //
+    // The existing live_sessions + lab_bookings tables stay as legacy
+    // (9 rows of older Google-Meet style sessions). The new model below
+    // is what the Phase 1.6 UI will consume.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lab_interest_topics (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL UNIQUE,
+        icon text,
+        description text,
+        is_active boolean NOT NULL DEFAULT true,
+        display_order integer DEFAULT 0,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lab_topics (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        interest_topic_id varchar NOT NULL,
+        level course_level NOT NULL,
+        title text NOT NULL,
+        grammar_focus text NOT NULL,
+        vocabulary text[] DEFAULT '{}',
+        expressions text[] DEFAULT '{}',
+        description text,
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    // One topic per (interest, level) combo — A1 Movies, B1 Movies, etc.
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_topics_interest_level_unique ON lab_topics(interest_topic_id, level)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lab_sessions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        lab_topic_id varchar NOT NULL,
+        instructor_id varchar,
+        scheduled_at timestamp NOT NULL,
+        duration_minutes integer NOT NULL DEFAULT 60,
+        meeting_url text,
+        max_participants integer NOT NULL DEFAULT 8,
+        status text NOT NULL DEFAULT 'scheduled',
+        is_recurring boolean NOT NULL DEFAULT false,
+        recurrence_pattern text,
+        series_id varchar,
+        recurrence_end_date timestamp,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_scheduled_idx ON lab_sessions(scheduled_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_topic_idx ON lab_sessions(lab_topic_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_sessions_status_idx ON lab_sessions(status)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lab_registrations (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        lab_session_id varchar NOT NULL,
+        student_id varchar NOT NULL,
+        registered_at timestamp DEFAULT now(),
+        attended boolean,
+        speaking_time_minutes integer,
+        teacher_feedback text,
+        teacher_rating integer,
+        cancelled boolean NOT NULL DEFAULT false,
+        cancelled_at timestamp
+      )
+    `);
+    // One active registration per (session, student) — preventing double-booking
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_registrations_unique ON lab_registrations(lab_session_id, student_id) WHERE NOT cancelled`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_registrations_student_idx ON lab_registrations(student_id)`);
+    console.log('Startup migrations: Phase 1.6 Class Lab tables verified (interest-driven design)');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

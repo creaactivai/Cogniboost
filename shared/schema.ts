@@ -317,6 +317,74 @@ export const speakingProjects = pgTable("speaking_projects", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ─── Class Labs (Phase 1.6, interest-driven design, Coral 2026-05-15) ───
+// Coral's pedagogical model: students self-select by INTEREST (Movies,
+// Sports, Food, etc.) and each (interest × level) combo is ADAPTED to
+// teach a specific grammar focus. Same interest, different grammar at
+// each level. "Stealth grammar teaching" through topical conversation.
+
+// Universal interest topic, shared across levels.
+// Example: "Movies", "Sports", "Food & Cooking"
+export const labInterestTopics = pgTable("lab_interest_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  icon: text("icon"),                                        // emoji or icon name
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Per-level adaptation of an interest topic to a grammar focus.
+// Example: A1 × Movies → "A1 — Movies: Who IS the hero?" (teaches verb TO BE)
+//          B1 × Movies → "B1 — Movies: What WERE you watching?" (teaches past simple + continuous)
+export const labTopics = pgTable("lab_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  interestTopicId: varchar("interest_topic_id").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),                            // shown to students
+  grammarFocus: text("grammar_focus").notNull(),             // what grammar this Lab practices
+  vocabulary: text("vocabulary").array().default(sql`'{}'::text[]`),
+  expressions: text("expressions").array().default(sql`'{}'::text[]`),
+  description: text("description"),                          // lab abstract for student
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Scheduled instance of a lab_topic at a specific date/time.
+// Distinct from the legacy `live_sessions` table (kept for backwards compat).
+export const labSessionsV2 = pgTable("lab_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  labTopicId: varchar("lab_topic_id").notNull(),
+  instructorId: varchar("instructor_id"),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  meetingUrl: text("meeting_url"),                           // Jitsi room URL, Google Meet, etc.
+  maxParticipants: integer("max_participants").notNull().default(8),
+  status: text("status").notNull().default("scheduled"),     // scheduled / in_progress / completed / cancelled
+  isRecurring: boolean("is_recurring").notNull().default(false),
+  recurrencePattern: text("recurrence_pattern"),
+  seriesId: varchar("series_id"),                            // groups recurring sessions
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Student registration / attendance for a Lab session.
+export const labRegistrations = pgTable("lab_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  labSessionId: varchar("lab_session_id").notNull(),
+  studentId: varchar("student_id").notNull(),
+  registeredAt: timestamp("registered_at").defaultNow(),
+  attended: boolean("attended"),                             // null until post-class marked
+  speakingTimeMinutes: integer("speaking_time_minutes"),
+  teacherFeedback: text("teacher_feedback"),
+  teacherRating: integer("teacher_rating"),                  // 1-5 stars
+  cancelled: boolean("cancelled").notNull().default(false),
+  cancelledAt: timestamp("cancelled_at"),
+});
+
 // Vocabulary — global word bank, per-level. Used by Lab Packs + lessons.
 export const vocabulary = pgTable("vocabulary", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
