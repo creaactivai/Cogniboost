@@ -205,8 +205,79 @@ export class WebhookHandlers {
         });
       }
     } else {
-      // Guest checkout: user doesn't exist yet in our DB — email will be sent via /api/stripe/link-customer
-      console.log(`[Webhook] checkout.session.completed: No user found for customer ${customerId} (guest checkout). Email will be sent when account is linked.`);
+      // Guest checkout: subscription is paid into Stripe but no CogniBoost
+      // account exists. Historically the system assumed the user would return
+      // to /purchase-complete → /api/stripe/link-customer to finish signup.
+      // Many don't — they close the tab and become orphaned (paying or
+      // trialing in Stripe with no platform access, e.g. the May 13 Zaida
+      // case). This block sends them an activation email proactively.
+      console.log(`[Webhook] checkout.session.completed: No user found for customer ${customerId} (guest checkout). Sending guest activation email.`);
+
+      if (customerEmail) {
+        try {
+          const stripe = await getUncachableStripeClient();
+          const customer: any = await stripe.customers.retrieve(customerId);
+          const alreadySent = !customer?.deleted && customer?.metadata?.cogniboost_activation_email_sent === 'true';
+
+          if (alreadySent) {
+            console.log(`[Webhook] Guest activation email already sent for ${customerEmail} (per Stripe metadata) — skipping.`);
+          } else {
+            // Derive tier display from plan name (same logic as logged-in branch)
+            let subscriptionTier: 'flex' | 'basic' | 'premium' = 'basic';
+            if (planName) {
+              const lowerPlan = planName.toLowerCase();
+              if (lowerPlan.includes('flex')) subscriptionTier = 'flex';
+              else if (lowerPlan.includes('premium')) subscriptionTier = 'premium';
+              else subscriptionTier = 'basic';
+            }
+            const displayPlan = planName || subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1);
+            const planPrices: Record<string, string> = { flex: '14.99', basic: '49.99', premium: '99.99' };
+            const firstName = session.customer_details?.name?.split(' ')[0] || '';
+            const signupUrl = `${process.env.APP_URL || 'https://cogniboost.co'}/signup`;
+
+            // Send activation email to the guest
+            sendEmail(customerEmail, 'stripe_guest_activation', {
+              firstName,
+              planName: displayPlan,
+              email: customerEmail,
+              signupUrl,
+            }).then(() => {
+              console.log(`[Webhook] Guest activation email sent to ${customerEmail}`);
+            }).catch(err => {
+              console.error(`[Webhook] Failed to send guest activation email to ${customerEmail}:`, err);
+            });
+
+            // Notify admin about the orphan checkout (separate from the standard
+            // admin_subscription_notification which only fires for logged-in users).
+            sendEmail('cognimight@gmail.com', 'admin_subscription_notification', {
+              studentName: session.customer_details?.name || 'No proporcionado (guest checkout)',
+              studentEmail: customerEmail,
+              planName: displayPlan + ' (guest — pending account setup)',
+              tier: subscriptionTier,
+              amount: planPrices[subscriptionTier] || '0',
+              timestamp: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
+              adminUrl: `${process.env.APP_URL || 'https://cogniboost.co'}/admin/financials`,
+            }).catch(err => {
+              console.error('[Webhook] Failed to send admin notification for guest checkout:', err);
+            });
+
+            // Mark Stripe customer metadata so we never re-send
+            await stripe.customers.update(customerId, {
+              metadata: {
+                ...(customer?.metadata || {}),
+                cogniboost_activation_email_sent: 'true',
+                cogniboost_activation_email_sent_at: new Date().toISOString(),
+              },
+            }).catch(err => {
+              console.error(`[Webhook] Failed to set Stripe metadata flag on ${customerId}:`, err);
+            });
+          }
+        } catch (e: any) {
+          console.error(`[Webhook] Guest activation email flow failed for ${customerEmail}:`, e.message);
+        }
+      } else {
+        console.warn(`[Webhook] Guest checkout for customer ${customerId} has no email — cannot send activation`);
+      }
     }
   }
 

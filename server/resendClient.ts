@@ -51,7 +51,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification' | 'stripe_guest_activation';
 
 // Send email using template
 export async function sendEmail(
@@ -1396,6 +1396,82 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
             <div class="footer">
               <p>Este es un correo automático del sistema CogniBoost</p>
               <p>© 2026 CogniBoost. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    },
+
+    // ===== STRIPE GUEST CHECKOUT ACTIVATION =====
+    // Sent automatically when someone completes Stripe checkout without first
+    // creating a CogniBoost account. Their subscription is active in Stripe
+    // but they have no platform account yet — this email gives them the link
+    // to finish account setup before they get charged (or churn).
+    stripe_guest_activation: {
+      subject: '¡Tu suscripción Plan ' + (data.planName || 'CogniBoost') + ' está activa! Completa tu acceso 🚀',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; color: #1a1a1a; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-size: 28px; font-weight: 900; color: #33CBFB; letter-spacing: -1px; }
+            h1 { font-size: 22px; color: #1a1a1a; margin: 0 0 16px 0; }
+            p { line-height: 1.6; color: #333; margin: 12px 0; }
+            .cta-button { display: inline-block; background: #33CBFB; color: white !important; padding: 14px 32px; text-decoration: none; font-weight: bold; border-radius: 6px; margin: 24px 0; font-size: 16px; }
+            .benefits { background: #f9fafb; padding: 20px; border-radius: 6px; margin: 24px 0; }
+            .benefits li { margin: 8px 0; }
+            .trial-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 14px 18px; margin: 20px 0; border-radius: 4px; font-size: 14px; }
+            .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #6b7280; }
+            .sig-name { font-weight: bold; color: #1a1a1a; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">COGNIBOOST</div>
+            </div>
+
+            <h1>¡Hola ${data.firstName || 'estudiante'}! 👋</h1>
+
+            <p>¡Bienvenida a <strong>CogniBoost</strong>! Tu suscripción al <strong>Plan ${data.planName || 'CogniBoost'}</strong> está activa y actualmente en tu período de prueba gratuita.</p>
+
+            <div class="trial-box">
+              ⏰ <strong>Aprovecha tu prueba gratuita</strong> — tienes 7 días para explorar la plataforma antes del primer cobro.
+            </div>
+
+            <p>Notamos que aún no has terminado de configurar tu cuenta de acceso a la plataforma. Para empezar a estudiar, solo te falta <strong>crear tu contraseña</strong>:</p>
+
+            <div style="text-align: center;">
+              <a href="${data.signupUrl || 'https://cogniboost.co/signup'}" class="cta-button">👉 ACTIVAR MI CUENTA</a>
+            </div>
+
+            <p style="font-size: 14px; color: #6b7280;">Usa el mismo email con el que te suscribiste: <strong>${data.email || ''}</strong></p>
+
+            <div class="benefits">
+              <p style="margin: 0 0 12px 0;"><strong>Una vez activa tu cuenta tendrás acceso a:</strong></p>
+              <ul>
+                <li>✅ Todas las lecciones de los niveles A1, A2, B1, B2 y C1</li>
+                <li>✅ Sesiones mensuales en <strong>Conversation Labs</strong> (clases en vivo)</li>
+                <li>✅ Revisión de tus writing con feedback CEFR personalizado</li>
+                <li>✅ Tu progreso académico personalizado</li>
+              </ul>
+            </div>
+
+            <p>Si tienes alguna pregunta o duda, simplemente <strong>responde a este correo</strong> y te ayudo personalmente.</p>
+
+            <p>¡Te esperamos en clase!</p>
+
+            <p style="margin-top: 24px;">
+              <span class="sig-name">Coral Lozano</span><br>
+              <span style="color: #6b7280; font-size: 14px;">Directora Académica de CogniBoost</span>
+            </p>
+
+            <div class="footer">
+              <p>CogniBoost · Aprende inglés en semanas, no en años · <a href="https://cogniboost.co" style="color: #33CBFB;">cogniboost.co</a></p>
             </div>
           </div>
         </body>
