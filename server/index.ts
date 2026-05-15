@@ -42,6 +42,18 @@ async function runStartupMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_sent boolean NOT NULL DEFAULT false`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_progress_sent timestamp`);
     console.log('Startup migrations: email sequence columns verified');
+
+    // Phase 0 v2.0 schema additions — self-paced curriculum tracking columns
+    // (Master Plan v2.0 §3). Added 2026-05-13. Without these, SELECT * FROM users
+    // throws "column does not exist" and blocks login + email cron jobs.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_level text`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_week integer DEFAULT 1`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language text DEFAULT 'es'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enrollment_date timestamp`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS target_certification_date timestamp`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_speaking_minutes integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_days integer DEFAULT 0`);
+    console.log('Startup migrations: Phase 0 v2.0 curriculum columns verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }
