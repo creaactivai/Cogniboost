@@ -5596,6 +5596,8 @@ Important:
   // GET the Speaking Project for a given module (or null if module has none).
   app.get('/api/speaking-projects/by-module/:moduleId', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       const { moduleId } = req.params;
       const { speakingProjects } = await import('@shared/schema');
       const [proj] = await db.select().from(speakingProjects).where(eq(speakingProjects.moduleId, moduleId));
@@ -5681,6 +5683,8 @@ Important:
   };
   app.patch('/api/admin/speaking-projects/:id', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
       const { id } = req.params;
       const { speakingProjects } = await import('@shared/schema');
@@ -5703,6 +5707,8 @@ Important:
   // project sections per module.
   app.get('/api/admin/speaking-projects/by-course/:courseId', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
       const { courseId } = req.params;
       const { speakingProjects, courseModules } = await import('@shared/schema');
@@ -5725,6 +5731,8 @@ Important:
 
   app.patch('/api/admin/writing-projects/:id', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
       const { id } = req.params;
       const { writingProjects } = await import('@shared/schema');
@@ -5744,6 +5752,8 @@ Important:
 
   app.get('/api/admin/writing-projects/by-course/:courseId', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
       const { courseId } = req.params;
       const { writingProjects, courseModules } = await import('@shared/schema');
@@ -5761,6 +5771,8 @@ Important:
 
   app.get('/api/writing-projects/by-module/:moduleId', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       const { moduleId } = req.params;
       const { writingProjects } = await import('@shared/schema');
       const [proj] = await db.select().from(writingProjects).where(eq(writingProjects.moduleId, moduleId));
@@ -5782,6 +5794,8 @@ Important:
 
   app.post('/api/writing-submissions', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       const studentId = req.user?.id;
       if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
       const { writingProjectId, moduleId, content } = req.body;
@@ -5828,6 +5842,8 @@ Important:
 
   app.get('/api/writing-submissions/:id', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       const { id } = req.params;
       const { submissions } = await import('@shared/schema');
       const [sub] = await db.select().from(submissions).where(eq(submissions.id, id));
@@ -5861,6 +5877,8 @@ Important:
   // GET the current state of a speaking submission (used for client polling).
   app.get('/api/speaking-submissions/:id', requireAuth, async (req: any, res) => {
     try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
       const { id } = req.params;
       const { submissions } = await import('@shared/schema');
       const [sub] = await db.select().from(submissions).where(eq(submissions.id, id));
