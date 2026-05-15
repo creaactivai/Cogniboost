@@ -12,6 +12,8 @@ import { EmailVerificationBanner } from "@/components/dashboard/email-verificati
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import WritingAssignmentPage from "@/pages/writing-assignment";
 import SubmissionViewPage from "@/pages/submission-view";
+import SpeakingAssignmentPage from "@/pages/speaking-assignment";
+import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
 import TeacherGradingQueuePage from "@/pages/teacher-grading-queue";
 import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
 import TeacherLessonLibraryPage from "@/pages/teacher-lesson-library";
@@ -179,6 +181,8 @@ export default function Dashboard() {
               {/* Phase 1 — AI-graded writing (Master Plan v2.0 §4) */}
               <Route path="/dashboard/writing/new" component={WritingAssignmentPage} />
               <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
+              <Route path="/dashboard/speaking/:moduleId" component={SpeakingAssignmentPage} />
+              <Route path="/dashboard/speaking-submissions/:id" component={SpeakingSubmissionViewPage} />
               {/* Phase 1 — Teacher review surface (Master Plan v2.0 §4.4 + §7.1) */}
               <Route path="/dashboard/teacher/submissions/:id" component={TeacherSubmissionReviewPage} />
               {/* Phase 1.5 — Lesson Library (Master Plan v2.0 §7.4) */}

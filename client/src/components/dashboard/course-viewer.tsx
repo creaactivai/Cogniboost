@@ -539,6 +539,31 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           </div>
                         </Card>
                       )}
+
+                      {/* Speaking Project card — one per module, opens the
+                          recording flow. The /api/speaking-projects/by-module
+                          endpoint returns 404 for unpublished projects, so
+                          the recording page itself gates access. */}
+                      <Card
+                        className="p-3 cursor-pointer hover-elevate"
+                        onClick={() => setLocation(`/dashboard/speaking/${mod.id}`)}
+                        data-testid={`card-speaking-project-${mod.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-7 h-7 flex items-center justify-center text-white"
+                            style={{ backgroundColor: '#9333EA' }}
+                          >
+                            🎙️
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm truncate">Speaking Project</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Record & get AI feedback</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
                     </div>
                   )}
                 </div>
