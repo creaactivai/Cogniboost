@@ -540,6 +540,15 @@ export default function AdminCourseLessons() {
             {lessons?.length || 0} lecciones en este curso
           </p>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.open(`/admin/preview/courses/${courseId}`, '_blank')}
+              data-testid="button-preview-course-as-student"
+              title="Ver curso como estudiante (incluye Speaking & Writing Projects)"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Vista de estudiante
+            </Button>
             <Dialog open={isAddModuleDialogOpen} onOpenChange={setIsAddModuleDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-create-module">
