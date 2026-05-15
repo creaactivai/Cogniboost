@@ -5670,6 +5670,107 @@ Important:
     }
   );
 
+  // ════════════════════════════════════════════════════════════════════
+  // WRITING PROJECTS — student-facing text writing assessments per module
+  // (mirrors Speaking Projects shape)
+  // ════════════════════════════════════════════════════════════════════
+
+  app.get('/api/writing-projects/by-module/:moduleId', requireAuth, async (req: any, res) => {
+    try {
+      const { moduleId } = req.params;
+      const { writingProjects } = await import('@shared/schema');
+      const [proj] = await db.select().from(writingProjects).where(eq(writingProjects.moduleId, moduleId));
+      if (!proj) return res.status(404).json({ error: 'No writing project for this module' });
+      const role = (req.user as any)?.role;
+      const isStaff = role === 'admin' || role === 'teacher';
+      if (!proj.isPublished && !isStaff) {
+        return res.status(404).json({ error: 'Writing project not published yet' });
+      }
+      res.json(proj);
+    } catch (err: any) {
+      console.error('Error fetching writing project:', err);
+      res.status(500).json({ error: 'Failed to fetch writing project' });
+    }
+  });
+
+  app.post('/api/writing-submissions', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = req.user?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const { writingProjectId, moduleId, content } = req.body;
+      if (!writingProjectId || !moduleId || !content) {
+        return res.status(400).json({ error: 'writingProjectId, moduleId and content are required' });
+      }
+      const trimmedContent = String(content).trim();
+      if (trimmedContent.length === 0) {
+        return res.status(400).json({ error: 'Content cannot be empty' });
+      }
+
+      const { writingProjects } = await import('@shared/schema');
+      const [proj] = await db.select().from(writingProjects).where(eq(writingProjects.id, writingProjectId));
+      if (!proj) return res.status(404).json({ error: 'Writing project not found' });
+      if (!proj.isPublished) {
+        const role = (req.user as any)?.role;
+        if (role !== 'admin' && role !== 'teacher') {
+          return res.status(403).json({ error: 'Writing project not published yet' });
+        }
+      }
+
+      const { createWritingSubmission, processWritingSubmission } = await import('./grading/writingGrader');
+      const created = await createWritingSubmission({
+        studentId,
+        writingProjectId,
+        moduleId,
+        content: trimmedContent,
+      });
+
+      res.status(202).json({
+        submissionId: created.submissionId,
+        status: 'pending_ai',
+        message: 'Your writing was submitted and is being graded. Check back in ~30 seconds.',
+      });
+
+      processWritingSubmission(created.submissionId).catch((err) => {
+        console.error('[writing-submit] background processing failed:', err);
+      });
+    } catch (err: any) {
+      console.error('Error creating writing submission:', err);
+      res.status(500).json({ error: 'Failed to submit writing' });
+    }
+  });
+
+  app.get('/api/writing-submissions/:id', requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { submissions } = await import('@shared/schema');
+      const [sub] = await db.select().from(submissions).where(eq(submissions.id, id));
+      if (!sub) return res.status(404).json({ error: 'Submission not found' });
+      const userId = req.user?.id;
+      const role = (req.user as any)?.role;
+      const isStaff = role === 'admin' || role === 'teacher';
+      if (sub.studentId !== userId && !isStaff) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      res.json({
+        id: sub.id,
+        status: sub.status,
+        moduleId: sub.moduleId,
+        writingProjectId: sub.writingProjectId,
+        content: sub.content,
+        aiGrade: sub.aiGrade,
+        aiScore: sub.aiScore,
+        teacherScore: sub.teacherScore,
+        teacherFeedback: sub.teacherFeedback,
+        finalScore: sub.finalScore,
+        submittedAt: sub.submittedAt,
+        teacherReviewedAt: sub.teacherReviewedAt,
+      });
+    } catch (err: any) {
+      console.error('Error fetching writing submission:', err);
+      res.status(500).json({ error: 'Failed to fetch submission' });
+    }
+  });
+
   // GET the current state of a speaking submission (used for client polling).
   app.get('/api/speaking-submissions/:id', requireAuth, async (req: any, res) => {
     try {

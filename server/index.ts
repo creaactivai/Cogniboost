@@ -219,6 +219,112 @@ async function runStartupMigrations() {
     }
     console.log('Startup migrations: A1 speaking projects seeded (8 drafts, unpublished)');
 
+    // Writing Projects (added 2026-05-15, Coral). Topical writing prompts —
+    // one per module — that mirror Speaking Projects. Same per-module
+    // (vocab/grammar/expressions) targets but written instead of spoken.
+    // AI grading via the existing CogniBoost Writing Rubric v2.0 grader
+    // (server/grading/writingPrompt.ts).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS writing_projects (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        module_id varchar NOT NULL,
+        level course_level NOT NULL,
+        title text NOT NULL,
+        prompt text NOT NULL,
+        target_vocabulary text[] DEFAULT '{}',
+        target_grammar text[] DEFAULT '{}',
+        target_expressions text[] DEFAULT '{}',
+        target_word_count_min integer NOT NULL DEFAULT 40,
+        target_word_count_max integer NOT NULL DEFAULT 80,
+        is_published boolean NOT NULL DEFAULT false,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS writing_projects_module_unique ON writing_projects(module_id)`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS writing_project_id varchar`);
+    console.log('Startup migrations: writing_projects table verified');
+
+    // Seed A1 writing projects (idempotent — Coral approved 2026-05-15).
+    const A1_WRITING_DRAFTS = [
+      {
+        order: 1,
+        title: 'Module 1 — Greetings & Introductions',
+        prompt: 'Write a short message to introduce yourself to a new online study group. Say your name, where you are from, your age, your job, and one thing you like to do in your free time.',
+        vocab: ['name','friend','age','from','country','nationality','job','profession','free time','hobby'],
+        grammar: ['verb TO BE','possessive adjectives (my, his, her)','articles a/an'],
+        expressions: ['My name is...','I am from...','I am ... years old','I am a [job]','I like...'],
+      },
+      {
+        order: 2,
+        title: 'Module 2 — Family & Professions',
+        prompt: 'Describe your family in a short paragraph. Talk about three family members: their names, ages, what they do for work, and one detail about each of them.',
+        vocab: ['father','mother','brother','sister','husband','wife','son','daughter','teacher','engineer','doctor','designer','accountant','manager','student'],
+        grammar: ['verb TO BE full mastery','HAVE GOT for family','possessives'],
+        expressions: ['I have got... brothers/sisters','My father is a...','She works as a...','He is X years old'],
+      },
+      {
+        order: 3,
+        title: 'Module 3 — Daily Routine & Time',
+        prompt: 'Write about your typical Tuesday. What time do you wake up? What do you do in the morning, afternoon, and evening? Mention how often you do at least two activities (always, usually, sometimes, never).',
+        vocab: ['wake up','have breakfast','have lunch','have dinner','go to work','watch TV','go to bed','morning','afternoon','evening','night','days of the week'],
+        grammar: ['Present Simple','adverbs of frequency (always/usually/sometimes/never)','time expressions (at 7am, in the morning)'],
+        expressions: ['I wake up at...','Every day I...','I usually... in the afternoon','I never...'],
+      },
+      {
+        order: 4,
+        title: 'Module 4 — Food & Restaurant',
+        prompt: `Write about food. Mention three foods you love and one you don't like. Then describe your favorite restaurant — what you usually order there and why you like it.`,
+        vocab: ['eggs','bread','rice','chicken','salad','pasta','soup','water','coffee','juice','menu','waiter','bill','table'],
+        grammar: [`like / love / hate + -ing form`,'countable/uncountable nouns','some/any'],
+        expressions: ['I love eating...',`I don't like... at all`,'My favorite restaurant is...','I usually order...'],
+      },
+      {
+        order: 5,
+        title: 'Module 5 — Shopping, City & Directions',
+        prompt: 'Describe your neighborhood. Mention three places that are near your home (a bank, a park, a supermarket, etc.). Then write simple directions from your home to one of those places.',
+        vocab: ['bank','supermarket','park','hospital','restaurant','pharmacy','bus','taxi','train','clothes','sizes'],
+        grammar: ['prepositions of place (next to, near, in front of)','imperatives for directions'],
+        expressions: ['Near my home there is...','Go straight and turn left','It is next to...'],
+      },
+      {
+        order: 6,
+        title: 'Module 6 — Weather & Descriptions',
+        prompt: 'Write about the weather in your country in two different seasons. Describe what clothes you usually wear and what activities you usually do in each kind of weather.',
+        vocab: ['sunny','rainy','cloudy','windy','cold','hot','warm','cool','coat','umbrella','sunglasses','hat','seasons'],
+        grammar: [`descriptive adjectives + TO BE`,`Present Simple for habits`],
+        expressions: ['It is usually...','In summer / winter...','When it is..., I wear...','I love/hate ... weather'],
+      },
+      {
+        order: 7,
+        title: 'Module 7 — Plans & Invitations',
+        prompt: `Write about your plans for next weekend. Say what you ARE GOING TO do on Saturday and Sunday. Then write a short invitation to a friend for one of those activities — include when, where, and what you'll do.`,
+        vocab: ['seasons','months','dates','visit','travel','meet','party','dinner','event','plans'],
+        grammar: ['Future with BE GOING TO',`dates and month expressions`],
+        expressions: ['Next weekend I am going to...','On Saturday I am going to...','Would you like to... with me?',`Let's meet at...`],
+      },
+      {
+        order: 8,
+        title: 'Module 8 — A1 Showcase (Final Integration)',
+        prompt: 'Write a complete self-introduction for a job application or social media profile. Include who you are, where you are from, your family, your job, your daily routine, your favorite food, and what you are going to do next month. Use everything you learned in A1.',
+        vocab: ['All A1 vocabulary integrated (family, jobs, time, food, places, weather, dates)'],
+        grammar: ['All A1 structures integrated (TO BE, HAVE GOT, Present Simple, frequency adverbs, BE GOING TO, prepositions, like + ing)'],
+        expressions: ['Combine expressions from M1-M7 — full self-introduction integrating module content'],
+      },
+    ];
+    for (const d of A1_WRITING_DRAFTS) {
+      await pool.query(
+        `INSERT INTO writing_projects (module_id, level, title, prompt, target_vocabulary, target_grammar, target_expressions, target_word_count_min, target_word_count_max, is_published)
+         SELECT cm.id, 'A1', $1, $2, $3, $4, $5, 40, 80, false
+         FROM course_modules cm
+         JOIN courses c ON c.id = cm.course_id
+         WHERE c.level = 'A1' AND cm.order_index = $6
+         ON CONFLICT (module_id) DO NOTHING`,
+        [d.title, d.prompt, d.vocab, d.grammar, d.expressions, d.order]
+      );
+    }
+    console.log('Startup migrations: A1 writing projects seeded (8 drafts, unpublished)');
+
     // Class Labs (Phase 1.6 — Coral, 2026-05-15). Re-modeled per Coral's
     // "interest-driven stealth grammar" design: students self-select by
     // INTEREST (Movies, Sports, Food, etc.) and each (interest × level)

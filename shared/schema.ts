@@ -292,10 +292,31 @@ export const submissions = pgTable("submissions", {
   // writing/reading submissions are unaffected. Audio/video file lives in GCS.
   moduleId: varchar("module_id"),
   speakingProjectId: varchar("speaking_project_id"),
+  writingProjectId: varchar("writing_project_id"),
   audioUrl: text("audio_url"),
   videoUrl: text("video_url"),
   transcript: text("transcript"),
   durationSeconds: integer("duration_seconds"),
+});
+
+// Writing Projects — one per module (CogniBoost Writing Rubric v2.0, May 2026).
+// Topical writing prompts that mirror Speaking Projects: students write
+// a piece using the module's target vocabulary, grammar, and expressions.
+// AI grading via server/grading/writingPrompt.ts.
+export const writingProjects = pgTable("writing_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  prompt: text("prompt").notNull(),
+  targetVocabulary: text("target_vocabulary").array().default(sql`'{}'::text[]`),
+  targetGrammar: text("target_grammar").array().default(sql`'{}'::text[]`),
+  targetExpressions: text("target_expressions").array().default(sql`'{}'::text[]`),
+  targetWordCountMin: integer("target_word_count_min").notNull().default(40),
+  targetWordCountMax: integer("target_word_count_max").notNull().default(80),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Speaking Projects — one per module (CogniBoost Speaking Rubric, May 2026).
@@ -414,78 +435,13 @@ export const vocabularyMastery = pgTable(
   (t) => [primaryKey({ columns: [t.studentId, t.vocabularyId] })],
 );
 
-// Lab Packs — reusable conversation kit per level × theme.
-// Generated once via the One-Click AI Generator Flow 2; reused across hundreds
-// of Lab sessions. Target: 30-50 total (6-10 themes × 5 levels).
-export const labTopics = pgTable("lab_topics", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  level: courseLevelEnum("level").notNull(),                // A1, A2, B1, B2, C1, C2
-  levelRange: text("level_range"),                          // optional: 'A1-A2', 'B1-B2'
-  theme: text("theme").notNull(),                           // 'Travel Stories', 'Job Interviews'
-  description: text("description"),
-  vocabularyWordIds: text("vocabulary_word_ids").array(),   // FK to vocabulary.id
-  grammarFocus: text("grammar_focus").array(),              // structures fitting the theme
-  activities: jsonb("activities"),                          // 5-7 conversational activities
-  commonErrors: jsonb("common_errors"),                     // Top 5 Spanish-speaker pitfalls
-  culturalNotes: text("cultural_notes"),
-  detonatingQuestions: text("detonating_questions").array(),// 5-10 fallback questions
-  approvedBy: varchar("approved_by"),                       // userId of admin who approved
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Lab sessions — scheduled instances of a Lab Pack on the calendar.
-export const labSessionStatusEnum = pgEnum("lab_session_status", [
-  "scheduled",
-  "in_progress",
-  "completed",
-  "cancelled",
-]);
-
-export const labSessions = pgTable("lab_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  labTopicId: varchar("lab_topic_id").notNull().references(() => labTopics.id),
-  teacherId: varchar("teacher_id"),                         // FK to users.id (rotates)
-  scheduledAt: timestamp("scheduled_at").notNull(),
-  durationMinutes: integer("duration_minutes").notNull().default(60),
-  maxStudents: integer("max_students").notNull().default(6),// per Coral: 6 is the conversation-quality ceiling
-  meetingUrl: text("meeting_url"),                          // Jitsi or whatever video provider
-  status: labSessionStatusEnum("status").notNull().default("scheduled"),
-  recurrenceRule: text("recurrence_rule"),                  // e.g. 'WEEKLY' for recurring slots
-  reminderSent: boolean("reminder_sent").notNull().default(false),
-  startedAt: timestamp("started_at"),
-  endedAt: timestamp("ended_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Lab registrations — one student per session, tracks attendance + teacher notes.
-export const labRegistrations = pgTable(
-  "lab_registrations",
-  {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    labSessionId: varchar("lab_session_id").notNull().references(() => labSessions.id),
-    studentId: varchar("student_id").notNull(),
-    registeredAt: timestamp("registered_at").defaultNow(),
-    attended: boolean("attended").notNull().default(false),
-    attendanceDurationMinutes: integer("attendance_duration_minutes"),
-    // teacherObservations: vocabulary_used, errors_heard, participation
-    // (low/medium/high), praise, improvement
-    teacherObservations: jsonb("teacher_observations"),
-  },
-  (t) => [primaryKey({ name: "lab_registrations_unique_per_student", columns: [t.labSessionId, t.studentId] })],
-);
-
-// Lab feedback — 2-question form fired automatically at end of each Lab,
-// emailed to info@cognimight.com per Master Plan v2.0 §12.5.
-export const labFeedback = pgTable("lab_feedback", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").notNull(),
-  labSessionId: varchar("lab_session_id").notNull().references(() => labSessions.id),
-  rating: integer("rating").notNull(),                      // 1-5 stars
-  improvementText: text("improvement_text"),                // free-text, optional
-  submittedAt: timestamp("submitted_at").defaultNow(),
-  emailedToAdmin: boolean("emailed_to_admin").notNull().default(false),
-});
+// (Old Lab Packs / labTopics / labSessions / labRegistrations / labFeedback
+//  definitions were removed 2026-05-15 — they were a duplicate Phase 1.6
+//  draft that conflicted with the refactored interest-driven schema above
+//  (labInterestTopics, labSessionsV2, labRegistrations). The duplicates
+//  were causing every Vercel + Railway build to fail with
+//  "Multiple exports with the same name labRegistrations". The new schema
+//  is what's deployed in production.)
 
 // Listening assessments — 1-3 min audio clips, no transcript visible to student.
 // Per Master Plan v2.0 §11.

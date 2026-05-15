@@ -564,6 +564,30 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           </div>
                         </div>
                       </Card>
+
+                      {/* Writing Project card — same idea as Speaking but
+                          students write text that gets graded against the
+                          CogniBoost Writing Rubric v2.0. */}
+                      <Card
+                        className="p-3 cursor-pointer hover-elevate"
+                        onClick={() => setLocation(`/dashboard/writing-project/${mod.id}`)}
+                        data-testid={`card-writing-project-${mod.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-7 h-7 flex items-center justify-center text-white"
+                            style={{ backgroundColor: '#0EA5E9' }}
+                          >
+                            ✍️
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm truncate">Writing Project</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Write & get AI feedback</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
                     </div>
                   )}
                 </div>
