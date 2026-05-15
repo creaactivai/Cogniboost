@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { RubricSummary } from "@/components/rubric-summary";
 
 interface WritingProject {
   id: string;
@@ -166,6 +167,9 @@ export default function WritingProjectAssignmentPage() {
         </h3>
         <p className="text-base leading-relaxed">{project.prompt}</p>
       </Card>
+
+      {/* Rubric summary — students see HOW they'll be graded before they write */}
+      <RubricSummary type="writing" level={project.level} />
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card className="p-4">

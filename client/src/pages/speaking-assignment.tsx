@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { RubricSummary } from "@/components/rubric-summary";
 
 interface SpeakingProject {
   id: string;
@@ -265,6 +266,9 @@ export default function SpeakingAssignmentPage() {
         </h3>
         <p className="text-base leading-relaxed">{project.prompt}</p>
       </Card>
+
+      {/* Rubric summary — students see HOW they'll be graded before they record */}
+      <RubricSummary type="speaking" level={project.level} />
 
       {/* Targets */}
       <div className="grid md:grid-cols-3 gap-4">
