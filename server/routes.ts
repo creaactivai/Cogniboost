@@ -5574,6 +5574,139 @@ Important:
     }
   });
 
+  // ════════════════════════════════════════════════════════════════════
+  // SPEAKING PROJECTS — student-facing audio/video recording assessments
+  // ════════════════════════════════════════════════════════════════════
+
+  // Multer config for speaking submissions: accepts audio + video formats
+  // produced by MediaRecorder (most common: webm with opus codec).
+  const uploadSpeaking = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 75 * 1024 * 1024 }, // 75MB cap — generous for a ~5-min C1 video
+    fileFilter: (_req, file, cb) => {
+      const ok =
+        file.mimetype.startsWith('audio/') ||
+        file.mimetype.startsWith('video/') ||
+        file.mimetype === 'application/octet-stream'; // Safari sometimes mislabels webm
+      if (ok) cb(null, true);
+      else cb(new Error('Only audio or video files are allowed'));
+    },
+  });
+
+  // GET the Speaking Project for a given module (or null if module has none).
+  app.get('/api/speaking-projects/by-module/:moduleId', requireAuth, async (req: any, res) => {
+    try {
+      const { moduleId } = req.params;
+      const { speakingProjects } = await import('@shared/schema');
+      const [proj] = await db.select().from(speakingProjects).where(eq(speakingProjects.moduleId, moduleId));
+      if (!proj) return res.status(404).json({ error: 'No speaking project for this module' });
+      // Hide drafts from students; admins/teachers see everything.
+      const role = (req.user as any)?.role;
+      const isStaff = role === 'admin' || role === 'teacher';
+      if (!proj.isPublished && !isStaff) {
+        return res.status(404).json({ error: 'Speaking project not published yet' });
+      }
+      res.json(proj);
+    } catch (err: any) {
+      console.error('Error fetching speaking project:', err);
+      res.status(500).json({ error: 'Failed to fetch speaking project' });
+    }
+  });
+
+  // POST a speaking submission. Multipart: audio file + metadata fields.
+  // Returns the submission ID immediately; grading runs in the background.
+  app.post(
+    '/api/speaking-submissions',
+    requireAuth,
+    uploadSpeaking.single('recording'),
+    async (req: any, res) => {
+      try {
+        const studentId = req.user?.id;
+        if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+        if (!req.file) return res.status(400).json({ error: 'No recording file' });
+
+        const { speakingProjectId, moduleId, isVideo, clientDurationSeconds } = req.body;
+        if (!speakingProjectId || !moduleId) {
+          return res.status(400).json({ error: 'speakingProjectId and moduleId are required' });
+        }
+
+        const { speakingProjects } = await import('@shared/schema');
+        const [proj] = await db.select().from(speakingProjects).where(eq(speakingProjects.id, speakingProjectId));
+        if (!proj) return res.status(404).json({ error: 'Speaking project not found' });
+        if (!proj.isPublished) {
+          const role = (req.user as any)?.role;
+          if (role !== 'admin' && role !== 'teacher') {
+            return res.status(403).json({ error: 'Speaking project not published yet' });
+          }
+        }
+
+        const { createSpeakingSubmission, processSpeakingSubmission } = await import('./grading/speakingGrader');
+        const created = await createSpeakingSubmission({
+          studentId,
+          speakingProjectId,
+          moduleId,
+          audioBuffer: req.file.buffer,
+          audioFilename: req.file.originalname || `recording-${Date.now()}.webm`,
+          audioContentType: req.file.mimetype,
+          isVideo: String(isVideo) === 'true',
+          clientDurationSeconds: clientDurationSeconds ? Number(clientDurationSeconds) : undefined,
+        });
+
+        // Respond immediately; kick off the slow grader in the background.
+        res.status(202).json({
+          submissionId: created.submissionId,
+          status: 'pending_ai',
+          message: 'Your recording was uploaded and is being graded. Check back in ~1 minute.',
+        });
+
+        // Fire-and-forget — errors are persisted to the row, not thrown here.
+        processSpeakingSubmission(created.submissionId).catch((err) => {
+          console.error('[speaking-submit] background processing failed:', err);
+        });
+      } catch (err: any) {
+        console.error('Error creating speaking submission:', err);
+        res.status(500).json({ error: 'Failed to upload recording' });
+      }
+    }
+  );
+
+  // GET the current state of a speaking submission (used for client polling).
+  app.get('/api/speaking-submissions/:id', requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { submissions } = await import('@shared/schema');
+      const [sub] = await db.select().from(submissions).where(eq(submissions.id, id));
+      if (!sub) return res.status(404).json({ error: 'Submission not found' });
+      // Authorize: must be the student who submitted it, or staff.
+      const userId = req.user?.id;
+      const role = (req.user as any)?.role;
+      const isStaff = role === 'admin' || role === 'teacher';
+      if (sub.studentId !== userId && !isStaff) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      res.json({
+        id: sub.id,
+        status: sub.status,
+        moduleId: sub.moduleId,
+        speakingProjectId: sub.speakingProjectId,
+        audioUrl: sub.audioUrl,
+        videoUrl: sub.videoUrl,
+        transcript: sub.transcript,
+        durationSeconds: sub.durationSeconds,
+        aiGrade: sub.aiGrade,
+        aiScore: sub.aiScore,
+        teacherScore: sub.teacherScore,
+        teacherFeedback: sub.teacherFeedback,
+        finalScore: sub.finalScore,
+        submittedAt: sub.submittedAt,
+        teacherReviewedAt: sub.teacherReviewedAt,
+      });
+    } catch (err: any) {
+      console.error('Error fetching speaking submission:', err);
+      res.status(500).json({ error: 'Failed to fetch submission' });
+    }
+  });
+
   return httpServer;
 }
 
