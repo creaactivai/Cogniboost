@@ -61,6 +61,125 @@ async function runStartupMigrations() {
     // returns empty. Added 2026-05-14.
     await pool.query(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS teacher_lesson_plan jsonb`);
     console.log('Startup migrations: Phase 1.5 lesson-plan column verified');
+
+    // Speaking Projects (added 2026-05-15, Coral). One Speaking Project per
+    // module — students record audio (or video) demonstrating they can USE
+    // the module's vocabulary, grammar, and target expressions in production.
+    // AI grading pipeline: Whisper transcribes → Claude scores against the
+    // CogniBoost Speaking Rubric (5 dimensions, 0-100, pass ≥70). Submissions
+    // reuse the existing `submissions` table for the teacher review pipeline.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS speaking_projects (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        module_id varchar NOT NULL,
+        level course_level NOT NULL,
+        title text NOT NULL,
+        prompt text NOT NULL,
+        target_vocabulary text[] DEFAULT '{}',
+        target_grammar text[] DEFAULT '{}',
+        target_expressions text[] DEFAULT '{}',
+        target_duration_seconds integer NOT NULL DEFAULT 60,
+        is_published boolean NOT NULL DEFAULT false,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS speaking_projects_module_id_idx ON speaking_projects(module_id)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS speaking_projects_module_unique ON speaking_projects(module_id)`);
+    console.log('Startup migrations: speaking_projects table verified');
+
+    // Extend submissions table for speaking recordings. The columns are all
+    // nullable so existing writing submissions are unaffected.
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS module_id varchar`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS speaking_project_id varchar`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS audio_url text`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS video_url text`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS transcript text`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS duration_seconds integer`);
+    console.log('Startup migrations: submissions speaking columns verified');
+
+    // Seed A1 Speaking Projects (idempotent — one row per module, looked up
+    // by module_id via the unique index). Coral reviewed + approved the 8
+    // drafts on 2026-05-15. is_published=false so they don't go live until
+    // she flips the flag.
+    const A1_SPEAKING_DRAFTS = [
+      {
+        order: 1,
+        title: 'Module 1 — Greetings & Introductions',
+        prompt: 'Introduce yourself and a friend or family member. Say your names, where you are from, your nationalities, your jobs, and one number you know in English (like your age or phone number).',
+        vocab: ['name','friend','age','from','country','nationality','American','Mexican','Dominican','numbers 1-100','job','profession','Nice to meet you'],
+        grammar: ['verb TO BE (I am / he is / she is / we are)','possessive adjectives (my, his, her)','articles a/an'],
+        expressions: ['Hi, my name is...','I am from...','This is my friend / my brother / my mom...','He/She is...','Nice to meet you'],
+      },
+      {
+        order: 2,
+        title: 'Module 2 — Family & Professions',
+        prompt: 'Talk about your family. Describe 3 family members (parents, siblings, partner, kids). Say their names, ages, what they do for work, and one thing about each of them.',
+        vocab: ['father','mother','brother','sister','husband','wife','son','daughter','grandparents','teacher','engineer','doctor','accountant','designer','manager','student','housewife','retired'],
+        grammar: ['verb TO BE full mastery (affirmative, negative, questions)',`HAVE GOT for family ("I have got two brothers")`,'possessives'],
+        expressions: ['I have got... brothers/sisters','My father is a...','She works as a...','He is X years old','His name is...'],
+      },
+      {
+        order: 3,
+        title: 'Module 3 — Daily Routine & Time',
+        prompt: 'Describe a typical day in your life. Say what time you wake up, what you do in the morning, afternoon, and evening, and how often you do 2 activities (always, usually, sometimes, never).',
+        vocab: ['wake up','get up','have breakfast','have lunch','have dinner','take a shower','go to work','watch TV','go to bed','days of the week','morning','afternoon','evening','night'],
+        grammar: ['Present Simple (affirmative, negative, questions with do/does)','adverbs of frequency (always, usually, often, sometimes, never)','time expressions (at 7am, in the morning, on Mondays)'],
+        expressions: ['I wake up at...','Every day I...','I usually... in the afternoon','I never...','On weekends I...'],
+      },
+      {
+        order: 4,
+        title: 'Module 4 — Food & Restaurant',
+        prompt: `Talk about food. Mention 3 foods you like and 1 you don't like. Then imagine you are at a restaurant — practice ordering a meal (a drink, a main dish, and dessert).`,
+        vocab: ['eggs','bread','rice','chicken','salad','pasta','soup','water','coffee','juice','menu','waiter','bill','table','breakfast','lunch','dinner'],
+        grammar: [`like / love / hate + -ing form ("I love cooking")`,'countable/uncountable nouns',`some/any ("some bread", "any vegetables")`],
+        expressions: ['I love eating...',`I don't like... at all`,'I would like a...','Can I have... please?','The bill, please'],
+      },
+      {
+        order: 5,
+        title: 'Module 5 — Shopping, City & Directions',
+        prompt: 'Describe your neighborhood. Mention 3 places that are near your home (a bank, a supermarket, a park...). Then give simple directions from your home to one of those places.',
+        vocab: ['bank','supermarket','park','hospital','restaurant','pharmacy','bus','taxi','train','on foot','clothes','small','medium','large'],
+        grammar: ['prepositions of place (next to, near, in front of, behind, opposite)','imperatives for directions (turn left/right, go straight, cross the street)'],
+        expressions: ['Near my home there is/are...','I usually go by...','To get to... go straight and turn left','It is next to...'],
+      },
+      {
+        order: 6,
+        title: 'Module 6 — Weather & Descriptions',
+        prompt: 'Describe the weather in your country in 2 different seasons. Then describe what you usually wear and what you usually do in each kind of weather.',
+        vocab: ['sunny','rainy','cloudy','windy','cold','hot','warm','cool','seasons','temperature','coat','umbrella','sunglasses','hat'],
+        grammar: [`descriptive adjectives + TO BE ("It is sunny", "The weather is hot")`,`present simple for habits ("When it rains, I stay home")`],
+        expressions: ['It is usually...','In summer / winter / spring...','When it is..., I wear...','I love / hate ... weather'],
+      },
+      {
+        order: 7,
+        title: 'Module 7 — Plans & Invitations',
+        prompt: 'Talk about your plans for next weekend. Say what you ARE GOING TO do on Saturday and Sunday. Then invite a friend to one of those activities and explain when and where.',
+        vocab: ['seasons','months','dates','visit','travel','meet','celebrate','watch a movie','go to the beach','party','dinner','event','plans'],
+        grammar: ['Future with BE GOING TO (affirmative, negative, questions)',`dates and month expressions ("on March 5th", "in December")`],
+        expressions: ['Next weekend I am going to...','On Saturday I am going to...','Would you like to... with me?',`Let's meet at...`],
+      },
+      {
+        order: 8,
+        title: 'Module 8 — A1 Showcase (Final Integration)',
+        prompt: 'This is your final A1 showcase. In about 1 minute, introduce yourself completely: who you are, where you are from, your family, your job, your daily routine, your favorite food, and what you are going to do next month. Use everything you learned in A1.',
+        vocab: ['All A1 vocabulary integrated (family, jobs, time, food, places, weather, dates)'],
+        grammar: ['All A1 structures integrated (TO BE, HAVE GOT, Present Simple, frequency adverbs, BE GOING TO, prepositions, like + ing)'],
+        expressions: ['Combine expressions from M1-M7 — full self-introduction integrating module content'],
+      },
+    ];
+    for (const d of A1_SPEAKING_DRAFTS) {
+      await pool.query(
+        `INSERT INTO speaking_projects (module_id, level, title, prompt, target_vocabulary, target_grammar, target_expressions, target_duration_seconds, is_published)
+         SELECT cm.id, 'A1', $1, $2, $3, $4, $5, 60, false
+         FROM course_modules cm
+         JOIN courses c ON c.id = cm.course_id
+         WHERE c.level = 'A1' AND cm.order_index = $6
+         ON CONFLICT (module_id) DO NOTHING`,
+        [d.title, d.prompt, d.vocab, d.grammar, d.expressions, d.order]
+      );
+    }
+    console.log('Startup migrations: A1 speaking projects seeded (8 drafts, unpublished)');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

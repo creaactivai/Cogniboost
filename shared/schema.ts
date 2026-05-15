@@ -279,15 +279,42 @@ export const submissions = pgTable("submissions", {
   studentId: varchar("student_id").notNull(),
   lessonId: varchar("lesson_id"),
   assignmentType: submissionTypeEnum("assignment_type").notNull(),
-  content: text("content").notNull(),                       // raw student submission
+  content: text("content").notNull(),                       // raw student submission (writing text OR transcript)
   submittedAt: timestamp("submitted_at").defaultNow(),
-  aiGrade: jsonb("ai_grade"),                               // full WritingGradeResponse shape
+  aiGrade: jsonb("ai_grade"),                               // full WritingGradeResponse / SpeakingGradeResponse shape
   aiScore: decimal("ai_score", { precision: 5, scale: 2 }), // 0-100
   teacherScore: decimal("teacher_score", { precision: 5, scale: 2 }),
   teacherFeedback: text("teacher_feedback"),
   teacherReviewedAt: timestamp("teacher_reviewed_at"),
   finalScore: decimal("final_score", { precision: 5, scale: 2 }),
   status: submissionStatusEnum("status").notNull().default("pending_ai"),
+  // Speaking-recording extension (added 2026-05-15). All nullable so existing
+  // writing/reading submissions are unaffected. Audio/video file lives in GCS.
+  moduleId: varchar("module_id"),
+  speakingProjectId: varchar("speaking_project_id"),
+  audioUrl: text("audio_url"),
+  videoUrl: text("video_url"),
+  transcript: text("transcript"),
+  durationSeconds: integer("duration_seconds"),
+});
+
+// Speaking Projects — one per module (CogniBoost Speaking Rubric, May 2026).
+// Each Speaking Project asks the student to record audio/video applying the
+// module's vocabulary, grammar, and target expressions. AI grading pipeline:
+// Whisper transcribes → Claude scores against the speaking rubric.
+export const speakingProjects = pgTable("speaking_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  prompt: text("prompt").notNull(),
+  targetVocabulary: text("target_vocabulary").array().default(sql`'{}'::text[]`),
+  targetGrammar: text("target_grammar").array().default(sql`'{}'::text[]`),
+  targetExpressions: text("target_expressions").array().default(sql`'{}'::text[]`),
+  targetDurationSeconds: integer("target_duration_seconds").notNull().default(60),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Vocabulary — global word bank, per-level. Used by Lab Packs + lessons.
