@@ -62,6 +62,44 @@ async function runStartupMigrations() {
     await pool.query(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS teacher_lesson_plan jsonb`);
     console.log('Startup migrations: Phase 1.5 lesson-plan column verified');
 
+    // Submissions table (Master Plan §3) — was defined in shared/schema.ts
+    // but never migrated to production. Phase 1.5 writing-grading writes to
+    // this table; without it those writes fail silently with 500s. Discovered
+    // 2026-05-15 while seeding Speaking Projects. Re-creating here.
+    await pool.query(`DO $$ BEGIN
+      CREATE TYPE submission_status AS ENUM ('pending_ai','ai_graded','teacher_reviewed','returned');
+    EXCEPTION WHEN duplicate_object THEN null; END $$`);
+    await pool.query(`DO $$ BEGIN
+      CREATE TYPE submission_type AS ENUM ('writing','reading_quiz','listening_quiz','speaking_recording','project');
+    EXCEPTION WHEN duplicate_object THEN null; END $$`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS submissions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id varchar NOT NULL,
+        lesson_id varchar,
+        assignment_type submission_type NOT NULL,
+        content text NOT NULL,
+        submitted_at timestamp DEFAULT now(),
+        ai_grade jsonb,
+        ai_score decimal(5,2),
+        teacher_score decimal(5,2),
+        teacher_feedback text,
+        teacher_reviewed_at timestamp,
+        final_score decimal(5,2),
+        status submission_status NOT NULL DEFAULT 'pending_ai',
+        module_id varchar,
+        speaking_project_id varchar,
+        audio_url text,
+        video_url text,
+        transcript text,
+        duration_seconds integer
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS submissions_student_idx ON submissions(student_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS submissions_status_idx ON submissions(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS submissions_speaking_proj_idx ON submissions(speaking_project_id)`);
+    console.log('Startup migrations: submissions table verified');
+
     // Speaking Projects (added 2026-05-15, Coral). One Speaking Project per
     // module — students record audio (or video) demonstrating they can USE
     // the module's vocabulary, grammar, and target expressions in production.
