@@ -13,7 +13,7 @@
  */
 
 import { db } from "./db";
-import { users } from "../shared/models/auth";
+import { users, leads } from "../shared/models/auth";
 import { lessonProgress, quizAttempts, roomBookings } from "../shared/schema";
 import { and, eq, lt, gt, sql, isNull, isNotNull, desc, count } from "drizzle-orm";
 import { sendEmail, type EmailTemplate } from "./resendClient";
@@ -346,6 +346,131 @@ async function runWeeklyProgress(): Promise<SequenceResult> {
 }
 
 // ---------------------------------------------------------------------------
+// 6. LEAD NURTURE — placement quiz takers who have not yet enrolled
+// ---------------------------------------------------------------------------
+// These mirror the manual admin trigger at /api/admin/leads/run-sequences in
+// routes.ts. Previously the lead nurture flow only ran when an admin pressed
+// the button; this hooks them into the hourly cron so leads progress
+// automatically (matches Master Plan §6 "Conversion Funnel").
+
+/** Day 1 after placement quiz — course recommendations */
+async function runLeadDay1(): Promise<SequenceResult> {
+  const result: SequenceResult = { sequence: "lead_day1", sent: 0, errors: [] };
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  try {
+    const eligible = await db.select().from(leads).where(
+      and(
+        eq(leads.day1EmailSent, false),
+        eq(leads.resultEmailSent, true),
+        sql`${leads.quizCompletedAt} < ${oneDayAgo}`,
+        eq(leads.convertedToUser, false),
+        isNotNull(leads.email)
+      )
+    ).limit(50);
+
+    for (const lead of eligible) {
+      try {
+        await sendEmail(lead.email, "lead_day1_followup", {
+          firstName: lead.firstName || "estudiante",
+          level: lead.placementLevel || "B1",
+          email: lead.email,
+        });
+        await db.update(leads).set({
+          day1EmailSent: true,
+          day1EmailSentAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(leads.id, lead.id));
+        result.sent++;
+      } catch (e: any) {
+        result.errors.push(`${lead.email}: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errors.push(`Query error: ${e.message}`);
+  }
+  return result;
+}
+
+/** Day 3 after placement quiz — Conversation Lab invitation */
+async function runLeadDay3(): Promise<SequenceResult> {
+  const result: SequenceResult = { sequence: "lead_day3", sent: 0, errors: [] };
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  try {
+    const eligible = await db.select().from(leads).where(
+      and(
+        eq(leads.day3EmailSent, false),
+        eq(leads.day1EmailSent, true),
+        sql`${leads.quizCompletedAt} < ${threeDaysAgo}`,
+        eq(leads.convertedToUser, false),
+        isNotNull(leads.email)
+      )
+    ).limit(50);
+
+    for (const lead of eligible) {
+      try {
+        await sendEmail(lead.email, "lead_day3_lab_invite", {
+          firstName: lead.firstName || "estudiante",
+          level: lead.placementLevel || "B1",
+          email: lead.email,
+        });
+        await db.update(leads).set({
+          day3EmailSent: true,
+          day3EmailSentAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(leads.id, lead.id));
+        result.sent++;
+      } catch (e: any) {
+        result.errors.push(`${lead.email}: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errors.push(`Query error: ${e.message}`);
+  }
+  return result;
+}
+
+/** Day 7 after placement quiz — final special offer */
+async function runLeadDay7(): Promise<SequenceResult> {
+  const result: SequenceResult = { sequence: "lead_day7", sent: 0, errors: [] };
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  try {
+    const eligible = await db.select().from(leads).where(
+      and(
+        eq(leads.day7EmailSent, false),
+        eq(leads.day3EmailSent, true),
+        sql`${leads.quizCompletedAt} < ${sevenDaysAgo}`,
+        eq(leads.convertedToUser, false),
+        isNotNull(leads.email)
+      )
+    ).limit(50);
+
+    for (const lead of eligible) {
+      try {
+        await sendEmail(lead.email, "lead_day7_offer", {
+          firstName: lead.firstName || "estudiante",
+          level: lead.placementLevel || "B1",
+          email: lead.email,
+        });
+        await db.update(leads).set({
+          day7EmailSent: true,
+          day7EmailSentAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(leads.id, lead.id));
+        result.sent++;
+      } catch (e: any) {
+        result.errors.push(`${lead.email}: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errors.push(`Query error: ${e.message}`);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // MASTER RUNNER — called by cron or admin API
 // ---------------------------------------------------------------------------
 
@@ -366,6 +491,9 @@ export async function runAllEmailSequences(): Promise<{
     runReengagement(),
     runPaymentFailed(),
     runWeeklyProgress(),
+    runLeadDay1(),
+    runLeadDay3(),
+    runLeadDay7(),
   ]);
 
   const totalSent = results.reduce((sum, r) => sum + r.sent, 0);
