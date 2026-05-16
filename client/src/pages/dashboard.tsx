@@ -136,8 +136,17 @@ export default function Dashboard() {
       return;
     }
     
-    // Redirect users who haven't completed onboarding (skip for admin preview)
-    if (!isLoading && isAuthenticated && user && !user.onboardingCompleted && !isAdminPreview) {
+    // Redirect users who haven't completed onboarding (skip for admin
+    // preview, skip for admin/teacher users — they never need student
+    // onboarding even if the flag was never set).
+    if (
+      !isLoading
+      && isAuthenticated
+      && user
+      && !user.onboardingCompleted
+      && !isAdminPreview
+      && !user.isAdmin
+    ) {
       setLocation("/onboarding");
       return;
     }
