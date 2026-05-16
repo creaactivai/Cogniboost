@@ -285,11 +285,9 @@ export function ConversationLabsV2() {
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(s.scheduledAt)} · {s.durationMinutes} min</span>
                       </div>
                       <div className="flex gap-2 flex-wrap">
-                        {s.meetingUrl && (
-                          <Button size="sm" asChild>
-                            <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer">▶️ Entrar a la clase</a>
-                          </Button>
-                        )}
+                        <Button size="sm" asChild>
+                          <Link href={`/dashboard/labs/${s.id}/room`}>▶️ Entrar a la clase</Link>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -348,14 +346,14 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
             <p className="text-xs mt-2"><strong>Focus:</strong> <span className="text-muted-foreground">{s.grammarFocus}</span></p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            {live && isBooked && s.meetingUrl && (
+            {live && isBooked && (
               <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
-                <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer">▶️ Unirse ahora</a>
+                <Link href={`/dashboard/labs/${s.id}/room`}>▶️ Unirse ahora</Link>
               </Button>
             )}
-            {live && !isBooked && s.meetingUrl && !isFull && (
-              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={onBook} disabled={bookPending}>
-                {bookPending ? "Uniéndose…" : "🔴 Unirse a la clase"}
+            {live && !isBooked && !isFull && (
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
+                <Link href={`/dashboard/labs/${s.id}/room`}>🔴 Unirse a la clase</Link>
               </Button>
             )}
             {!live && (

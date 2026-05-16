@@ -17,6 +17,7 @@ import SpeakingAssignmentPage from "@/pages/speaking-assignment";
 import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
 import WritingProjectAssignmentPage from "@/pages/writing-project-assignment";
 import WritingProjectSubmissionViewPage from "@/pages/writing-project-submission-view";
+import LabRoomPage from "@/pages/lab-room";
 import TeacherGradingQueuePage from "@/pages/teacher-grading-queue";
 import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
 import TeacherLessonLibraryPage from "@/pages/teacher-lesson-library";
@@ -179,6 +180,7 @@ export default function Dashboard() {
               <Route path="/dashboard/courses" component={CourseCatalog} />
               <Route path="/dashboard/labs" component={ConversationLabsV2} />
               <Route path="/dashboard/labs-legacy" component={ConversationLabs} />
+              <Route path="/dashboard/labs/:sessionId/room" component={LabRoomPage} />
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
