@@ -17,9 +17,6 @@
  * try again or contact support" state instead of spinning forever.
  */
 
-import { db } from '../db';
-import { submissions, speakingProjects } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { uploadToGcs } from '../gcsDirectUpload';
 import { transcribeFromBuffer, type WhisperResult } from './whisperClient';
 import { gradeSpeaking, type SpeakingGradeResponse } from './speakingPrompt';
@@ -52,6 +49,8 @@ export interface CreatedSubmission {
 export async function createSpeakingSubmission(
   input: CreateSpeakingSubmissionInput
 ): Promise<CreatedSubmission> {
+  const { db } = await import("../db");
+  const { submissions } = await import("@shared/schema");
   // Upload audio to GCS first so we never lose the recording even if the
   // grader chokes downstream.
   const uploaded = await uploadToGcs(
@@ -84,6 +83,11 @@ export async function createSpeakingSubmission(
 export async function processSpeakingSubmission(submissionId: string): Promise<void> {
   console.log(`[speakingGrader] Begin processing submission ${submissionId}`);
   const startedAt = Date.now();
+
+  // Imports MUST be at function top (not inside try) — catch block needs them too.
+  const { db } = await import("../db");
+  const { submissions, speakingProjects } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
 
   try {
     // Load the submission + its associated project.

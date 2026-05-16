@@ -14,9 +14,6 @@
  * surface a "try again" state.
  */
 
-import { db } from '../db';
-import { submissions, writingProjects } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { gradeWriting, type WritingGradeResponse } from './writingPrompt';
 import type { CefrLevel } from './writingPrompt';
 
@@ -38,6 +35,8 @@ export interface CreatedWritingSubmission {
 export async function createWritingSubmission(
   input: CreateWritingSubmissionInput
 ): Promise<CreatedWritingSubmission> {
+  const { db } = await import("../db");
+  const { submissions } = await import("@shared/schema");
   const [row] = await db.insert(submissions).values({
     studentId: input.studentId,
     assignmentType: 'writing',
@@ -59,6 +58,11 @@ export async function createWritingSubmission(
 export async function processWritingSubmission(submissionId: string): Promise<void> {
   console.log(`[writingGrader] Begin processing submission ${submissionId}`);
   const startedAt = Date.now();
+
+  // Imports MUST be at function top (not inside try) — catch block needs them too.
+  const { db } = await import("../db");
+  const { submissions, writingProjects } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
 
   try {
     const [sub] = await db.select().from(submissions).where(eq(submissions.id, submissionId));

@@ -5626,6 +5626,8 @@ Important:
     uploadSpeaking.single('recording'),
     async (req: any, res) => {
       try {
+        const { db } = await import("./db");
+        const { eq } = await import("drizzle-orm");
         const studentId = req.user?.id;
         if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
         if (!req.file) return res.status(400).json({ error: 'No recording file' });
