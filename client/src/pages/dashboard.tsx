@@ -123,9 +123,15 @@ export default function Dashboard() {
     
     // Check if this is admin preview mode (URL param captured on mount + admin user)
     const isAdminPreview = user?.isAdmin && isAdminPreviewRef.current;
-    
-    // Redirect admins to admin panel (unless they're in preview mode for courses)
-    if (!isLoading && isAuthenticated && user?.isAdmin && !isAdminPreview) {
+
+    // Teacher review surfaces live under /dashboard/teacher and ARE meant
+    // for admin/teacher use. Don't bounce admins away from them.
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
+    const isTeacherSurface = path.startsWith('/dashboard/teacher');
+
+    // Redirect admins to admin panel (unless they're in preview mode for
+    // courses or on a teacher-only surface)
+    if (!isLoading && isAuthenticated && user?.isAdmin && !isAdminPreview && !isTeacherSurface) {
       setLocation("/admin");
       return;
     }

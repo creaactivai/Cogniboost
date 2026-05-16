@@ -14,6 +14,7 @@ import {
   Upload,
   BarChart3,
   Award,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +70,11 @@ const menuItems = [
     title: "Final Exams",
     url: "/admin/exams",
     icon: Award,
+  },
+  {
+    title: "Grading Queue",
+    url: "/dashboard/teacher",
+    icon: ClipboardList,
   },
   {
     title: "Instructores",
