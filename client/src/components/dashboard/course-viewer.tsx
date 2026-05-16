@@ -402,8 +402,9 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
             </div>
           )}
           {modules.length > 0 ? (
-            // Module-grouped sidebar
-            modules.sort((a, b) => a.orderIndex - b.orderIndex).map((mod) => {
+            // Module-grouped sidebar — top-academy visual: each module is its
+            // own progress card with number + title + completion percentage.
+            modules.sort((a, b) => a.orderIndex - b.orderIndex).map((mod, modIdx) => {
               const moduleLessons = lessons?.filter(l => (l as any).moduleId === mod.id)
                 .sort((a, b) => a.orderIndex - b.orderIndex) || [];
               const isCollapsed = collapsedModules.has(mod.id);
@@ -414,27 +415,80 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                 return next;
               });
 
+              // Module-level progress: completed lessons out of total.
+              const completedCount = moduleLessons.filter(l => lessonProgressMap.get(l.id)?.isCompleted).length;
+              const totalCount = moduleLessons.length;
+              const modulePct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+              const isModuleDone = totalCount > 0 && completedCount === totalCount;
+
               return (
-                <div key={mod.id} className="space-y-1">
-                  {/* Module header */}
-                  <div
-                    className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-muted/50 rounded"
+                <div key={mod.id} className="space-y-2 mb-4">
+                  {/* Module header card — proper visual anchor with number
+                      tile, title, lesson count and progress bar. */}
+                  <Card
+                    className={`p-3 cursor-pointer hover-elevate transition-colors ${
+                      isModuleDone ? 'border-cyan-300 dark:border-cyan-700' : ''
+                    }`}
                     onClick={toggleCollapse}
+                    data-testid={`module-header-${mod.id}`}
                   >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <Layers className="w-4 h-4 flex-shrink-0" style={{ color: '#33CBFB' }} />
-                    <span className="font-mono text-xs font-semibold uppercase tracking-wider truncate">
-                      {mod.title}
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-3">
+                      {/* Module number tile */}
+                      <div
+                        className="w-11 h-11 rounded-lg flex items-center justify-center font-bold text-base flex-shrink-0"
+                        style={{
+                          backgroundColor: isModuleDone ? '#33CBFB' : 'hsl(var(--primary) / 0.10)',
+                          color: isModuleDone ? 'white' : 'hsl(var(--primary))',
+                        }}
+                      >
+                        {isModuleDone ? <CheckCircle className="w-5 h-5" /> : String(modIdx + 1).padStart(2, '0')}
+                      </div>
+
+                      {/* Title + progress meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Module {modIdx + 1}
+                          </span>
+                          {totalCount > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              · {completedCount}/{totalCount} lessons
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-semibold truncate leading-tight">{mod.title}</p>
+                        {totalCount > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full transition-all rounded-full"
+                                style={{
+                                  width: `${modulePct}%`,
+                                  backgroundColor: isModuleDone ? '#10B981' : '#33CBFB',
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                              {modulePct}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Chevron */}
+                      <div className="flex-shrink-0">
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                  </Card>
 
                   {!isCollapsed && (
-                    <div className="space-y-1 pl-2">
-                      {/* Lesson cards */}
+                    <div className="space-y-1.5 pl-3 border-l-2 border-muted ml-5">
+                      {/* Lesson cards — cleaner visual states */}
                       {moduleLessons.map((lesson, index) => {
                         const progress = lessonProgressMap.get(lesson.id);
                         const isUnlocked = isAdminPreview
@@ -444,13 +498,22 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         const isLockedBySubscription = isAdminPreview
                           ? false
                           : (progress?.isLockedBySubscription ?? false);
+                        const isCurrent = selectedLessonId === lesson.id && !selectedVideoModuleId;
+
+                        // Status indicator styling
+                        let statusBg = '#f1f5f9';      // available (slate-100)
+                        let statusFg = '#64748b';      // muted (slate-500)
+                        if (isCompleted) { statusBg = '#10B981'; statusFg = '#fff'; }
+                        else if (isCurrent) { statusBg = '#33CBFB'; statusFg = '#fff'; }
+                        else if (isLockedBySubscription) { statusBg = '#94a3b8'; statusFg = '#fff'; }
+                        else if (!isUnlocked) { statusBg = '#e2e8f0'; statusFg = '#94a3b8'; }
 
                         return (
                           <Card
                             key={lesson.id}
-                            className={`p-3 ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-60 cursor-not-allowed'} ${
-                              selectedLessonId === lesson.id && !selectedVideoModuleId ? 'border-primary bg-primary/5' : ''
-                            } ${isLockedBySubscription ? 'bg-gradient-to-r from-muted/50 to-muted/30' : ''}`}
+                            className={`p-2.5 transition-all rounded-lg ${isUnlocked ? 'cursor-pointer hover-elevate' : 'opacity-70 cursor-not-allowed'} ${
+                              isCurrent ? 'border-primary border-2 shadow-sm' : 'border-border/50'
+                            }`}
                             onClick={() => {
                               if (isLockedBySubscription) {
                                 toast({ title: "Contenido Premium", description: "Actualiza tu plan para acceder a todas las lecciones.", variant: "default" });
@@ -471,25 +534,32 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           >
                             <div className="flex items-center gap-3">
                               <div
-                                className="w-7 h-7 flex items-center justify-center text-xs font-mono"
-                                style={{
-                                  backgroundColor: isCompleted ? '#33CBFB' : (selectedLessonId === lesson.id && !selectedVideoModuleId ? '#33CBFB' : (isLockedBySubscription ? '#667EEA' : '#e5e5e5')),
-                                  color: isCompleted || (selectedLessonId === lesson.id && !selectedVideoModuleId) || isLockedBySubscription ? 'white' : 'inherit'
-                                }}
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                                style={{ backgroundColor: statusBg, color: statusFg }}
                               >
-                                {isLockedBySubscription ? <Lock className="w-3 h-3" /> : (isCompleted ? <CheckCircle className="w-3 h-3" /> : index + 1)}
+                                {isLockedBySubscription || !isUnlocked
+                                  ? <Lock className="w-3.5 h-3.5" />
+                                  : (isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`font-mono text-sm truncate ${isLockedBySubscription ? 'blur-[2px]' : ''}`}>{lesson.title}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <p className={`text-sm font-medium truncate leading-tight ${isLockedBySubscription ? 'blur-[2px]' : ''} ${isCurrent ? 'text-primary' : ''}`}>
+                                  {lesson.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                                   {lesson.duration > 0 && (
                                     <span className="flex items-center gap-1">
                                       <Clock className="w-3 h-3" />
                                       {lesson.duration} min
                                     </span>
                                   )}
+                                  {isCompleted && (
+                                    <span className="text-emerald-600 font-medium">Completed</span>
+                                  )}
+                                  {isCurrent && !isCompleted && (
+                                    <span className="text-primary font-medium">In progress</span>
+                                  )}
                                   {isLockedBySubscription && (
-                                    <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Premium</Badge>
+                                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-primary text-primary-foreground">Premium</Badge>
                                   )}
                                 </div>
                               </div>
@@ -498,13 +568,12 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         );
                       })}
 
-                      {/* Video Activity card */}
+                      {/* Video Activity card — keeps red identity */}
                       {mod.videoUrl && (
                         <Card
-                          className={`p-3 cursor-pointer hover-elevate ${
-                            selectedVideoModuleId === mod.id ? 'border-red-500 bg-red-500/5' : ''
+                          className={`p-2.5 cursor-pointer hover-elevate transition-all rounded-lg ${
+                            selectedVideoModuleId === mod.id ? 'border-red-500 border-2 shadow-sm bg-red-50/50 dark:bg-red-950/10' : 'border-border/50'
                           }`}
-                          style={{ borderColor: selectedVideoModuleId === mod.id ? '#FF0000' : undefined }}
                           onClick={() => {
                             setSelectedVideoModuleId(mod.id);
                             setSelectedLessonId(null);
@@ -515,26 +584,24 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className="w-7 h-7 flex items-center justify-center"
-                              style={{
-                                backgroundColor: mod.videoQuizStatus?.passed ? '#10B981' : '#FF0000',
-                              }}
+                              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: mod.videoQuizStatus?.passed ? '#10B981' : '#FF0000' }}
                             >
                               {mod.videoQuizStatus?.passed ? (
-                                <CheckCircle className="w-3 h-3 text-white" />
+                                <CheckCircle className="w-4 h-4 text-white" />
                               ) : (
-                                <Youtube className="w-3 h-3 text-white" />
+                                <Youtube className="w-4 h-4 text-white" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-mono text-sm truncate">Video Activity</p>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <p className="text-sm font-medium truncate leading-tight">Video Activity</p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                                 {mod.videoQuizStatus?.passed ? (
-                                  <span className="text-green-600">Passed ({mod.videoQuizStatus.bestScore}%)</span>
+                                  <span className="text-emerald-600 font-medium">Passed · {mod.videoQuizStatus.bestScore}%</span>
                                 ) : mod.videoQuizStatus?.attempts ? (
-                                  <span>Best: {mod.videoQuizStatus.bestScore}%</span>
+                                  <span>Best so far: {mod.videoQuizStatus.bestScore}%</span>
                                 ) : (
-                                  <span>Watch & Quiz</span>
+                                  <span>Watch &amp; quiz</span>
                                 )}
                               </div>
                             </div>
@@ -542,52 +609,42 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         </Card>
                       )}
 
-                      {/* Speaking Project card — one per module, opens the
-                          recording flow. The /api/speaking-projects/by-module
-                          endpoint returns 404 for unpublished projects, so
-                          the recording page itself gates access. */}
+                      {/* Speaking Project card — purple identity */}
                       <Card
-                        className="p-3 cursor-pointer hover-elevate"
+                        className="p-2.5 cursor-pointer hover-elevate transition-all rounded-lg border-border/50"
                         onClick={() => setLocation(`/dashboard/speaking/${mod.id}`)}
                         data-testid={`card-speaking-project-${mod.id}`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-7 h-7 flex items-center justify-center text-white"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
                             style={{ backgroundColor: '#9333EA' }}
                           >
                             <Mic className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-mono text-sm truncate">Speaking Project</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Record &amp; receive feedback</span>
-                            </div>
+                            <p className="text-sm font-medium truncate leading-tight">Speaking Project</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Record &amp; receive feedback</p>
                           </div>
                         </div>
                       </Card>
 
-                      {/* Writing Project card — same idea as Speaking but
-                          students write text that gets graded against the
-                          CogniBoost Writing Rubric v2.0. Feedback is
-                          initially AI-generated and reviewable by a teacher. */}
+                      {/* Writing Project card — blue identity */}
                       <Card
-                        className="p-3 cursor-pointer hover-elevate"
+                        className="p-2.5 cursor-pointer hover-elevate transition-all rounded-lg border-border/50"
                         onClick={() => setLocation(`/dashboard/writing-project/${mod.id}`)}
                         data-testid={`card-writing-project-${mod.id}`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-7 h-7 flex items-center justify-center text-white"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
                             style={{ backgroundColor: '#0EA5E9' }}
                           >
                             <PenLine className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-mono text-sm truncate">Writing Project</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Write &amp; receive feedback</span>
-                            </div>
+                            <p className="text-sm font-medium truncate leading-tight">Writing Project</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Write &amp; receive feedback</p>
                           </div>
                         </div>
                       </Card>
