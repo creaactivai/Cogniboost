@@ -5879,6 +5879,159 @@ Important:
     }
   });
 
+  // ════════════════════════════════════════════════════════════════════
+  // CLASS LABS — interest-driven Conversation Labs (Phase 1.6)
+  // ════════════════════════════════════════════════════════════════════
+
+  // List all active interest topics — used by student browse + admin pickers.
+  app.get('/api/lab-interest-topics', requireAuth, async (_req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const { labInterestTopics } = await import('@shared/schema');
+      const rows = await db.select().from(labInterestTopics).where(eq(labInterestTopics.isActive, true));
+      rows.sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
+      res.json(rows);
+    } catch (err: any) {
+      console.error('[lab-interest-topics] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch interest topics', debug: { message: err?.message } });
+    }
+  });
+
+  // List upcoming lab sessions, filtered by the student's level. Includes
+  // a derived `bookedCount` so the UI shows "3/8 spots taken".
+  app.get('/api/lab-sessions/upcoming', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and, gte, sql, count } = await import("drizzle-orm");
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const levelFilter = (req.query.level as string) || (req.user as any)?.currentLevel || 'A1';
+
+      const sessions = await db
+        .select()
+        .from(labSessionsV2)
+        .where(and(
+          eq(labSessionsV2.level, levelFilter as any),
+          gte(labSessionsV2.scheduledAt, new Date()),
+          eq(labSessionsV2.status, 'scheduled'),
+        ));
+      // Order chronologically client-side (lighter than ORDER BY)
+      sessions.sort((a, b) => (a.scheduledAt?.getTime() ?? 0) - (b.scheduledAt?.getTime() ?? 0));
+
+      // For each session count its non-cancelled registrations
+      const out: any[] = [];
+      for (const s of sessions) {
+        const [{ n }] = await db
+          .select({ n: count() })
+          .from(labRegistrations)
+          .where(and(
+            eq(labRegistrations.labSessionId, s.id),
+            eq(labRegistrations.cancelled, false),
+          ));
+        out.push({ ...s, bookedCount: Number(n) });
+      }
+      res.json(out);
+    } catch (err: any) {
+      console.error('[lab-sessions/upcoming] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch upcoming labs', debug: { message: err?.message } });
+    }
+  });
+
+  // Get current user's upcoming registrations.
+  app.get('/api/lab-bookings/mine', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and, gte } = await import("drizzle-orm");
+      const { labRegistrations, labSessionsV2 } = await import('@shared/schema');
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const rows = await db
+        .select({ reg: labRegistrations, session: labSessionsV2 })
+        .from(labRegistrations)
+        .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
+        .where(and(
+          eq(labRegistrations.studentId, userId),
+          eq(labRegistrations.cancelled, false),
+          gte(labSessionsV2.scheduledAt, new Date()),
+        ));
+      rows.sort((a, b) => (a.session.scheduledAt?.getTime() ?? 0) - (b.session.scheduledAt?.getTime() ?? 0));
+      res.json(rows.map(r => ({ ...r.session, registrationId: r.reg.id, registeredAt: r.reg.registeredAt })));
+    } catch (err: any) {
+      console.error('[lab-bookings/mine] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch my bookings', debug: { message: err?.message } });
+    }
+  });
+
+  // Book a spot in a session.
+  app.post('/api/lab-bookings', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and, count } = await import("drizzle-orm");
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { labSessionId } = req.body;
+      if (!labSessionId) return res.status(400).json({ error: 'labSessionId required' });
+
+      const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, labSessionId));
+      if (!session) return res.status(404).json({ error: 'Lab session not found' });
+      if (session.status !== 'scheduled') return res.status(400).json({ error: 'Session not open for booking' });
+      if (session.scheduledAt && session.scheduledAt < new Date()) return res.status(400).json({ error: 'Session already started' });
+
+      // Check existing registration
+      const [existing] = await db
+        .select()
+        .from(labRegistrations)
+        .where(and(
+          eq(labRegistrations.labSessionId, labSessionId),
+          eq(labRegistrations.studentId, userId),
+          eq(labRegistrations.cancelled, false),
+        ));
+      if (existing) return res.status(409).json({ error: 'Already registered for this lab' });
+
+      // Check capacity
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(labRegistrations)
+        .where(and(
+          eq(labRegistrations.labSessionId, labSessionId),
+          eq(labRegistrations.cancelled, false),
+        ));
+      if (Number(n) >= session.maxParticipants) {
+        return res.status(409).json({ error: 'Lab is full' });
+      }
+
+      const [reg] = await db.insert(labRegistrations).values({
+        labSessionId,
+        studentId: userId,
+      }).returning();
+      res.status(201).json(reg);
+    } catch (err: any) {
+      console.error('[lab-bookings POST] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to book lab', debug: { message: err?.message } });
+    }
+  });
+
+  // Cancel a booking.
+  app.delete('/api/lab-bookings/:id', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and } = await import("drizzle-orm");
+      const { labRegistrations } = await import('@shared/schema');
+      const userId = req.user?.id;
+      const { id } = req.params;
+      const [reg] = await db.select().from(labRegistrations).where(eq(labRegistrations.id, id));
+      if (!reg) return res.status(404).json({ error: 'Booking not found' });
+      if (reg.studentId !== userId) return res.status(403).json({ error: 'Forbidden' });
+      await db.update(labRegistrations).set({ cancelled: true, cancelledAt: new Date() }).where(eq(labRegistrations.id, id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[lab-bookings DELETE] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to cancel booking', debug: { message: err?.message } });
+    }
+  });
+
   // GET the current state of a speaking submission (used for client polling).
   app.get('/api/speaking-submissions/:id', requireAuth, async (req: any, res) => {
     try {

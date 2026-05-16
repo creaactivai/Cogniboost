@@ -6,6 +6,7 @@ import { DashboardOverview } from "@/components/dashboard/overview";
 import { CourseCatalog } from "@/components/dashboard/course-catalog";
 import { CourseViewer } from "@/components/dashboard/course-viewer";
 import { ConversationLabs } from "@/components/dashboard/conversation-labs";
+import { ConversationLabsV2 } from "@/components/dashboard/conversation-labs-v2";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
@@ -176,7 +177,8 @@ export default function Dashboard() {
               <Route path="/dashboard/courses/:courseId/lessons/:lessonId" component={CourseViewer} />
               <Route path="/dashboard/courses/:courseId" component={CourseViewer} />
               <Route path="/dashboard/courses" component={CourseCatalog} />
-              <Route path="/dashboard/labs" component={ConversationLabs} />
+              <Route path="/dashboard/labs" component={ConversationLabsV2} />
+              <Route path="/dashboard/labs-legacy" component={ConversationLabs} />
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
