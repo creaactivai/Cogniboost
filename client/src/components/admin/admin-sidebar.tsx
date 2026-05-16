@@ -12,7 +12,8 @@ import {
   UsersRound,
   GraduationCap,
   Upload,
-  BarChart3
+  BarChart3,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,11 @@ const menuItems = [
     title: "Laboratorios",
     url: "/admin/labs",
     icon: Calendar,
+  },
+  {
+    title: "Final Exams",
+    url: "/admin/exams",
+    icon: Award,
   },
   {
     title: "Instructores",
