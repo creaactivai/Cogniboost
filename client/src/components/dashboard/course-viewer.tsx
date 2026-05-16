@@ -310,11 +310,11 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
   if (!course) {
     return (
       <div className="text-center py-12">
-        <p className="font-mono text-muted-foreground">Curso no encontrado</p>
+        <p className="font-mono text-muted-foreground">Course not found</p>
         <Link href="/dashboard/courses">
           <Button className="mt-4" variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a Cursos
+            Back to courses
           </Button>
         </Link>
       </div>
@@ -361,7 +361,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         <div>
           <h1 className="text-2xl font-display uppercase">{course.title}</h1>
           <p className="text-sm font-mono text-muted-foreground">
-            {course.level} · {lessons?.length || 0} lecciones
+            {course.level} · {lessons?.length || 0} lessons
           </p>
         </div>
       </div>
@@ -383,7 +383,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
             <Link href="/#pricing">
               <Button size="sm" data-testid="button-upgrade-plan">
                 <Unlock className="w-4 h-4 mr-2" />
-                Actualizar Plan
+                Upgrade plan
               </Button>
             </Link>
           </div>
@@ -393,7 +393,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-2">
           <h2 className="font-mono font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">
-            Contenido del Curso
+            Course content
           </h2>
           {isLoadingProgress && (
             <div className="text-center py-4">
@@ -517,7 +517,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                             }`}
                             onClick={() => {
                               if (isLockedBySubscription) {
-                                toast({ title: "Contenido Premium", description: "Actualiza tu plan para acceder a todas las lecciones.", variant: "default" });
+                                toast({ title: "Premium content", description: "Upgrade your plan to access all lessons.", variant: "default" });
                                 return;
                               }
                               if (!isUnlocked) {
@@ -1050,7 +1050,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         <div>
                           <h3 className="font-mono font-semibold">{t("quiz.title")}</h3>
                           <p className="text-sm font-mono text-muted-foreground">
-                            Evalúa tu comprensión del contenido
+                            Test your understanding of the content
                           </p>
                         </div>
                       </div>
@@ -1074,7 +1074,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                     <div className="text-center py-8">
                       <ClipboardList className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="font-mono text-muted-foreground">
-                        No hay quiz disponible para esta lección
+                        No quiz available for this lesson
                       </p>
                       <Button
                         variant="outline"
@@ -1098,19 +1098,19 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           )}
                         </div>
                         <h2 className="text-2xl font-display uppercase mb-2">
-                          {quizResult.isPassed ? '¡Aprobaste!' : 'No Aprobaste'}
+                          {quizResult.isPassed ? 'You passed!' : 'Not passed'}
                         </h2>
                         <p className="font-mono text-3xl font-bold" style={{ color: quizResult.isPassed ? '#33CBFB' : '#FD335A' }}>
                           {quizResult.score}%
                         </p>
                         <p className="font-mono text-sm text-muted-foreground mt-2">
-                          Puntaje mínimo: {quizResult.passingScore}%
+                          Passing score: {quizResult.passingScore}%
                         </p>
                       </div>
 
                       <div className="space-y-4">
                         <h3 className="font-mono font-semibold text-sm uppercase tracking-wider">
-                          Revisión de Respuestas
+                          Answer review
                         </h3>
                         {quizResult.results.map((result, index) => {
                           const matchingQuestion = sortedQuestions.find(q => q.id === result.questionId);
@@ -1170,7 +1170,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         <div>
                           <h2 className="text-xl font-display uppercase">{quiz.title}</h2>
                           <p className="font-mono text-sm text-muted-foreground">
-                            {quiz.questions.length} preguntas · Puntaje mínimo: {quiz.passingScore}%
+                            {quiz.questions.length} questions · Passing score: {quiz.passingScore}%
                           </p>
                         </div>
                         {timeLeft !== null && (
@@ -1243,7 +1243,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
               <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="font-mono font-semibold mb-2">{t("lesson.select")}</h3>
               <p className="font-mono text-sm text-muted-foreground">
-                Elige una lección del menú para comenzar a aprender
+                Pick a lesson from the menu to start learning
               </p>
             </Card>
           )}

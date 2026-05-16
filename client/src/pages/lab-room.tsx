@@ -100,28 +100,28 @@ export default function LabRoomPage() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "¡Te uniste al Lab!" });
+      toast({ title: "You're in the Lab!" });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
     },
     onError: (err: any) => {
-      toast({ title: "No se pudo unir", description: err?.message, variant: "destructive" });
+      toast({ title: "Couldn't join", description: err?.message, variant: "destructive" });
     },
   });
 
   if (bookingsLoading) {
-    return <div className="container mx-auto p-6 text-center">Cargando…</div>;
+    return <div className="container mx-auto p-6 text-center">Loading…</div>;
   }
   if (!session) {
     return (
       <div className="container mx-auto p-6">
         <Card className="p-8 text-center space-y-3">
           <AlertCircle className="w-10 h-10 mx-auto text-amber-500" />
-          <h2 className="text-xl font-bold">Este Lab no existe o no es para tu nivel</h2>
+          <h2 className="text-xl font-bold">This Lab doesn't exist or isn't for your level</h2>
           <p className="text-muted-foreground text-sm">
-            Verifica el enlace o vuelve al catálogo de Labs disponibles para tu nivel ({studentLevel}).
+            Check the link or go back to the Labs available for your level ({studentLevel}).
           </p>
           <Button onClick={() => navigate("/dashboard/labs")}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Ver mis Labs
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Labs
           </Button>
         </Card>
       </div>
@@ -150,15 +150,15 @@ export default function LabRoomPage() {
             {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}
             {isLive && (
               <Badge className="bg-red-600 text-[10px] animate-pulse flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> EN VIVO
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
               </Badge>
             )}
             {isStartingSoon && (
               <Badge className="bg-amber-500 text-[10px] flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Empieza pronto
+                <Clock className="w-3 h-3" /> Starting soon
               </Badge>
             )}
-            {isOver && <Badge variant="secondary" className="text-[10px]">Finalizada</Badge>}
+            {isOver && <Badge variant="secondary" className="text-[10px]">Ended</Badge>}
           </div>
         </div>
       </div>
@@ -166,21 +166,21 @@ export default function LabRoomPage() {
       {isOver ? (
         <Card className="p-8 text-center space-y-2">
           <AlertCircle className="w-10 h-10 mx-auto text-muted-foreground" />
-          <h2 className="text-lg font-bold">Esta sesión ya terminó</h2>
-          <p className="text-sm text-muted-foreground">Busca el siguiente Lab disponible.</p>
-          <Button onClick={() => navigate("/dashboard/labs")}>Ver Labs disponibles</Button>
+          <h2 className="text-lg font-bold">This session has ended</h2>
+          <p className="text-sm text-muted-foreground">Find the next available Lab.</p>
+          <Button onClick={() => navigate("/dashboard/labs")}>View available Labs</Button>
         </Card>
       ) : !isRegistered ? (
         <Card className="p-6 text-center space-y-3">
-          <h2 className="text-lg font-bold">Aún no estás registrada en este Lab</h2>
+          <h2 className="text-lg font-bold">You're not registered for this Lab yet</h2>
           <p className="text-sm text-muted-foreground">
-            Para unirte a la videollamada, primero reserva tu lugar. Una vez registrada, entras automáticamente.
+            To join the video call, book your spot first. Once registered, you'll get in automatically.
           </p>
           <Button onClick={() => bookAndJoinMutation.mutate()} disabled={bookAndJoinMutation.isPending}>
             {bookAndJoinMutation.isPending ? (
-              "Uniéndose…"
+              "Joining…"
             ) : (
-              <><Calendar className="w-4 h-4 mr-2" /> Reservar y unirme</>
+              <><Calendar className="w-4 h-4 mr-2" /> Book and join</>
             )}
           </Button>
         </Card>
@@ -228,7 +228,7 @@ export default function LabRoomPage() {
 
             <Card className="p-4 text-xs text-muted-foreground flex gap-2">
               <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>Si el video no carga, permite cámara + micrófono en el navegador. En móvil, usa Chrome o Safari.</span>
+              <span>If the video doesn't load, allow camera + microphone in your browser. On mobile, use Chrome or Safari.</span>
             </Card>
           </div>
         </div>

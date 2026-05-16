@@ -92,11 +92,11 @@ export function ConversationLabsV2() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "¡Reservaste tu lugar!", description: "Te llegará un recordatorio antes de la clase." });
+      toast({ title: "Spot reserved!", description: "You'll get a reminder before class starts." });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
       qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`] });
     },
-    onError: (err: any) => toast({ title: "No se pudo reservar", description: err?.message, variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Couldn't book", description: err?.message, variant: "destructive" }),
   });
 
   const cancelMutation = useMutation({
@@ -109,7 +109,7 @@ export function ConversationLabsV2() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Reserva cancelada" });
+      toast({ title: "Booking cancelled" });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
       qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`] });
     },
@@ -127,13 +127,13 @@ export function ConversationLabsV2() {
   const monthlyUsed = myBookings.filter((s) => new Date(s.scheduledAt) >= monthStart).length;
 
   const tierLabel =
-    tier === "premium" ? "Premium" : tier === "basic" ? "Básico" : tier === "flex" ? "Flex" : "Free";
+    tier === "premium" ? "Premium" : tier === "basic" ? "Basic" : tier === "flex" ? "Flex" : "Free";
   const quotaText =
     tierLimits.weeklyLabLimit !== null
-      ? `${weeklyUsed}/${tierLimits.weeklyLabLimit} esta semana`
+      ? `${weeklyUsed}/${tierLimits.weeklyLabLimit} this week`
       : tierLimits.monthlyLabLimit !== null
-      ? `${monthlyUsed}/${tierLimits.monthlyLabLimit} este mes`
-      : "Ilimitado";
+      ? `${monthlyUsed}/${tierLimits.monthlyLabLimit} this month`
+      : "Unlimited";
 
   // Gate for free tier
   if (!hasAccess) {
@@ -147,13 +147,13 @@ export function ConversationLabsV2() {
         </div>
         <Card className="p-8 text-center space-y-4">
           <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
-          <h2 className="text-xl font-bold">Los Conversation Labs requieren un plan pago</h2>
+          <h2 className="text-xl font-bold">Conversation Labs require a paid plan</h2>
           <p className="text-muted-foreground text-sm">
-            Practica inglés en vivo con docentes y otros estudiantes de tu nivel.
-            Disponible desde el <strong>Plan Flex</strong> ($14.99/mes — 1 Lab al mes).
+            Practice English live with teachers and other students at your level.
+            Available from the <strong>Flex Plan</strong> ($14.99/mo — 1 Lab per month).
           </p>
           <Button asChild>
-            <Link href="/choose-plan">Ver planes y precios</Link>
+            <Link href="/choose-plan">View plans & pricing</Link>
           </Button>
         </Card>
       </div>
@@ -176,7 +176,7 @@ export function ConversationLabsV2() {
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30">
           {tier === "premium" && <Crown className="w-4 h-4 text-amber-500" />}
           <div>
-            <div className="text-xs font-mono uppercase text-muted-foreground">Tu plan: {tierLabel}</div>
+            <div className="text-xs font-mono uppercase text-muted-foreground">Your plan: {tierLabel}</div>
             <div className="text-sm font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4" /> {quotaText}</div>
           </div>
         </div>
@@ -221,7 +221,7 @@ export function ConversationLabsV2() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                     </span>
-                    <span className="text-xs font-mono uppercase tracking-widest text-red-600 font-bold">EN VIVO AHORA</span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-red-600 font-bold">LIVE NOW</span>
                   </div>
                   {filtered.filter((s) => s.liveStatus === "live").map((s) => (
                     <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
@@ -237,7 +237,7 @@ export function ConversationLabsV2() {
               {/* STARTING SOON section */}
               {filtered.filter((s) => s.liveStatus === "starting_soon").length > 0 && (
                 <div className="space-y-2 pt-3">
-                  <span className="text-xs font-mono uppercase tracking-widest text-amber-600 font-bold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> EMPIEZA EN BREVE</span>
+                  <span className="text-xs font-mono uppercase tracking-widest text-amber-600 font-bold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> STARTING SOON</span>
                   {filtered.filter((s) => s.liveStatus === "starting_soon").map((s) => (
                     <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
                       isBooked={myBookedIds.has(s.id)}
@@ -252,7 +252,7 @@ export function ConversationLabsV2() {
               {/* UPCOMING section */}
               {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).length > 0 && (
                 <div className="space-y-2 pt-3">
-                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> PRÓXIMAS</span>
+                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> UPCOMING</span>
                   {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).map((s) => (
                     <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
                       isBooked={myBookedIds.has(s.id)}
@@ -286,7 +286,7 @@ export function ConversationLabsV2() {
                       </div>
                       <div className="flex gap-2 flex-wrap">
                         <Button size="sm" asChild>
-                          <Link href={`/dashboard/labs/${s.id}/room`}>▶️ Entrar a la clase</Link>
+                          <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Join class</Link>
                         </Button>
                         <Button
                           size="sm"
@@ -294,7 +294,7 @@ export function ConversationLabsV2() {
                           onClick={() => s.registrationId && cancelMutation.mutate(s.registrationId)}
                           disabled={cancelMutation.isPending}
                         >
-                          <X className="w-3 h-3 mr-1" /> Cancelar
+                          <X className="w-3 h-3 mr-1" /> Cancel
                         </Button>
                       </div>
                     </div>
@@ -333,12 +333,12 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
           <div className="flex items-center gap-2 flex-wrap mb-1">
             {live && (
               <Badge className="bg-red-600 text-white text-[10px] animate-pulse flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> EN VIVO
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
               </Badge>
             )}
             {startingSoon && (
               <Badge className="bg-amber-500 text-white text-[10px] flex items-center gap-1">
-                <Clock className="w-3 h-3" /> EMPIEZA YA
+                <Clock className="w-3 h-3" /> STARTING NOW
               </Badge>
             )}
             <h3 className="font-bold text-sm">{s.title}</h3>
@@ -356,26 +356,26 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
           <div className="mt-3 flex flex-wrap gap-2">
             {live && isBooked && (
               <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
-                <Link href={`/dashboard/labs/${s.id}/room`}>▶️ Unirse ahora</Link>
+                <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Join now</Link>
               </Button>
             )}
             {live && !isBooked && !isFull && (
               <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
-                <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Unirse a la clase</Link>
+                <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Join class</Link>
               </Button>
             )}
             {!live && (
               <>
                 {isBooked ? (
-                  <Badge variant="default" className="bg-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Reservado</Badge>
+                  <Badge variant="default" className="bg-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Booked</Badge>
                 ) : isFull ? (
-                  <Badge variant="secondary">Lleno</Badge>
+                  <Badge variant="secondary">Full</Badge>
                 ) : (
                   <Button size="sm" onClick={onBook} disabled={bookPending} data-testid={`button-book-${s.id}`}>
                     {bookPending ? (
-                      "Reservando…"
+                      "Booking…"
                     ) : (
-                      <span className="flex items-center justify-center gap-2"><Bookmark className="w-4 h-4" /> Reservar mi lugar ({spotsLeft} disponibles)</span>
+                      <span className="flex items-center justify-center gap-2"><Bookmark className="w-4 h-4" /> Book my spot ({spotsLeft} left)</span>
                     )}
                   </Button>
                 )}
