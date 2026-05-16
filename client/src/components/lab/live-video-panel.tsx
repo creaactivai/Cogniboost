@@ -26,7 +26,12 @@ interface LiveVideoPanelProps {
   height?: number | string;
 }
 
-const JITSI_HOST = "meet.jit.si"; // TODO: swap to meet.cogniboost.com once DigitalOcean droplet is provisioned
+// Uses Coral's existing self-hosted Jitsi at meet.cognimight.com (the CogniMight
+// kids-side droplet — already provisioned with branding, anonymous auth, no
+// watermarks). Acceptable bridge while meet.cogniboost.com gets its own droplet.
+// The student never sees the host URL because the iframe is embedded inside
+// /dashboard/labs/:sessionId/room on cogniboost.co.
+const JITSI_HOST = "meet.cognimight.com";
 
 export default function LiveVideoPanel({ meetingUrlOrRoom, userName, height = 600 }: LiveVideoPanelProps) {
   // Build the iframe src.
