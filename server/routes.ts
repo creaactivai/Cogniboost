@@ -5859,6 +5859,32 @@ Important:
       const { db } = await import("./db");
       const { readingProjects } = await import("@shared/schema");
       const { eq } = await import("drizzle-orm");
+
+      // Defensive migration: ensure the table exists at request time in
+      // case the startup migration didn't run (Railway hot-deploy edge
+      // case). Safe no-op if the table already exists.
+      try {
+        const { pool } = await import("./db");
+        await (pool as any).query(`DO $$ BEGIN CREATE TYPE reading_question_type AS ENUM ('multiple_choice','true_false','fill_in'); EXCEPTION WHEN duplicate_object THEN null; END $$`);
+        await (pool as any).query(`CREATE TABLE IF NOT EXISTS reading_projects (
+          id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+          module_id varchar NOT NULL,
+          level course_level NOT NULL,
+          title text NOT NULL,
+          passage text NOT NULL,
+          word_count integer,
+          questions jsonb NOT NULL DEFAULT '[]',
+          passing_score integer NOT NULL DEFAULT 70,
+          estimated_read_minutes integer,
+          is_published boolean NOT NULL DEFAULT false,
+          created_at timestamp DEFAULT now(),
+          updated_at timestamp DEFAULT now()
+        )`);
+        await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS reading_projects_module_idx ON reading_projects(module_id)`);
+      } catch (migErr: any) {
+        console.warn('[reading-projects POST] defensive migration warning:', migErr?.message);
+      }
+
       // Idempotent on moduleId
       const existing = await db.select().from(readingProjects).where(eq(readingProjects.moduleId, req.body.moduleId)).limit(1);
       if (existing[0]) return res.json(existing[0]);
