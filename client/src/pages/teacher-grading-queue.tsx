@@ -37,11 +37,31 @@ function QueueRow({ submission }: { submission: Submission }) {
   const grade = isGraded(submission.aiGrade) ? submission.aiGrade : null;
   const failed = isGradingError(submission.aiGrade);
   const isPending = submission.status === "pending_ai" && !failed;
+  const isSpeaking = submission.assignmentType === "speaking_recording";
 
-  const preview = submission.content.slice(0, 140);
+  // Both writing and speaking grades share { overall_score, dimensions,
+  // inline_notes/annotations } but the field names differ slightly. Read
+  // defensively so the queue works for both surfaces.
+  const aiAny = (submission.aiGrade || {}) as any;
+  const aiScore = grade?.overall_score ?? (typeof aiAny.overall_score === "number" ? aiAny.overall_score : null);
+  const aiLevel = (grade as any)?.estimated_cefr_for_this_writing ?? aiAny.estimated_cefr_for_this_speaking ?? aiAny.level_assessment ?? null;
+  const annotationsCount =
+    grade?.inline_annotations?.length ??
+    (Array.isArray(aiAny.inline_notes) ? aiAny.inline_notes.length : 0);
+
+  // For speaking submissions the queue row preview comes from the transcript
+  // (stored on the submission once Whisper finishes). Fall back to a placeholder
+  // before the transcript has been written.
+  const preview = (submission.content || (isSpeaking ? "(audio recording — transcript pending)" : "")).slice(0, 140);
+
+  // Speaking submissions route to the student view for now (read-only teacher
+  // path). Writing/writing-project routes to the existing review surface.
+  const href = isSpeaking
+    ? `/dashboard/speaking-submissions/${submission.id}`
+    : `/dashboard/teacher/submissions/${submission.id}`;
 
   return (
-    <Link href={`/dashboard/teacher/submissions/${submission.id}`}>
+    <Link href={href}>
       <Card
         className="p-4 mb-2 hover:bg-accent cursor-pointer transition-colors"
         data-testid={`row-submission-${submission.id}`}
@@ -51,15 +71,13 @@ function QueueRow({ submission }: { submission: Submission }) {
             <Badge variant="secondary" className="capitalize">
               {submission.assignmentType.replace("_", " ")}
             </Badge>
-            {failed && (
-              <Badge variant="destructive">Grading failed</Badge>
-            )}
+            {failed && <Badge variant="destructive">Grading failed</Badge>}
             {isPending && (
               <Badge variant="outline" className="bg-amber-50 text-amber-900 border-amber-300">
                 Grading…
               </Badge>
             )}
-            {grade && submission.status === "ai_graded" && (
+            {submission.status === "ai_graded" && (
               <Badge variant="outline" className="bg-blue-50 text-blue-900 border-blue-300">
                 Awaiting review
               </Badge>
@@ -72,19 +90,23 @@ function QueueRow({ submission }: { submission: Submission }) {
 
         <p className="text-sm text-slate-700 line-clamp-2">{preview}</p>
 
-        {grade && (
+        {aiScore != null && (
           <div className="flex items-center gap-3 mt-2 text-xs">
             <div>
               <span className="text-muted-foreground">AI:</span>{" "}
-              <span className="font-semibold tabular-nums">{grade.overall_score}/100</span>
+              <span className="font-semibold tabular-nums">{aiScore}/100</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Level:</span>{" "}
-              <span className="font-semibold">{grade.estimated_cefr_for_this_writing}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">{grade.inline_annotations.length} annotations</span>
-            </div>
+            {aiLevel && (
+              <div>
+                <span className="text-muted-foreground">Level:</span>{" "}
+                <span className="font-semibold">{aiLevel}</span>
+              </div>
+            )}
+            {annotationsCount > 0 && (
+              <div>
+                <span className="text-muted-foreground">{annotationsCount} annotations</span>
+              </div>
+            )}
           </div>
         )}
       </Card>
