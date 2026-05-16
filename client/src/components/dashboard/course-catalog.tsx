@@ -13,16 +13,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Search, 
-  Play, 
-  Clock, 
+import {
+  Search,
+  Play,
+  Clock,
   BookOpen,
   Filter,
   GraduationCap,
   Loader2,
   Unlock,
-  Award
+  Lock,
+  Award,
+  Sprout,
+  Sun,
+  Mountain,
+  Compass,
+  Crown,
+  ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { courseLevels, type Course } from "@shared/schema";
@@ -48,11 +55,43 @@ interface CourseCardProps {
   description: string;
   level: string;
   topic: string;
-  duration: number;
+  duration: number;     // minutes (raw from API)
   lessonsCount: number;
   progress?: number;
   isEnrolled?: boolean;
   isFree?: boolean;
+  isLevelUnlocked?: boolean;  // gated by the user's current placement level?
+  previousLevel?: string;     // shown in "Unlocks after X" copy
+}
+
+/**
+ * Per-CEFR-level visual identity. Each level gets its own evocative icon
+ * + colour family so a student instantly recognises their level. Kept in
+ * sync with the equivalent map in components/dashboard/overview.tsx.
+ */
+const LEVEL_IDENTITY: Record<string, {
+  icon: React.ElementType;
+  gradient: string;
+  iconColor: string;
+  chipBg: string;
+  chipText: string;
+  dot: string;
+  ringTrack: string;   // tailwind colour class for circular progress track
+  ringStroke: string;  // tailwind colour for the filled segment
+  ctaBg: string;
+  ctaHover: string;
+  borderHover: string;
+  label: string;       // CEFR friendly name
+}> = {
+  A1: { icon: Sprout, gradient: "from-emerald-100 to-emerald-200", iconColor: "text-emerald-700", chipBg: "bg-white/95", chipText: "text-emerald-700", dot: "bg-emerald-500", ringTrack: "stroke-emerald-100", ringStroke: "stroke-emerald-500", ctaBg: "bg-emerald-500", ctaHover: "hover:bg-emerald-600", borderHover: "hover:border-emerald-200", label: "Beginner" },
+  A2: { icon: Sun, gradient: "from-sky-100 to-sky-200", iconColor: "text-sky-700", chipBg: "bg-white/95", chipText: "text-sky-700", dot: "bg-sky-500", ringTrack: "stroke-sky-100", ringStroke: "stroke-sky-500", ctaBg: "bg-sky-500", ctaHover: "hover:bg-sky-600", borderHover: "hover:border-sky-200", label: "Elementary" },
+  B1: { icon: Mountain, gradient: "from-indigo-100 to-indigo-200", iconColor: "text-indigo-700", chipBg: "bg-white/95", chipText: "text-indigo-700", dot: "bg-indigo-500", ringTrack: "stroke-indigo-100", ringStroke: "stroke-indigo-500", ctaBg: "bg-indigo-500", ctaHover: "hover:bg-indigo-600", borderHover: "hover:border-indigo-200", label: "Intermediate" },
+  B2: { icon: Compass, gradient: "from-purple-100 to-purple-200", iconColor: "text-purple-700", chipBg: "bg-white/95", chipText: "text-purple-700", dot: "bg-purple-500", ringTrack: "stroke-purple-100", ringStroke: "stroke-purple-500", ctaBg: "bg-purple-500", ctaHover: "hover:bg-purple-600", borderHover: "hover:border-purple-200", label: "Upper Int." },
+  C1: { icon: Crown, gradient: "from-amber-100 to-amber-200", iconColor: "text-amber-700", chipBg: "bg-white/95", chipText: "text-amber-800", dot: "bg-amber-500", ringTrack: "stroke-amber-100", ringStroke: "stroke-amber-500", ctaBg: "bg-amber-500", ctaHover: "hover:bg-amber-600", borderHover: "hover:border-amber-200", label: "Advanced" },
+};
+
+function getLevelIdentity(level: string) {
+  return LEVEL_IDENTITY[level] || LEVEL_IDENTITY.A1;
 }
 
 function CourseCard({
@@ -66,75 +105,109 @@ function CourseCard({
   progress,
   isEnrolled,
   isFree,
+  isLevelUnlocked = true,
+  previousLevel,
 }: CourseCardProps) {
+  const idt = getLevelIdentity(level);
+  const Icon = idt.icon;
+  const hours = duration > 0 ? (duration / 60).toFixed(1) : null;
+  const showProgress = isEnrolled && (progress ?? 0) > 0;
+
   return (
-    <Card className="overflow-hidden border-border hover-elevate group">
-      {/* Thumbnail */}
-      <div className="h-40 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center relative">
-        <GraduationCap className="w-16 h-16 text-muted-foreground/30" />
-        {/* Level badge */}
-        <div className="absolute top-3 left-3 px-2 py-1 bg-primary text-primary-foreground text-xs font-mono">
-          {level}
-        </div>
-        {/* Free badge */}
-        {isFree && (
-          <div className="absolute top-3 right-3 px-2 py-1 bg-accent text-accent-foreground text-xs font-mono">
-            FREE
+    <Link href={`/dashboard/courses/${id}`}>
+      <Card
+        className={`bg-card overflow-hidden border-border ${idt.borderHover} hover:shadow-xl transition-all rounded-2xl cursor-pointer group`}
+        data-testid={`course-card-${id}`}
+      >
+        {/* Thumbnail with level identity */}
+        <div className={`h-36 relative overflow-hidden bg-gradient-to-br ${idt.gradient}`}>
+          {/* Decorative dot pattern */}
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage: "radial-gradient(circle at 25% 30%, white 2px, transparent 3px), radial-gradient(circle at 75% 70%, white 2px, transparent 3px)",
+              backgroundSize: "60px 60px",
+            }}
+          />
+          {/* Big evocative level icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Icon className={`w-20 h-20 ${idt.iconColor} opacity-50 group-hover:scale-110 transition-transform`} strokeWidth={1.5} />
           </div>
-        )}
-        {/* Play button overlay */}
-        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <div className="w-16 h-16 bg-primary flex items-center justify-center">
-            <Play className="w-8 h-8 text-primary-foreground fill-primary-foreground" />
+          {/* Level chip top-left */}
+          <div className={`absolute top-3 left-3 px-2.5 py-1 ${idt.chipBg} backdrop-blur rounded-lg shadow-sm flex items-center gap-1.5`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${idt.dot}`} />
+            <span className={`text-xs font-bold ${idt.chipText}`}>{level} · {idt.label}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-5">
-        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">{getTopicLabel(topic)}</p>
-        <h3 className="font-mono font-semibold mb-2 line-clamp-2">{title}</h3>
-        <p className="text-sm font-mono text-muted-foreground line-clamp-2 mb-4">{description}</p>
-
-        {/* Meta */}
-        <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground mb-4">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            <span>{duration} min</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <BookOpen className="w-3 h-3" />
-            <span>{lessonsCount} lessons</span>
-          </div>
+          {/* FREE badge top-right */}
+          {isFree && (
+            <div className="absolute top-3 right-3 px-2 py-0.5 bg-amber-400 text-amber-900 text-[10px] font-bold rounded">FREE</div>
+          )}
         </div>
 
-        {/* Progress or CTA */}
-        {isEnrolled && progress ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="text-primary">{progress}%</span>
+        {/* Content */}
+        <div className="p-5">
+          <h3 className="text-lg font-bold leading-tight mb-1 line-clamp-2">{title}</h3>
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description || getTopicLabel(topic)}</p>
+
+          {/* Meta */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
+            {hours && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                <span>~{hours} hrs</span>
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{lessonsCount} lessons</span>
+            </span>
+          </div>
+
+          {showProgress ? (
+            /* Progress ring + label */
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative w-12 h-12 flex-shrink-0">
+                <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" className={`fill-none ${idt.ringTrack}`} strokeWidth="4" />
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    className={`fill-none ${idt.ringStroke}`}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 20}
+                    strokeDashoffset={2 * Math.PI * 20 * (1 - (progress ?? 0) / 100)}
+                  />
+                </svg>
+                <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold ${idt.chipText}`}>
+                  {progress}%
+                </span>
+              </div>
+              <div className="text-xs text-foreground/70 leading-tight">
+                <p className="font-semibold">In progress</p>
+                <p className="text-muted-foreground text-[11px]">{Math.round(((progress ?? 0) / 100) * lessonsCount)} of {lessonsCount} lessons</p>
+              </div>
             </div>
-            <Progress value={progress} className="h-1" />
-            <Link href={`/dashboard/courses/${id}`}>
-              <Button className="w-full mt-3 font-mono uppercase tracking-wider" data-testid={`button-continue-${id}`}>
-                Continue
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <Link href={`/dashboard/courses/${id}`}>
-            <Button
-              className="w-full font-mono uppercase tracking-wider"
-              variant="default"
-              data-testid={isEnrolled ? `button-continue-${id}` : `button-start-${id}`}
-            >
-              {isEnrolled ? "Continue" : isFree ? "Start Free" : "Start"}
-            </Button>
-          </Link>
-        )}
-      </div>
-    </Card>
+          ) : !isLevelUnlocked && previousLevel ? (
+            /* Locked by level progression */
+            <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Unlocks after {previousLevel}</span>
+            </div>
+          ) : null}
+
+          {/* CTA button — level-themed */}
+          <Button
+            className={`w-full ${idt.ctaBg} ${idt.ctaHover} text-white font-semibold rounded-lg`}
+            data-testid={isEnrolled ? `button-continue-${id}` : `button-start-${id}`}
+          >
+            {showProgress ? "Continue learning" : isEnrolled ? "Continue" : isFree ? "Start free" : "Start course"}
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+      </Card>
+    </Link>
   );
 }
 
