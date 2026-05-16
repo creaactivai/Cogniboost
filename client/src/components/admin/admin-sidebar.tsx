@@ -128,20 +128,35 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`nav-admin-${item.url.replace('/admin/', '').replace('/admin', 'overview')}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="w-4 h-4" />
-                      <span className="font-mono">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {menuItems.map((item) => {
+                // Items that point OUTSIDE /admin/* (e.g., the Grading Queue
+                // which lives under /dashboard/teacher) need a full-page
+                // anchor so the SPA router remounts the right route — the
+                // admin SidebarMenuButton + wouter Link combo doesn't pick
+                // up cross-section navigation reliably.
+                const crossSection = !item.url.startsWith('/admin');
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url}
+                      data-testid={`nav-admin-${item.url.replace('/admin/', '').replace('/admin', 'overview').replace('/dashboard/', '')}`}
+                    >
+                      {crossSection ? (
+                        <a href={item.url}>
+                          <item.icon className="w-4 h-4" />
+                          <span className="font-mono">{item.title}</span>
+                        </a>
+                      ) : (
+                        <Link href={item.url}>
+                          <item.icon className="w-4 h-4" />
+                          <span className="font-mono">{item.title}</span>
+                        </Link>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
