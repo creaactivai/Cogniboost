@@ -18,7 +18,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Users, Sparkles, X } from "lucide-react";
+import { Calendar, Clock, Users, Sparkles, X, Crown } from "lucide-react";
+import { canAccessLabs, getTierLimits, getStartOfCurrentWeek, getStartOfCurrentMonth, type SubscriptionTier } from "@/lib/tier-access";
+import { Link } from "wouter";
 
 interface InterestTopic {
   id: string;
@@ -57,9 +59,13 @@ export function ConversationLabsV2() {
 
   // Student level — fallback to A1 if unknown
   const studentLevel = (user as any)?.currentLevel || (user as any)?.placementLevel || "A1";
+  const tier = ((user as any)?.subscriptionTier || "free") as SubscriptionTier;
+  const tierLimits = getTierLimits(tier);
+  const hasAccess = canAccessLabs(tier);
 
   const { data: interests = [] } = useQuery<InterestTopic[]>({
     queryKey: ["/api/lab-interest-topics"],
+    enabled: hasAccess,
   });
   const { data: upcoming = [] } = useQuery<LabSession[]>({
     queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`],
@@ -112,16 +118,67 @@ export function ConversationLabsV2() {
   const filtered = interestFilter === "all" ? upcoming : upcoming.filter((s) => s.interestTopicId === interestFilter);
   const interestById = new Map(interests.map((i) => [i.id, i]));
 
+  // Compute student's current period usage (best-effort client-side; server is
+  // source of truth for booking enforcement).
+  const weekStart = getStartOfCurrentWeek();
+  const monthStart = getStartOfCurrentMonth();
+  const weeklyUsed = myBookings.filter((s) => new Date(s.scheduledAt) >= weekStart).length;
+  const monthlyUsed = myBookings.filter((s) => new Date(s.scheduledAt) >= monthStart).length;
+
+  const tierLabel =
+    tier === "premium" ? "Premium" : tier === "basic" ? "Básico" : tier === "flex" ? "Flex" : "Free";
+  const quotaText =
+    tierLimits.weeklyLabLimit !== null
+      ? `${weeklyUsed}/${tierLimits.weeklyLabLimit} esta semana`
+      : tierLimits.monthlyLabLimit !== null
+      ? `${monthlyUsed}/${tierLimits.monthlyLabLimit} este mes`
+      : "Ilimitado";
+
+  // Gate for free tier
+  if (!hasAccess) {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            Conversation Labs
+          </h1>
+        </div>
+        <Card className="p-8 text-center space-y-4">
+          <div className="text-5xl">🔒</div>
+          <h2 className="text-xl font-bold">Los Conversation Labs requieren un plan pago</h2>
+          <p className="text-muted-foreground text-sm">
+            Practica inglés en vivo con docentes y otros estudiantes de tu nivel.
+            Disponible desde el <strong>Plan Flex</strong> ($14.99/mes — 1 Lab al mes).
+          </p>
+          <Button asChild>
+            <Link href="/choose-plan">Ver planes y precios</Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 space-y-6" data-testid="page-conversation-labs">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-primary" />
-          Conversation Labs
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Find a live class at your level ({studentLevel}). Pick a topic that interests you and book a spot.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            Conversation Labs
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Find a live class at your level ({studentLevel}). Pick a topic that interests you and book a spot.
+          </p>
+        </div>
+        {/* Plan + quota badge */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30">
+          {tier === "premium" && <Crown className="w-4 h-4 text-amber-500" />}
+          <div>
+            <div className="text-xs font-mono uppercase text-muted-foreground">Tu plan: {tierLabel}</div>
+            <div className="text-sm font-semibold">📊 {quotaText}</div>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="browse">

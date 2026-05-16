@@ -5963,23 +5963,45 @@ Important:
     }
   });
 
-  // Book a spot in a session.
+  // Book a spot in a session — enforces subscription-tier limits:
+  //   free:    no access (must upgrade)
+  //   flex:    1 booking per calendar month
+  //   basic:   2 bookings per ISO week (Mon-Sun)
+  //   premium: unlimited
   app.post('/api/lab-bookings', requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
-      const { eq, and, count } = await import("drizzle-orm");
+      const { eq, and, count, gte } = await import("drizzle-orm");
       const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const {
+        canAccessLabs,
+        canBookMoreLabs,
+        getStartOfCurrentWeek,
+        getStartOfCurrentMonth,
+        getTierLimits,
+      } = await import('@shared/tier-access');
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       const { labSessionId } = req.body;
       if (!labSessionId) return res.status(400).json({ error: 'labSessionId required' });
 
+      // Look up user's current subscription tier
+      const tier = (req.user as any)?.subscriptionTier as 'free' | 'flex' | 'basic' | 'premium' | undefined;
+      if (!canAccessLabs(tier)) {
+        return res.status(403).json({
+          error: 'Conversation Labs require a paid plan',
+          message: 'Tu plan actual no incluye acceso a los Labs. Considera upgradear a Flex, Básico o Premium.',
+          currentTier: tier ?? 'free',
+        });
+      }
+
+      // Validate the target session
       const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, labSessionId));
       if (!session) return res.status(404).json({ error: 'Lab session not found' });
       if (session.status !== 'scheduled') return res.status(400).json({ error: 'Session not open for booking' });
       if (session.scheduledAt && session.scheduledAt < new Date()) return res.status(400).json({ error: 'Session already started' });
 
-      // Check existing registration
+      // Already registered for this exact session?
       const [existing] = await db
         .select()
         .from(labRegistrations)
@@ -5990,16 +6012,69 @@ Important:
         ));
       if (existing) return res.status(409).json({ error: 'Already registered for this lab' });
 
-      // Check capacity
-      const [{ n }] = await db
+      // Capacity check
+      const [{ n: bookedNow }] = await db
         .select({ n: count() })
         .from(labRegistrations)
         .where(and(
           eq(labRegistrations.labSessionId, labSessionId),
           eq(labRegistrations.cancelled, false),
         ));
-      if (Number(n) >= session.maxParticipants) {
+      if (Number(bookedNow) >= session.maxParticipants) {
         return res.status(409).json({ error: 'Lab is full' });
+      }
+
+      // Tier-quota check — count student's non-cancelled registrations
+      // for sessions starting in the current week or month.
+      const limits = getTierLimits(tier);
+      const weekStart = getStartOfCurrentWeek();
+      const monthStart = getStartOfCurrentMonth();
+
+      let weeklyUsed = 0;
+      let monthlyUsed = 0;
+      if (limits.weeklyLabLimit !== null || limits.monthlyLabLimit !== null) {
+        // Join registrations to sessions filtered by scheduled_at window
+        if (limits.weeklyLabLimit !== null) {
+          const weekly = await db
+            .select({ n: count() })
+            .from(labRegistrations)
+            .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
+            .where(and(
+              eq(labRegistrations.studentId, userId),
+              eq(labRegistrations.cancelled, false),
+              gte(labSessionsV2.scheduledAt, weekStart),
+            ));
+          weeklyUsed = Number(weekly[0]?.n ?? 0);
+        }
+        if (limits.monthlyLabLimit !== null) {
+          const monthly = await db
+            .select({ n: count() })
+            .from(labRegistrations)
+            .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
+            .where(and(
+              eq(labRegistrations.studentId, userId),
+              eq(labRegistrations.cancelled, false),
+              gte(labSessionsV2.scheduledAt, monthStart),
+            ));
+          monthlyUsed = Number(monthly[0]?.n ?? 0);
+        }
+      }
+
+      if (!canBookMoreLabs(tier, weeklyUsed, monthlyUsed)) {
+        const tierLabel = tier === 'basic' ? 'Básico' : tier === 'flex' ? 'Flex' : tier ?? 'Free';
+        const reason =
+          limits.weeklyLabLimit !== null
+            ? `Ya tienes ${weeklyUsed}/${limits.weeklyLabLimit} Labs reservados esta semana (plan ${tierLabel}).`
+            : `Ya tienes ${monthlyUsed}/${limits.monthlyLabLimit} Lab reservado este mes (plan ${tierLabel}).`;
+        return res.status(403).json({
+          error: 'Tier limit reached',
+          message: `${reason} Upgradear a Premium para reservas ilimitadas.`,
+          currentTier: tier,
+          weeklyUsed,
+          weeklyLimit: limits.weeklyLabLimit,
+          monthlyUsed,
+          monthlyLimit: limits.monthlyLabLimit,
+        });
       }
 
       const [reg] = await db.insert(labRegistrations).values({
