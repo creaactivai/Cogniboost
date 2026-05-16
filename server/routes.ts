@@ -6742,6 +6742,27 @@ Important:
     }
   });
 
+  // Create (or replace by level) a Final Exam shell. Idempotent on
+  // `level` — if an exam already exists for the level, return it.
+  app.post("/api/admin/final-exams", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExams } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const existing = await db.select().from(finalExams).where(eq(finalExams.level, req.body.level)).limit(1);
+      if (existing.length > 0) return res.json(existing[0]);
+
+      const [created] = await db.insert(finalExams).values(req.body).returning();
+      res.json(created);
+    } catch (e: any) {
+      console.error("create exam error:", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
   app.patch("/api/admin/final-exams/:id", requireAuth, async (req: any, res) => {
     try {
       const user = await storage.getUser((req.user as any)?.id);
