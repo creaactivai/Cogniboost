@@ -207,8 +207,9 @@ export default function SpeakingAssignmentPage() {
         credentials: "include",
       });
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || `Upload failed: ${res.status}`);
+        const errBody: any = await res.json().catch(() => ({}));
+        const detail = errBody?.debug?.message ? ` (${errBody.debug.message})` : "";
+        throw new Error((errBody?.error || `Upload failed: ${res.status}`) + detail);
       }
       return res.json() as Promise<{ submissionId: string; status: string }>;
     },
