@@ -6101,6 +6101,56 @@ Important:
     }
   });
 
+  // ─── Health / monitoring status (admin-only) ──────────────────────────
+  // Used by Coral to verify Sentry + critical services are wired up
+  // without having to read Railway logs.
+  app.get('/api/admin/health/monitoring', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      res.json({
+        sentry: {
+          configured: !!process.env.SENTRY_DSN,
+          environment: process.env.NODE_ENV || 'development',
+        },
+        anthropic: {
+          configured: !!process.env.ANTHROPIC_API_KEY,
+        },
+        openai: {
+          configured: !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        },
+        gcs: {
+          configured: !!(process.env.GCS_BUCKET_NAME && process.env.GCS_SERVICE_ACCOUNT),
+          bucket: process.env.GCS_BUCKET_NAME || null,
+        },
+        resend: {
+          configured: !!process.env.RESEND_API_KEY,
+        },
+        stripe: {
+          configured: !!process.env.STRIPE_SECRET_KEY,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // POST a test Sentry event — admin-only. Fires a captured exception so
+  // Coral can verify alerts work after configuring SENTRY_DSN.
+  app.post('/api/admin/health/sentry-test', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      if (!process.env.SENTRY_DSN) {
+        return res.status(412).json({ error: 'SENTRY_DSN not set — add it to Railway variables first.' });
+      }
+      const { captureMessage, captureError } = await import('./monitoring');
+      captureMessage(`[SENTRY-TEST] Manual verification from admin ${req.user?.email || req.user?.id} at ${new Date().toISOString()}`, 'info');
+      captureError(new Error('[SENTRY-TEST] This is a manual test exception — safe to ignore'));
+      res.json({ ok: true, message: 'Test event + error sent. Check your Sentry project — should appear within ~30s.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   // ─── ADMIN endpoints for Lab management ────────────────────────────────
 
   app.get('/api/admin/lab-sessions', requireAuth, async (req: any, res) => {
