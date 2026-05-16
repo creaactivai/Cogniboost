@@ -574,47 +574,97 @@ export async function registerRoutes(
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-      
-      // Check subscription tier - detailed stats are premium
+
       const user = await storage.getUser(userId);
-      const subscriptionTier = user?.subscriptionTier || 'free';
       const stats = await storage.getUserStats(userId);
-      
-      // Determine the correct level: prioritize user_stats.currentLevel, then placementLevel from quiz, then englishLevel from onboarding
       const resolvedLevel = stats?.currentLevel || user?.placementLevel || user?.englishLevel || "A1";
 
-      if (subscriptionTier === 'free') {
-        // Return limited basic stats for free users
-        return res.json({
-          totalHoursStudied: stats?.totalHoursStudied || "0",
-          coursesCompleted: stats?.coursesCompleted || 0,
-          labsAttended: stats?.labsAttended || 0,
-          currentLevel: resolvedLevel,
-          xpPoints: stats?.xpPoints || 0,
-          speakingMinutes: 0,
-          vocabularyWords: 0,
-          premiumFeature: true,
-          message: "Actualiza tu plan para ver estadísticas detalladas"
-        });
+      // Compute live stats from source-of-truth tables. The user_stats
+      // table is no longer incremented on every lesson completion (legacy)
+      // so we derive the metrics directly from enrollments, lab
+      // registrations and submissions. This guarantees the dashboard
+      // matches what the catalog and progress page show.
+      const { db } = await import("./db");
+      const { enrollments, labRegistrations, labSessionsV2, submissions, lessonProgress, lessons } =
+        await import("@shared/schema");
+      const { eq, and, lt, sql } = await import("drizzle-orm");
+
+      // Courses completed = enrollments with completedAt set (the schema
+      // stores completion as a timestamp, not a percentage column)
+      const enrolls = await db
+        .select({ id: enrollments.id, completedAt: enrollments.completedAt })
+        .from(enrollments)
+        .where(eq(enrollments.userId, userId));
+      const coursesCompleted = enrolls.filter((e: any) => e.completedAt != null).length;
+
+      // Labs attended = lab_registrations whose session is in the past
+      // (and the student was registered). Best-effort: anyone who held a
+      // booking past the scheduled time counts.
+      const now = new Date();
+      let labsAttended = 0;
+      try {
+        const labRows = await db
+          .select({ scheduledAt: labSessionsV2.scheduledAt })
+          .from(labRegistrations)
+          .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
+          .where(and(eq(labRegistrations.userId, userId), lt(labSessionsV2.scheduledAt, now)));
+        labsAttended = labRows.length;
+      } catch {
+        // Schema mismatch on legacy installs — leave at 0
       }
 
-      // For paid users, return full stats with correct level fallback
-      if (stats) {
-        res.json({
-          ...stats,
-          currentLevel: resolvedLevel,
-        });
-      } else {
-        res.json({
-          totalHoursStudied: "0",
-          coursesCompleted: 0,
-          labsAttended: 0,
-          currentLevel: resolvedLevel,
-          xpPoints: 0,
-          speakingMinutes: 0,
-          vocabularyWords: 0,
-        });
+      // Speaking minutes — sum of speaking submission durations (if any)
+      let speakingMinutes = 0;
+      try {
+        const speakSubs = await db
+          .select({ duration: submissions.durationSeconds })
+          .from(submissions)
+          .where(and(eq(submissions.studentId, userId), eq(submissions.assignmentType, "speaking_recording")));
+        const secs = speakSubs.reduce((sum: number, s: any) => sum + (Number(s.duration) || 0), 0);
+        speakingMinutes = Math.round(secs / 60);
+      } catch {
+        speakingMinutes = 0;
       }
+
+      // Hours studied = sum of duration of completed lessons.
+      let totalHoursStudied = "0.0";
+      try {
+        const completed = await db
+          .select({ duration: lessons.duration })
+          .from(lessonProgress)
+          .innerJoin(lessons, eq(lessonProgress.lessonId, lessons.id))
+          .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.isCompleted, true)));
+        const totalMin = completed.reduce((sum: number, l: any) => sum + (Number(l.duration) || 0), 0);
+        totalHoursStudied = (totalMin / 60).toFixed(1);
+      } catch {
+        totalHoursStudied = stats?.totalHoursStudied || "0.0";
+      }
+
+      // XP — derived: 10 per lesson completed + 50 per lab attended + 25 per writing/speaking submission
+      let lessonsCompleted = 0;
+      try {
+        const completedRows = await db
+          .select({ id: lessonProgress.id })
+          .from(lessonProgress)
+          .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.isCompleted, true)));
+        lessonsCompleted = completedRows.length;
+      } catch {}
+      let submissionsCount = 0;
+      try {
+        const subRows = await db.select({ id: submissions.id }).from(submissions).where(eq(submissions.studentId, userId));
+        submissionsCount = subRows.length;
+      } catch {}
+      const xpPoints = lessonsCompleted * 10 + labsAttended * 50 + submissionsCount * 25;
+
+      res.json({
+        totalHoursStudied,
+        coursesCompleted,
+        labsAttended,
+        currentLevel: resolvedLevel,
+        xpPoints,
+        speakingMinutes,
+        vocabularyWords: stats?.vocabularyWords || 0,
+      });
     } catch (error) {
       console.error("Error fetching user stats:", error);
       res.status(500).json({ error: "Failed to fetch user stats" });
