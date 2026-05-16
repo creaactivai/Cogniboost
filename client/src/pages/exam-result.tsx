@@ -92,6 +92,44 @@ export default function ExamResultPage() {
         </Badge>
       </Card>
 
+      {/* Level-up celebration — shown when passing unlocks a new CEFR level */}
+      {passed && (() => {
+        const ladder = ["A1", "A2", "B1", "B2", "C1"];
+        const idx = ladder.indexOf(level || "");
+        const next = idx >= 0 && idx < ladder.length - 1 ? ladder[idx + 1] : null;
+        if (!next) {
+          return (
+            <Card className="p-5 bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-50 border-amber-300">
+              <div className="flex items-center gap-3">
+                <Trophy className="w-10 h-10 text-amber-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">You've reached the top!</p>
+                  <p className="text-xs text-amber-800">{level} is the highest CEFR level we offer. You're a master of English.</p>
+                </div>
+              </div>
+            </Card>
+          );
+        }
+        return (
+          <Card className="p-5 bg-gradient-to-br from-emerald-50 via-cyan-50 to-emerald-50 border-emerald-300">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-emerald-900">Level up! 🎉</p>
+                <p className="text-xs text-emerald-800">
+                  You unlocked <strong>{next}</strong> — the next course is now available in your catalog.
+                </p>
+              </div>
+              <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <Link href="/dashboard/courses">Open {next} →</Link>
+              </Button>
+            </div>
+          </Card>
+        );
+      })()}
+
       <div className="grid sm:grid-cols-3 gap-3">
         <Card className="p-4 text-center">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Quiz · 40%</p>

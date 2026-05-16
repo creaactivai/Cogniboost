@@ -325,19 +325,32 @@ export function CourseCatalog() {
     enabled: !!user, // Only fetch if user is logged in
   });
 
+  // Fetch userStats so we can pick up the level that has been promoted by
+  // passing a Final Exam (finalize() bumps user_stats.currentLevel). Falls
+  // back to the placement-quiz level for users who haven't taken an exam
+  // yet.
+  const { data: userStats } = useQuery<{ currentLevel?: string } & Record<string, any>>({
+    queryKey: ['/api/user-stats'],
+    enabled: !!user,
+  });
+
   // Create a map of courseId -> enrollment data for quick lookup
   const enrollmentMap = new Map(
     enrollments.map(e => [e.courseId, e])
   );
 
-  // Get user's level and unlocked levels
-  const userLevel = user?.placementLevel || user?.englishLevel || 'A1';
+  // Get user's level and unlocked levels — user_stats.currentLevel is the
+  // authoritative source once the student has progressed past placement.
+  const userLevel = userStats?.currentLevel || user?.placementLevel || user?.englishLevel || 'A1';
   const userLevelIndex = levelOrder.indexOf(userLevel);
   const unlockedLevels = levelOrder.slice(0, userLevelIndex + 1);
 
   // Map API courses to the card format with real progress data
   const coursesWithCardData: CourseCardProps[] = courses.map((course) => {
     const enrollment = enrollmentMap.get(course.id);
+    const levelIdx = levelOrder.indexOf(course.level);
+    const isLevelUnlocked = levelIdx <= userLevelIndex;
+    const previousLevel = levelIdx > 0 ? levelOrder[levelIdx - 1] : undefined;
     return {
       id: course.id,
       title: course.title,
@@ -349,6 +362,8 @@ export function CourseCatalog() {
       progress: enrollment?.progress || 0, // Real progress from enrollment
       isEnrolled: !!enrollment, // User is enrolled if enrollment exists
       isFree: course.isFree === true,
+      isLevelUnlocked,
+      previousLevel,
     };
   });
 

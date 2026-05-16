@@ -6573,6 +6573,176 @@ Important:
     }
   });
 
+  // Writing section — student types a response to the exam's writingPrompt.
+  // We reuse the writing rubric grader (gradeWriting) directly with the
+  // exam's prompt + level. The submission row is stored without a
+  // writingProjectId (the link to the curriculum is via the attempt + exam).
+  app.post("/api/final-exam-attempts/:id/submit-writing", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const attemptId = req.params.id;
+      const { text } = req.body as { text: string };
+      if (!text || typeof text !== "string" || text.trim().length < 20) {
+        return res.status(400).json({ error: "Writing text is too short" });
+      }
+
+      const { db } = await import("./db");
+      const { finalExamAttempts, finalExams, submissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const [attempt] = await db.select().from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.id, attemptId), eq(finalExamAttempts.userId, userId)))
+        .limit(1);
+      if (!attempt) return res.status(404).json({ error: "Attempt not found" });
+      const [exam] = await db.select().from(finalExams).where(eq(finalExams.id, attempt.examId)).limit(1);
+      if (!exam) return res.status(404).json({ error: "Exam not found" });
+
+      // Insert submission row (assignmentType='writing', no writingProjectId)
+      const [sub] = await db.insert(submissions).values({
+        studentId: userId,
+        assignmentType: "writing",
+        content: text,
+        status: "pending_ai",
+      } as any).returning({ id: submissions.id });
+
+      // Link to attempt
+      const [updated] = await db
+        .update(finalExamAttempts)
+        .set({ writingSubmissionId: sub.id, status: "writing_done" })
+        .where(eq(finalExamAttempts.id, attemptId))
+        .returning();
+
+      res.status(202).json({ submissionId: sub.id, attempt: updated });
+
+      // Fire async grading using the exam's prompt + level
+      (async () => {
+        try {
+          const { gradeWriting } = await import("./grading/writingPrompt");
+          const { grade } = await gradeWriting({
+            targetLevel: exam.level as any,
+            assignment: exam.title,
+            writingPrompt: exam.writingPrompt || "Write at level.",
+            studentText: text,
+          });
+          await db.update(submissions).set({
+            aiGrade: grade as any,
+            aiScore: String(grade.overall_score),
+            status: "ai_graded",
+          }).where(eq(submissions.id, sub.id));
+          console.log(`[exam-writing] Submission ${sub.id} graded ${grade.overall_score}/100`);
+        } catch (err: any) {
+          console.error("[exam-writing] Grading failed:", err?.message);
+          await db.update(submissions).set({
+            aiGrade: { error: true, message: "Grading failed.", errorDetail: String(err?.message).slice(0,500) } as any,
+            status: "pending_ai",
+          }).where(eq(submissions.id, sub.id)).catch(() => {});
+        }
+      })();
+    } catch (e: any) {
+      console.error("submit-writing exam error:", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Speaking section — student uploads an audio (or video) recording. We
+  // reuse the GCS upload + Whisper transcription + Claude speaking grader
+  // pipeline already used by Speaking Projects.
+  app.post(
+    "/api/final-exam-attempts/:id/submit-speaking",
+    requireAuth,
+    uploadSpeaking.single("recording"),
+    async (req: any, res) => {
+      try {
+        const userId = (req.user as any)?.id;
+        const attemptId = req.params.id;
+        if (!req.file) return res.status(400).json({ error: "No recording file" });
+
+        const { db } = await import("./db");
+        const { finalExamAttempts, finalExams, submissions } = await import("@shared/schema");
+        const { eq, and } = await import("drizzle-orm");
+
+        const [attempt] = await db.select().from(finalExamAttempts)
+          .where(and(eq(finalExamAttempts.id, attemptId), eq(finalExamAttempts.userId, userId)))
+          .limit(1);
+        if (!attempt) return res.status(404).json({ error: "Attempt not found" });
+        const [exam] = await db.select().from(finalExams).where(eq(finalExams.id, attempt.examId)).limit(1);
+        if (!exam) return res.status(404).json({ error: "Exam not found" });
+
+        const isVideo = String(req.body?.isVideo) === "true";
+        const clientDurationSeconds = req.body?.clientDurationSeconds ? Number(req.body.clientDurationSeconds) : null;
+
+        // Upload audio to GCS (same flow as speakingGrader.createSpeakingSubmission)
+        const { uploadToGcs } = await import("./gcsDirectUpload");
+        const uploaded = await uploadToGcs(
+          req.file.buffer,
+          req.file.originalname || `exam-recording-${Date.now()}.webm`,
+          req.file.mimetype,
+        );
+
+        // Insert submission row
+        const [sub] = await db.insert(submissions).values({
+          studentId: userId,
+          assignmentType: "speaking_recording",
+          content: "",
+          audioUrl: isVideo ? null : uploaded.url,
+          videoUrl: isVideo ? uploaded.url : null,
+          durationSeconds: clientDurationSeconds,
+          status: "pending_ai",
+        } as any).returning({ id: submissions.id });
+
+        // Link to attempt
+        const [updated] = await db
+          .update(finalExamAttempts)
+          .set({ speakingSubmissionId: sub.id, status: "speaking_done" })
+          .where(eq(finalExamAttempts.id, attemptId))
+          .returning();
+
+        res.status(202).json({ submissionId: sub.id, attempt: updated, audioUrl: uploaded.url });
+
+        // Fire async grading: Whisper → Claude speaking grader
+        (async () => {
+          try {
+            const { transcribeFromBuffer } = await import("./grading/whisperClient");
+            const { gradeSpeaking } = await import("./grading/speakingPrompt");
+
+            // Re-fetch audio from GCS for transcription (already uploaded)
+            // Simpler: reuse the buffer we already have in memory
+            const transcription = await transcribeFromBuffer(req.file.buffer, req.file.originalname || "exam.webm");
+            const { grade } = await gradeSpeaking({
+              targetLevel: exam.level as any,
+              speakingPrompt: exam.speakingPrompt || "Speak at level.",
+              targetVocabulary: [],
+              targetGrammar: [],
+              targetExpressions: [],
+              targetDurationSeconds: exam.speakingMinSeconds || 60,
+              transcript: transcription.transcript,
+              actualDurationSeconds: transcription.durationSeconds || (clientDurationSeconds || 0),
+              whisperConfidence: transcription.avgConfidence,
+            });
+            await db.update(submissions).set({
+              content: transcription.transcript,
+              transcript: transcription.transcript,
+              aiGrade: grade as any,
+              aiScore: String(grade.overall_score),
+              durationSeconds: Math.round(transcription.durationSeconds) || clientDurationSeconds,
+              status: "ai_graded",
+            } as any).where(eq(submissions.id, sub.id));
+            console.log(`[exam-speaking] Submission ${sub.id} graded ${grade.overall_score}/100`);
+          } catch (err: any) {
+            console.error("[exam-speaking] Grading failed:", err?.message);
+            await db.update(submissions).set({
+              aiGrade: { error: true, message: "Grading failed.", errorDetail: String(err?.message).slice(0,500) } as any,
+              status: "pending_ai",
+            }).where(eq(submissions.id, sub.id)).catch(() => {});
+          }
+        })();
+      } catch (e: any) {
+        console.error("submit-speaking exam error:", e);
+        res.status(500).json({ error: e?.message || "Failed" });
+      }
+    }
+  );
+
   app.post("/api/final-exam-attempts/:id/submit-quiz", requireAuth, async (req: any, res) => {
     try {
       const userId = (req.user as any)?.id;
@@ -6634,16 +6804,30 @@ Important:
 
       const quiz = Number(attempt.quizScore || 0);
 
-      // Pull writing + speaking scores from submissions if linked
+      // Pull writing + speaking scores from submissions if linked.
+      // If a submission is linked but still grading (aiScore is null and
+      // there's no error envelope), return 425 so the frontend can wait
+      // and retry — otherwise the student would get a 0 for that
+      // section and unfairly fail.
       let writing = Number(attempt.writingScore || 0);
       let speaking = Number(attempt.speakingScore || 0);
+      const stillGrading: string[] = [];
       if (attempt.writingSubmissionId) {
         const [w] = await db.select().from(submissions).where(eq(submissions.id, attempt.writingSubmissionId)).limit(1);
         if (w?.aiScore) writing = Number(w.aiScore);
+        else if (w && !(w.aiGrade as any)?.error && exam.writingWeight > 0) stillGrading.push("writing");
       }
       if (attempt.speakingSubmissionId) {
         const [s] = await db.select().from(submissions).where(eq(submissions.id, attempt.speakingSubmissionId)).limit(1);
         if (s?.aiScore) speaking = Number(s.aiScore);
+        else if (s && !(s.aiGrade as any)?.error && exam.speakingWeight > 0) stillGrading.push("speaking");
+      }
+      if (stillGrading.length > 0) {
+        return res.status(425).json({
+          error: "still_grading",
+          message: `${stillGrading.join(" and ")} ${stillGrading.length === 1 ? "is" : "are"} still being graded by AI. Please wait ~20 seconds and try again.`,
+          stillGrading,
+        });
       }
 
       const total = exam.quizWeight + exam.writingWeight + exam.speakingWeight;
@@ -6665,6 +6849,7 @@ Important:
         .returning();
 
       let certificate = null;
+      let unlockedLevel: string | null = null;
       if (passed) {
         const userRow = await storage.getUser(userId);
         const studentName = [userRow?.firstName, userRow?.lastName].filter(Boolean).join(" ") || userRow?.email || "Student";
@@ -6681,9 +6866,36 @@ Important:
           })
           .returning();
         certificate = cert;
+
+        // Level-up: bump user_stats.currentLevel to the next CEFR level.
+        // The catalog reads from user_stats.currentLevel (with placement
+        // quiz fallback) to decide what's unlocked, so this unlocks the
+        // next course automatically.
+        const ladder = ["A1", "A2", "B1", "B2", "C1"];
+        const idx = ladder.indexOf(exam.level);
+        const nextLevel = idx >= 0 && idx < ladder.length - 1 ? ladder[idx + 1] : null;
+        if (nextLevel) {
+          try {
+            const existingStats = await storage.getUserStats(userId);
+            await storage.upsertUserStats({
+              userId,
+              currentLevel: nextLevel as any,
+              totalHoursStudied: existingStats?.totalHoursStudied ?? "0",
+              coursesCompleted: (existingStats?.coursesCompleted ?? 0) + 1,
+              labsAttended: existingStats?.labsAttended ?? 0,
+              xpPoints: (existingStats?.xpPoints ?? 0) + 200, // 200 XP bonus for passing
+              speakingMinutes: existingStats?.speakingMinutes ?? 0,
+              vocabularyWords: existingStats?.vocabularyWords ?? 0,
+            } as any);
+            unlockedLevel = nextLevel;
+            console.log(`[finalize] Level up! ${userId} unlocked ${nextLevel}`);
+          } catch (e: any) {
+            console.error("[finalize] level-up failed:", e?.message);
+          }
+        }
       }
 
-      res.json({ attempt: updated, certificate });
+      res.json({ attempt: updated, certificate, unlockedLevel });
     } catch (e: any) {
       console.error("finalize error:", e);
       res.status(500).json({ error: e?.message || "Failed" });
