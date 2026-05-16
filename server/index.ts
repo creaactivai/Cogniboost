@@ -533,6 +533,32 @@ async function runStartupMigrations() {
       );
     }
     console.log('Startup migrations: Phase 1.7 Final Exams + Certificates tables + exam shells seeded');
+
+    // ================================================================
+    // Phase 1.8 — Reading Comprehension Projects (per module)
+    // ================================================================
+    await pool.query(`DO $$ BEGIN
+      CREATE TYPE reading_question_type AS ENUM ('multiple_choice','true_false','fill_in');
+    EXCEPTION WHEN duplicate_object THEN null; END $$`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reading_projects (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        module_id varchar NOT NULL,
+        level course_level NOT NULL,
+        title text NOT NULL,
+        passage text NOT NULL,
+        word_count integer,
+        questions jsonb NOT NULL DEFAULT '[]',
+        passing_score integer NOT NULL DEFAULT 70,
+        estimated_read_minutes integer,
+        is_published boolean NOT NULL DEFAULT false,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reading_projects_module_idx ON reading_projects(module_id)`);
+    console.log('Startup migrations: Phase 1.8 Reading Projects table verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

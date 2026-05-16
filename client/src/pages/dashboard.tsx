@@ -17,6 +17,8 @@ import MyWritingsPage from "@/pages/my-writings";
 import FinalExamsPage from "@/pages/final-exams";
 import ExamTakePage from "@/pages/exam-take";
 import ExamResultPage from "@/pages/exam-result";
+import ReadingAssignmentPage from "@/pages/reading-assignment";
+import ReadingSubmissionViewPage from "@/pages/reading-submission-view";
 import SubmissionViewPage from "@/pages/submission-view";
 import SpeakingAssignmentPage from "@/pages/speaking-assignment";
 import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
@@ -213,6 +215,9 @@ export default function Dashboard() {
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
+              {/* Phase 1.8 — Reading Comprehension per module */}
+              <Route path="/dashboard/reading/:moduleId" component={ReadingAssignmentPage} />
+              <Route path="/dashboard/reading-submissions/:id" component={ReadingSubmissionViewPage} />
               {/* Phase 1.7 — CEFR Mastery Final Exams + Certificates */}
               <Route path="/dashboard/exams" component={FinalExamsPage} />
               <Route path="/dashboard/exam/:level/result/:attemptId" component={ExamResultPage} />

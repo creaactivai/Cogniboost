@@ -691,6 +691,51 @@ export type QuizAttempt = typeof quizAttempts.$inferSelect;
 export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
 
 /* =====================================================================
+ * READING COMPREHENSION PROJECTS (Phase 1.8)
+ * ---------------------------------------------------------------------
+ * One Reading Project per module. Each has a level-appropriate passage
+ * that recycles the module's target vocabulary and grammar focus, plus
+ * inline comprehension questions (multiple_choice / true_false /
+ * fill_in). Auto-graded by simple correctness % — pass at 70.
+ * ===================================================================== */
+
+export const readingQuestionTypeEnum = pgEnum("reading_question_type", [
+  "multiple_choice",
+  "true_false",
+  "fill_in",
+]);
+
+export const readingProjects = pgTable("reading_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").references(() => courseModules.id).notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  passage: text("passage").notNull(),                  // the reading text
+  wordCount: integer("word_count"),
+  // Questions are stored inline as JSONB — each: { id, type, questionText,
+  // options?, correctAnswer, explanation? }. Keeps the model simple (no
+  // separate questions table) since they're authored together with the
+  // passage and rarely edited independently.
+  questions: jsonb("questions").$type<Array<{
+    id: string;
+    type: "multiple_choice" | "true_false" | "fill_in";
+    questionText: string;
+    options?: string[];
+    correctAnswer: string;
+    explanation?: string;
+  }>>().notNull().default([] as any),
+  passingScore: integer("passing_score").notNull().default(70),
+  estimatedReadMinutes: integer("estimated_read_minutes"),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertReadingProjectSchema = createInsertSchema(readingProjects).omit({ id: true, createdAt: true, updatedAt: true });
+export type ReadingProject = typeof readingProjects.$inferSelect;
+export type InsertReadingProject = z.infer<typeof insertReadingProjectSchema>;
+
+/* =====================================================================
  * FINAL EXAMS + CERTIFICATES (Phase 1.7)
  * ---------------------------------------------------------------------
  * One Final Exam per CEFR level. Unlocked after 100% module completion.

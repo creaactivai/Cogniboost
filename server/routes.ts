@@ -5736,6 +5736,155 @@ Important:
     const role = (req.user as any)?.role;
     return role === 'admin' || role === 'teacher' || (req.user as any)?.isAdmin === true;
   };
+  /* ===================================================================
+   * READING COMPREHENSION (Phase 1.8)
+   * ===================================================================
+   *   Student:
+   *     GET    /api/reading-projects/by-module/:moduleId — fetch project (without correctAnswers)
+   *     POST   /api/reading-submissions — submit answers, auto-grade, return score
+   *     GET    /api/reading-submissions/:id — view past attempt
+   *
+   *   Admin (idempotent create on moduleId):
+   *     GET    /api/admin/reading-projects/by-course/:courseId
+   *     POST   /api/admin/reading-projects
+   *     PATCH  /api/admin/reading-projects/:id
+   */
+
+  app.get("/api/reading-projects/by-module/:moduleId", requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { readingProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(readingProjects).where(eq(readingProjects.moduleId, req.params.moduleId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Reading project not found for this module" });
+      if (!proj.isPublished) {
+        const u = await storage.getUser((req.user as any)?.id);
+        if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
+      }
+      // Strip correctAnswer + explanation from each question (student view)
+      const safeQuestions = (proj.questions || []).map((q: any) => {
+        const { correctAnswer, explanation, ...rest } = q;
+        return rest;
+      });
+      res.json({ ...proj, questions: safeQuestions });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Submit answers + auto-grade. Stored on the submissions table with
+  // assignmentType='reading_quiz' so it shows up in the student's
+  // submissions feed and admin queue.
+  app.post("/api/reading-submissions", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { readingProjectId, moduleId, answers } = req.body as {
+        readingProjectId: string; moduleId: string; answers: Record<string, string>;
+      };
+      if (!readingProjectId || !answers) return res.status(400).json({ error: "readingProjectId and answers required" });
+
+      const { db } = await import("./db");
+      const { readingProjects, submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [proj] = await db.select().from(readingProjects).where(eq(readingProjects.id, readingProjectId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Reading project not found" });
+
+      let totalPoints = 0;
+      let earnedPoints = 0;
+      const detail: any[] = [];
+      for (const q of (proj.questions || []) as any[]) {
+        totalPoints += 1;
+        const userAns = String(answers[q.id] || "").trim().toLowerCase();
+        const correct = String(q.correctAnswer || "").trim().toLowerCase();
+        const right = !!userAns && userAns === correct;
+        if (right) earnedPoints += 1;
+        detail.push({ qid: q.id, given: userAns, correct, right, explanation: q.explanation });
+      }
+      const scorePct = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 10000) / 100 : 0;
+      const passed = scorePct >= (proj.passingScore || 70);
+
+      const [sub] = await db.insert(submissions).values({
+        studentId: userId,
+        assignmentType: "reading_quiz",
+        moduleId,
+        content: JSON.stringify({ answers }),
+        aiGrade: { score: scorePct, total: totalPoints, earned: earnedPoints, detail, passed } as any,
+        aiScore: String(scorePct),
+        status: "ai_graded",
+      } as any).returning({ id: submissions.id });
+
+      res.json({ submissionId: sub.id, score: scorePct, totalPoints, earnedPoints, passed, detail });
+    } catch (e: any) {
+      console.error("[reading-submissions POST]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.get("/api/reading-submissions/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [s] = await db.select().from(submissions)
+        .where(and(eq(submissions.id, req.params.id), eq(submissions.studentId, userId)))
+        .limit(1);
+      if (!s) return res.status(404).json({ error: "Not found" });
+      res.json(s);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  /* ---- Admin CRUD ---- */
+  app.get("/api/admin/reading-projects/by-course/:courseId", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { readingProjects, courseModules } = await import("@shared/schema");
+      const { eq, inArray } = await import("drizzle-orm");
+      const mods = await db.select({ id: courseModules.id }).from(courseModules).where(eq(courseModules.courseId, req.params.courseId));
+      if (mods.length === 0) return res.json([]);
+      const rows = await db.select().from(readingProjects).where(inArray(readingProjects.moduleId, mods.map(m => m.id)));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
+  });
+
+  app.post("/api/admin/reading-projects", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { readingProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      // Idempotent on moduleId
+      const existing = await db.select().from(readingProjects).where(eq(readingProjects.moduleId, req.body.moduleId)).limit(1);
+      if (existing[0]) return res.json(existing[0]);
+      const [created] = await db.insert(readingProjects).values(req.body).returning();
+      res.json(created);
+    } catch (e: any) {
+      console.error("[admin/reading-projects POST]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.patch("/api/admin/reading-projects/:id", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { readingProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const allowed = ["title","passage","wordCount","questions","passingScore","estimatedReadMinutes","isPublished"];
+      const patch: any = { updatedAt: new Date() };
+      for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+      const [updated] = await db.update(readingProjects).set(patch).where(eq(readingProjects.id, req.params.id)).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
+  });
+
   // Send a custom email — used for admin announcements (e.g., level-cohort
   // exam invitations, mid-cohort communications). Body: { to, subject,
   // html, cc?, replyTo? }. `to` may be a single email or an array.
