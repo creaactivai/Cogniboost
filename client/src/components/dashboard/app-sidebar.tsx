@@ -41,8 +41,8 @@ const menuItems = [
     icon: BookOpen,
   },
   {
-    title: "Writing",
-    url: "/dashboard/writing/new",
+    title: "My Writings",
+    url: "/dashboard/my-writings",
     icon: PenLine,
   },
   {

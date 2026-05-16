@@ -12,6 +12,7 @@ import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import WritingAssignmentPage from "@/pages/writing-assignment";
+import MyWritingsPage from "@/pages/my-writings";
 import SubmissionViewPage from "@/pages/submission-view";
 import SpeakingAssignmentPage from "@/pages/speaking-assignment";
 import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
@@ -185,6 +186,7 @@ export default function Dashboard() {
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />
               {/* Phase 1 — AI-graded writing (Master Plan v2.0 §4) */}
+              <Route path="/dashboard/my-writings" component={MyWritingsPage} />
               <Route path="/dashboard/writing/new" component={WritingAssignmentPage} />
               <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
               <Route path="/dashboard/speaking/:moduleId" component={SpeakingAssignmentPage} />
