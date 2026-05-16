@@ -471,6 +471,138 @@ async function runLeadDay7(): Promise<SequenceResult> {
 }
 
 // ---------------------------------------------------------------------------
+// 10. LAB REMINDERS (24h + 30min before scheduled session)
+// ---------------------------------------------------------------------------
+// Two sister functions that find lab_sessions inside a target time window
+// and that haven't sent the relevant reminder yet, then email every
+// non-cancelled registrant + flip the flag so we never spam.
+
+async function runLabReminders24h(): Promise<SequenceResult> {
+  const result: SequenceResult = { sequence: "lab_reminder_24h", sent: 0, errors: [] };
+  try {
+    const { db: db2 } = await import("./db");
+    const { sql: sqlOp, and: andOp, eq: eqOp } = await import("drizzle-orm");
+    const { labSessionsV2, labRegistrations, users: usersT } = await import("@shared/schema");
+
+    // Sessions starting in ~24h (window 23h-25h to give the 15-min cron a hit
+    // chance regardless of when it runs) and not yet 24h-reminded.
+    const sessions = await db2.execute(sqlOp`
+      SELECT id, title, description, grammar_focus, scheduled_at, duration_minutes, meeting_url
+      FROM lab_sessions
+      WHERE reminder_24h_sent = false
+        AND status = 'scheduled'
+        AND scheduled_at BETWEEN NOW() + INTERVAL '23 hours' AND NOW() + INTERVAL '25 hours'
+      LIMIT 100
+    `);
+    const rows: any[] = (sessions as any).rows ?? sessions;
+
+    for (const s of rows) {
+      try {
+        // Find registrants
+        const regs = await db2
+          .select({ reg: labRegistrations, user: usersT })
+          .from(labRegistrations)
+          .innerJoin(usersT, eqOp(labRegistrations.studentId, usersT.id))
+          .where(andOp(eqOp(labRegistrations.labSessionId, s.id), eqOp(labRegistrations.cancelled, false)));
+
+        if (regs.length === 0) {
+          // Still mark sent so we don't re-check this row hourly
+          await db2.execute(sqlOp`UPDATE lab_sessions SET reminder_24h_sent = true WHERE id = ${s.id}`);
+          continue;
+        }
+
+        const scheduledAt = new Date(s.scheduled_at);
+        const dayLabel = scheduledAt.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+        const timeLabel = scheduledAt.toLocaleTimeString("es", { hour: "numeric", minute: "2-digit" });
+
+        for (const r of regs) {
+          if (!r.user.email) continue;
+          try {
+            await sendEmail(r.user.email, "lab_reminder_24h", {
+              firstName: r.user.firstName || "estudiante",
+              title: s.title,
+              description: s.description,
+              grammarFocus: s.grammar_focus,
+              durationMinutes: s.duration_minutes,
+              meetingUrl: s.meeting_url,
+              dashboardUrl: `${BASE_URL}/dashboard/labs`,
+              dayLabel,
+              timeLabel,
+            });
+            result.sent++;
+          } catch (e: any) {
+            result.errors.push(`${r.user.email} / lab ${s.id}: ${e.message}`);
+          }
+        }
+        await db2.execute(sqlOp`UPDATE lab_sessions SET reminder_24h_sent = true WHERE id = ${s.id}`);
+      } catch (e: any) {
+        result.errors.push(`Lab ${s.id} reminder failed: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errors.push(`Query error: ${e.message}`);
+  }
+  return result;
+}
+
+async function runLabReminders30min(): Promise<SequenceResult> {
+  const result: SequenceResult = { sequence: "lab_reminder_30min", sent: 0, errors: [] };
+  try {
+    const { db: db2 } = await import("./db");
+    const { sql: sqlOp, and: andOp, eq: eqOp } = await import("drizzle-orm");
+    const { labSessionsV2, labRegistrations, users: usersT } = await import("@shared/schema");
+
+    // Sessions starting in ~30 min (window 20-40 min) and not yet 30min-reminded.
+    const sessions = await db2.execute(sqlOp`
+      SELECT id, title, grammar_focus, scheduled_at, meeting_url
+      FROM lab_sessions
+      WHERE reminder_30min_sent = false
+        AND status = 'scheduled'
+        AND scheduled_at BETWEEN NOW() + INTERVAL '20 minutes' AND NOW() + INTERVAL '40 minutes'
+      LIMIT 100
+    `);
+    const rows: any[] = (sessions as any).rows ?? sessions;
+
+    for (const s of rows) {
+      try {
+        const regs = await db2
+          .select({ reg: labRegistrations, user: usersT })
+          .from(labRegistrations)
+          .innerJoin(usersT, eqOp(labRegistrations.studentId, usersT.id))
+          .where(andOp(eqOp(labRegistrations.labSessionId, s.id), eqOp(labRegistrations.cancelled, false)));
+
+        if (regs.length === 0) {
+          await db2.execute(sqlOp`UPDATE lab_sessions SET reminder_30min_sent = true WHERE id = ${s.id}`);
+          continue;
+        }
+
+        for (const r of regs) {
+          if (!r.user.email) continue;
+          try {
+            await sendEmail(r.user.email, "lab_reminder_30min", {
+              firstName: r.user.firstName || "estudiante",
+              title: s.title,
+              grammarFocus: s.grammar_focus,
+              meetingUrl: s.meeting_url,
+              dashboardUrl: `${BASE_URL}/dashboard/labs`,
+            });
+            result.sent++;
+          } catch (e: any) {
+            result.errors.push(`${r.user.email} / lab ${s.id}: ${e.message}`);
+          }
+        }
+        await db2.execute(sqlOp`UPDATE lab_sessions SET reminder_30min_sent = true WHERE id = ${s.id}`);
+      } catch (e: any) {
+        result.errors.push(`Lab ${s.id} 30min reminder failed: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errors.push(`Query error: ${e.message}`);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // MASTER RUNNER — called by cron or admin API
 // ---------------------------------------------------------------------------
 
@@ -494,6 +626,8 @@ export async function runAllEmailSequences(): Promise<{
     runLeadDay1(),
     runLeadDay3(),
     runLeadDay7(),
+    runLabReminders24h(),
+    runLabReminders30min(),
   ]);
 
   const totalSent = results.reduce((sum, r) => sum + r.sent, 0);

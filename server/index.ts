@@ -325,6 +325,14 @@ async function runStartupMigrations() {
     }
     console.log('Startup migrations: A1 writing projects seeded (8 drafts, unpublished)');
 
+    // Lab reminder flags (added 2026-05-16). Two booleans per session so
+    // the cron can fire the 24h-ahead reminder and the 30min-ahead reminder
+    // independently. Both default false; flipped to true after the email
+    // is sent so we never spam.
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS reminder_24h_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE lab_sessions ADD COLUMN IF NOT EXISTS reminder_30min_sent boolean NOT NULL DEFAULT false`);
+    console.log('Startup migrations: lab_sessions reminder flags verified');
+
     // Class Labs (Phase 1.6 — Coral, 2026-05-15). Re-modeled per Coral's
     // "interest-driven stealth grammar" design: students self-select by
     // INTEREST (Movies, Sports, Food, etc.) and each (interest × level)

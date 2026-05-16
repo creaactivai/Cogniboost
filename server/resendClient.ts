@@ -51,7 +51,7 @@ export async function getResendClient() {
 }
 
 // Email template types
-export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification' | 'stripe_guest_activation';
+export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification' | 'stripe_guest_activation' | 'lab_reminder_24h' | 'lab_reminder_30min';
 
 // Send email using template
 export async function sendEmail(
@@ -1400,6 +1400,87 @@ function getEmailTemplate(template: EmailTemplate, data: Record<string, string>)
           </div>
         </body>
         </html>
+      `
+    },
+
+    // ===== LAB REMINDER 24h BEFORE =====
+    lab_reminder_24h: {
+      subject: `Mañana tu Conversation Lab: ${data.title || 'Live class'} 🎙️`,
+      html: `
+        <!DOCTYPE html>
+        <html><head><style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; color: #1a1a1a; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; }
+          .logo { font-size: 28px; font-weight: 900; color: #33CBFB; text-align: center; letter-spacing: -1px; margin-bottom: 24px; }
+          .when-box { background: linear-gradient(135deg, #33CBFB 0%, #667EEA 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+          .when-box .day { font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+          .when-box .time { font-size: 32px; font-weight: bold; margin: 8px 0; }
+          .cta { display: inline-block; background: #33CBFB; color: white !important; padding: 14px 32px; text-decoration: none; font-weight: bold; border-radius: 6px; margin: 16px 0; }
+          .prep { background: #f9fafb; padding: 16px; border-radius: 6px; margin: 16px 0; font-size: 14px; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <h1>Tu Lab es mañana, ${data.firstName || 'estudiante'} 🎙️</h1>
+            <p>Te recuerdo que reservaste tu lugar en este Conversation Lab — empieza mañana.</p>
+
+            <div class="when-box">
+              <div class="day">${data.dayLabel || 'Mañana'}</div>
+              <div class="time">${data.timeLabel || 'TBD'}</div>
+              <div>${data.durationMinutes || 60} minutos</div>
+            </div>
+
+            <h3>${data.title || 'Conversation Lab'}</h3>
+            ${data.grammarFocus ? `<p><strong>Focus:</strong> ${data.grammarFocus}</p>` : ''}
+            ${data.description ? `<p>${data.description}</p>` : ''}
+
+            <div class="prep">
+              <strong>💡 Cómo prepararte:</strong><br>
+              · Revisa el vocabulario clave del módulo<br>
+              · Asegúrate que tu micrófono funcione<br>
+              · Busca un lugar tranquilo con buen wifi
+            </div>
+
+            <div style="text-align:center">
+              <a href="${data.meetingUrl || data.dashboardUrl || 'https://cogniboost.co/dashboard/labs'}" class="cta">📌 Ver detalles del Lab</a>
+            </div>
+
+            <p style="margin-top:24px; font-size:13px; color:#6b7280">
+              Si ya no puedes asistir, cancela tu reserva desde "Mis Labs" para liberar el lugar.
+            </p>
+
+            <p style="margin-top:24px"><strong>Coral Lozano</strong><br>
+              <span style="color:#6b7280; font-size:14px">Directora Académica · CogniBoost</span></p>
+          </div>
+        </body></html>
+      `
+    },
+
+    // ===== LAB REMINDER 30min BEFORE =====
+    lab_reminder_30min: {
+      subject: `🔴 Tu Conversation Lab empieza en 30 minutos`,
+      html: `
+        <!DOCTYPE html>
+        <html><head><style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; color: #1a1a1a; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; }
+          .logo { font-size: 28px; font-weight: 900; color: #33CBFB; text-align: center; letter-spacing: -1px; margin-bottom: 16px; }
+          .alert { background: #ef4444; color: white; padding: 16px; border-radius: 8px; text-align: center; margin: 16px 0; font-weight: bold; font-size: 18px; }
+          .cta-big { display: block; background: #ef4444; color: white !important; padding: 20px 32px; text-decoration: none; font-weight: bold; border-radius: 8px; margin: 20px auto; font-size: 18px; text-align: center; }
+        </style></head><body>
+          <div class="container">
+            <div class="logo">COGNIBOOST</div>
+            <div class="alert">🔴 EN 30 MINUTOS</div>
+            <h2>${data.title || 'Tu Conversation Lab'}</h2>
+            ${data.grammarFocus ? `<p>Focus: <strong>${data.grammarFocus}</strong></p>` : ''}
+            <p>Te esperamos en breve, ${data.firstName || 'estudiante'}. Si todavía no entraste, click el botón para unirte:</p>
+            <a href="${data.meetingUrl || data.dashboardUrl || 'https://cogniboost.co/dashboard/labs'}" class="cta-big">🎙️ Entrar al Lab ahora</a>
+            <p style="font-size:13px; color:#6b7280; text-align:center">
+              Te recomendamos entrar 5 minutos antes para revisar audio/video.
+            </p>
+            <p style="margin-top:24px"><strong>Coral Lozano</strong><br>
+              <span style="color:#6b7280; font-size:14px">Directora Académica · CogniBoost</span></p>
+          </div>
+        </body></html>
       `
     },
 
