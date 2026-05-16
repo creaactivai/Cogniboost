@@ -473,20 +473,11 @@ export const readingPassages = pgTable("reading_passages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Certificates — CEFR-aligned completion credentials with public verification.
-// Per Master Plan v2.0 §10. Conservative wording (Coral Q3): "aligned with CEFR".
-export const certificates = pgTable("certificates", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").notNull(),
-  level: courseLevelEnum("level").notNull(),
-  issuedAt: timestamp("issued_at").defaultNow(),
-  finalExamScore: decimal("final_exam_score", { precision: 5, scale: 2 }),
-  projectScore: decimal("project_score", { precision: 5, scale: 2 }),
-  attendancePercentage: decimal("attendance_percentage", { precision: 5, scale: 2 }),
-  verificationCode: text("verification_code").notNull().unique(),
-  qrCodeUrl: text("qr_code_url"),
-  pdfUrl: text("pdf_url"),
-});
+// Note: the older Master Plan v2.0 §10 `certificates` table placeholder
+// has been superseded by the Phase 1.7 implementation further below
+// (finalExamAttempts + certificates with examAttemptId + studentName +
+// signatureName + revoked semantics). The actual table definition is in
+// the Phase 1.7 section.
 
 // Relations
 export const coursesRelations = relations(courses, ({ one, many }) => ({
