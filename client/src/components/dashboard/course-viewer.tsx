@@ -725,6 +725,14 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
               );
             })
           )}
+
+          {/* Final Exam summary card — appears at the bottom of the
+              module list so the student sees it as the natural last step
+              of the course. Reads /api/final-exams/{level}/eligibility to
+              know whether they can take it yet. */}
+          {course?.level && (
+            <FinalExamSidebarCard level={course.level} courseId={course.id} />
+          )}
         </div>
 
         <div className="lg:col-span-2">
@@ -1250,5 +1258,99 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Final Exam sidebar card. Slotted at the end of the module list so the
+ * student understands the exam is the natural last step of the course.
+ *
+ *   - Locked (course not yet 100%): shows a progress bar with
+ *     "X/Y modules complete" and a muted CTA.
+ *   - Eligible: lights up amber with "Start Mastery Exam".
+ *   - Certified: green badge with "View certificate" link.
+ *
+ * Eligibility is pulled live from /api/final-exams/{level}/eligibility,
+ * which is the same source of truth as the standalone exams landing page.
+ */
+function FinalExamSidebarCard({ level, courseId }: { level: string; courseId: string }) {
+  const [, setLocation] = useLocation();
+  const { data: eligibility } = useQuery<{
+    eligible: boolean;
+    reason: string | null;
+    completionPct?: number;
+    totalLessons?: number;
+    completedInCourse?: number;
+    alreadyPassed?: boolean;
+    exam?: { id: string; title: string; isPublished: boolean };
+  }>({
+    queryKey: [`/api/final-exams/${level}/eligibility`],
+  });
+
+  // Idle while loading — keep the slot quiet rather than flashing a spinner
+  if (!eligibility) return null;
+
+  const examPublished = eligibility.exam?.isPublished;
+  const passed = !!eligibility.alreadyPassed;
+  const canStart = !!eligibility.eligible && !passed;
+  const pct = eligibility.completionPct ?? 0;
+
+  // If the exam isn't even published yet (shouldn't happen for A1..C1 in
+  // prod, but defensive), hide entirely.
+  if (!examPublished) return null;
+
+  return (
+    <Card
+      className={`mt-4 p-3 rounded-xl border-2 transition-all ${
+        passed
+          ? "border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/10"
+          : canStart
+          ? "border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 cursor-pointer hover-elevate shadow-sm"
+          : "border-border bg-muted/30"
+      }`}
+      onClick={canStart ? () => setLocation(`/dashboard/exam/${level}`) : undefined}
+      data-testid="card-final-exam"
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            passed ? "bg-emerald-500" : canStart ? "bg-amber-500" : "bg-muted-foreground/20"
+          }`}
+        >
+          <Trophy className={`w-5 h-5 ${passed || canStart ? "text-white" : "text-muted-foreground"}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            {passed ? "Certified" : "Final Exam"}
+          </p>
+          <p className="text-sm font-semibold leading-tight truncate">
+            {level} Mastery Exam
+          </p>
+          {passed ? (
+            <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
+              You passed · View certificate →
+            </p>
+          ) : canStart ? (
+            <p className="text-[11px] text-amber-800 font-medium mt-0.5">
+              Ready to take → 70+ to earn certificate
+            </p>
+          ) : (
+            <div className="mt-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                  {pct}%
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {eligibility.completedInCourse ?? 0}/{eligibility.totalLessons ?? 0} lessons · finish all to unlock
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
