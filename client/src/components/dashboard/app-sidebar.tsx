@@ -27,7 +27,24 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation, type Locale } from "@/lib/i18n";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { UserStats } from "@shared/schema";
+
+const LEVEL_LABEL: Record<string, string> = {
+  A1: "Beginner",
+  A2: "Elementary",
+  B1: "Intermediate",
+  B2: "Upper Int.",
+  C1: "Advanced",
+};
+
+// Shared className for active sidebar entry — Option B styling:
+// drop the full cyan bg in favour of a thin cyan accent bar on the
+// left + a subtle cyan-tinted bg, so the active item reads as
+// "highlighted" without dominating the whole row.
+const ACTIVE_NAV_CLASSES =
+  "relative data-[active=true]:bg-sidebar-accent/15 data-[active=true]:text-sidebar-foreground data-[active=true]:font-semibold data-[active=true]:before:content-[''] data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-1 data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-accent";
 
 const menuItems = [
   {
@@ -88,6 +105,17 @@ export function AppSidebar() {
   const { locale, setLocale } = useTranslation();
   const currentPath = window.location.pathname;
 
+  // Pull the student's CEFR level + XP for the always-visible level chip.
+  // /api/user-stats is already fetched by DashboardOverview so this is a
+  // free cache hit on the home page; on other pages it's one extra query
+  // but very small.
+  const { data: userStats } = useQuery<UserStats>({
+    queryKey: ["/api/user-stats"],
+    enabled: !!user,
+  });
+  const currentLevel = userStats?.currentLevel || user?.placementLevel || "A1";
+  const xpPoints = userStats?.xpPoints ?? 0;
+
   const getInitials = () => {
     if (!user) return "U";
     const first = user.firstName?.[0] || "";
@@ -97,7 +125,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 space-y-3">
         <Link href="/">
           <div className="flex items-center gap-2 cursor-pointer" data-testid="link-sidebar-logo">
             <div className="w-8 h-8 bg-primary flex items-center justify-center">
@@ -108,6 +136,24 @@ export function AppSidebar() {
             </span>
           </div>
         </Link>
+
+        {/* Level chip — keeps the student aware of where they are in
+            their CEFR journey at all times. Cyan dot + indigo soft bg
+            mirrors the dashboard hero treatment. */}
+        {user && (
+          <div
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10"
+            data-testid="sidebar-level-chip"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-sidebar-accent flex-shrink-0" />
+            <span className="text-[11px] font-bold tracking-wide text-sidebar-accent">
+              {currentLevel} · {(LEVEL_LABEL[currentLevel] || "Beginner").toUpperCase()}
+            </span>
+            <span className="ml-auto text-[10px] text-sidebar-foreground/50">
+              {xpPoints} XP
+            </span>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
@@ -119,9 +165,10 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
+                    className={ACTIVE_NAV_CLASSES}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                       <item.icon className="w-4 h-4" />
@@ -146,6 +193,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
+                      className={ACTIVE_NAV_CLASSES}
                     >
                       <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                         <item.icon className="w-4 h-4" />
@@ -167,9 +215,10 @@ export function AppSidebar() {
             <SidebarMenu>
               {secondaryItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
                     isActive={currentPath === item.url || currentPath.startsWith(item.url + "/")}
+                    className={ACTIVE_NAV_CLASSES}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                       <item.icon className="w-4 h-4" />
@@ -187,7 +236,10 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="w-10 h-10">
             <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback className="bg-primary text-primary-foreground font-mono text-sm">
+            <AvatarFallback
+              className="text-white font-bold text-sm border-0"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #33CBFB 100%)" }}
+            >
               {getInitials()}
             </AvatarFallback>
           </Avatar>
