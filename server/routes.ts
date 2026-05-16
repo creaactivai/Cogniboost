@@ -5736,6 +5736,52 @@ Important:
     const role = (req.user as any)?.role;
     return role === 'admin' || role === 'teacher' || (req.user as any)?.isAdmin === true;
   };
+  // POST a new Speaking Project. Idempotent on (moduleId, level): if a
+  // project already exists for that module, returns it instead of
+  // creating a duplicate.
+  app.post('/api/admin/speaking-projects', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { db } = await import("./db");
+      const { speakingProjects } = await import('@shared/schema');
+      const { eq, and } = await import("drizzle-orm");
+
+      const existing = await db.select().from(speakingProjects).where(
+        and(eq(speakingProjects.moduleId, req.body.moduleId), eq(speakingProjects.level, req.body.level))
+      ).limit(1);
+      if (existing[0]) return res.json(existing[0]);
+
+      const [created] = await db.insert(speakingProjects).values(req.body).returning();
+      res.json(created);
+    } catch (err: any) {
+      console.error('[admin/speaking-projects POST] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
+  // POST a new Writing Project — idempotent on (moduleId, level).
+  app.post('/api/admin/writing-projects', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { db } = await import("./db");
+      const { writingProjects } = await import('@shared/schema');
+      const { eq, and } = await import("drizzle-orm");
+
+      const existing = await db.select().from(writingProjects).where(
+        and(eq(writingProjects.moduleId, req.body.moduleId), eq(writingProjects.level, req.body.level))
+      ).limit(1);
+      if (existing[0]) return res.json(existing[0]);
+
+      const [created] = await db.insert(writingProjects).values(req.body).returning();
+      res.json(created);
+    } catch (err: any) {
+      console.error('[admin/writing-projects POST] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
   app.patch('/api/admin/speaking-projects/:id', requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
