@@ -211,8 +211,8 @@ export default function WritingAssignmentPage() {
       </div>
 
       <p className="text-xs text-muted-foreground mt-4">
-        Grading uses Claude 4.6 against the CEFR rubric for your level. After submission you'll see
-        an AI-graded score within ~2 minutes; a teacher then reviews and finalizes the grade.
+        Your writing is graded against the CogniBoost CEFR rubric for your level. After submission
+        you'll see your score within ~2 minutes; a teacher then reviews and finalizes the grade.
       </p>
     </div>
   );

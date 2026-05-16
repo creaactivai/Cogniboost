@@ -113,7 +113,7 @@ export default function SubmissionViewPage() {
             <div>
               <div className="font-semibold text-amber-900">Grading in progress…</div>
               <p className="text-sm text-amber-800">
-                Claude is reading your writing against the CEFR rubric. This usually takes
+                We're grading your writing against the CogniBoost CEFR rubric. This usually takes
                 about 1–2 minutes. You'll see your grade here as soon as it's ready — no need to
                 refresh.
               </p>

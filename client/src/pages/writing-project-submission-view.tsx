@@ -89,7 +89,7 @@ export default function WritingProjectSubmissionViewPage() {
           <div className="text-5xl animate-pulse">📝</div>
           <h2 className="text-xl font-bold">Grading your writing…</h2>
           <p className="text-muted-foreground">
-            Claude is reading your text and scoring it with the CogniBoost Writing Rubric.
+            We're grading your writing with the CogniBoost Writing Rubric.
             This usually takes about 30-60 seconds.
           </p>
           <Button variant="outline" size="sm" onClick={() => refetch()}>

@@ -101,7 +101,7 @@ export default function SpeakingSubmissionViewPage() {
           <div className="text-5xl animate-pulse">🎧</div>
           <h2 className="text-xl font-bold">Grading your recording…</h2>
           <p className="text-muted-foreground">
-            We're transcribing your audio and scoring it with the CogniBoost Speaking Rubric.
+            We're grading your recording with the CogniBoost Speaking Rubric.
             This usually takes about a minute.
           </p>
           <div className="text-sm text-muted-foreground">
