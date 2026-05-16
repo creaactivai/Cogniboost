@@ -407,10 +407,14 @@ export async function gradeWriting(input: GradeWritingInput): Promise<{
   // (5 dimensions × ~150 words feedback + 5-10 annotations + strengths +
   // improvements + L1 patterns + vocabulary lists). Previous 4096 was too
   // tight and truncated the response mid-JSON, causing a parse failure.
+  // Adaptive thinking removed 2026-05-15 — see speakingPrompt.ts for full
+  // rationale. tldr: on short inputs Claude can spend its budget thinking
+  // and return only a `thinking` block (no `text` block), making
+  // extractTextContent throw. Grading is structured-output; no need for
+  // extended thinking.
   const stream = client.messages.stream({
     model: ANTHROPIC_MODELS.grading,
     max_tokens: 8192,
-    thinking: { type: 'adaptive' },
     system: [
       {
         type: 'text',

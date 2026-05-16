@@ -409,10 +409,15 @@ export async function gradeSpeaking(input: GradeSpeakingInput): Promise<{
   const client = getAnthropicClient();
   const userPrompt = buildUserPrompt(input);
 
+  // Note: adaptive thinking was removed 2026-05-15 because on very short
+  // transcripts Claude would consume the budget thinking and produce ONLY
+  // a `thinking` content block — no `text` block — and extractTextContent
+  // would throw "No text block in Anthropic response". Grading is a
+  // structured-output task that does not benefit from extended thinking,
+  // so we just disable it.
   const stream = client.messages.stream({
     model: ANTHROPIC_MODELS.grading,
     max_tokens: 8192,
-    thinking: { type: 'adaptive' },
     system: [
       {
         type: 'text',
