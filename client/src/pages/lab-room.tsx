@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, AlertCircle, MessageSquare, BookOpen, Quote, Info, Calendar, Clock } from "lucide-react";
 import LiveVideoPanel from "@/components/lab/live-video-panel";
+import { InterestIcon } from "@/components/lab/interest-icon";
 
 interface LabSession {
   id: string;
@@ -144,7 +145,7 @@ export default function LabRoomPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Labs
           </Button>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-2xl">{interest?.icon ?? "📚"}</span>
+            <InterestIcon name={interest?.name} size="sm" />
             <h1 className="text-lg font-bold">{session.title}</h1>
             <Badge variant="outline" className="text-[10px]">{session.level}</Badge>
             {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}

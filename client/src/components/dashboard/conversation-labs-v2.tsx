@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, Users, Sparkles, X, Crown, Lock, BarChart3, Bookmark, CheckCircle2, Radio } from "lucide-react";
+import { InterestIcon } from "@/components/lab/interest-icon";
 import { canAccessLabs, getTierLimits, getStartOfCurrentWeek, getStartOfCurrentMonth, type SubscriptionTier } from "@/lib/tier-access";
 import { Link } from "wouter";
 
@@ -200,7 +201,10 @@ export function ConversationLabsV2() {
               </Chip>
               {interests.map((i) => (
                 <Chip key={i.id} selected={interestFilter === i.id} onClick={() => setInterestFilter(i.id)}>
-                  {i.icon} {i.name}
+                  <span className="inline-flex items-center gap-1.5">
+                    <InterestIcon name={i.name} size="sm" className="!w-5 !h-5 !rounded-md !shadow-none" />
+                    {i.name}
+                  </span>
                 </Chip>
               ))}
             </div>
@@ -277,7 +281,7 @@ export function ConversationLabsV2() {
               return (
                 <Card key={s.id} className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="text-3xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
+                    <InterestIcon name={interest?.name} size="md" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm mb-1">{s.title}</h3>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-2">
@@ -328,7 +332,7 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
   return (
     <Card className={`p-4 hover-elevate ${borderColor} ${bgTint} ${live ? "border-2" : ""}`}>
       <div className="flex items-start gap-3">
-        <div className="text-3xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
+        <InterestIcon name={interest?.name} size="md" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             {live && (

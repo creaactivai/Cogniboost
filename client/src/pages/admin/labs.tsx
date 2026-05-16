@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, X as XIcon, Calendar, Clock, Users, Save, Sparkles } from "lucide-react";
+import { InterestIcon } from "@/components/lab/interest-icon";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
@@ -209,7 +210,7 @@ function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSe
   return (
     <Card className={`p-3 ${cancelled ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="text-2xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
+        <InterestIcon name={interest?.name} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-sm">{s.title}</h3>
