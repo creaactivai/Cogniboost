@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { X, Pencil } from "lucide-react";
+import { X, Pencil, Save, Mic, PenLine } from "lucide-react";
 
 type ProjectType = "speaking" | "writing";
 
@@ -117,7 +117,7 @@ export function ProjectEditorDialog({ type, project }: ProjectEditorDialogProps)
   });
 
   const colorScheme = type === "speaking" ? "#9333EA" : "#0EA5E9";
-  const icon = type === "speaking" ? "🎙️" : "✍️";
+  const IconComp = type === "speaking" ? Mic : PenLine;
   const label = type === "speaking" ? "Speaking Project" : "Writing Project";
 
   function addItem(value: string, setter: (s: string) => void, list: string[], setList: (l: string[]) => void) {
@@ -142,7 +142,7 @@ export function ProjectEditorDialog({ type, project }: ProjectEditorDialogProps)
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-xl">{icon}</span>
+            <IconComp className="w-5 h-5" style={{ color: colorScheme }} />
             <span>Editar {label}</span>
             <Badge variant="outline">{project.level}</Badge>
           </DialogTitle>
@@ -270,7 +270,11 @@ export function ProjectEditorDialog({ type, project }: ProjectEditorDialogProps)
               Cancelar
             </Button>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? "Guardando…" : "💾 Guardar"}
+              {saveMutation.isPending ? (
+                "Guardando…"
+              ) : (
+                <span className="inline-flex items-center gap-2"><Save className="w-4 h-4" /> Guardar</span>
+              )}
             </Button>
           </div>
         </div>

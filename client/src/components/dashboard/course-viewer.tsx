@@ -28,6 +28,8 @@ import {
   Loader2,
   Youtube,
   Layers,
+  Mic,
+  PenLine,
 } from "lucide-react";
 import type { Course, Lesson, Quiz, QuizQuestion } from "@shared/schema";
 
@@ -554,7 +556,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                             className="w-7 h-7 flex items-center justify-center text-white"
                             style={{ backgroundColor: '#9333EA' }}
                           >
-                            🎙️
+                            <Mic className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-mono text-sm truncate">Speaking Project</p>
@@ -579,7 +581,7 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                             className="w-7 h-7 flex items-center justify-center text-white"
                             style={{ backgroundColor: '#0EA5E9' }}
                           >
-                            ✍️
+                            <PenLine className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-mono text-sm truncate">Writing Project</p>

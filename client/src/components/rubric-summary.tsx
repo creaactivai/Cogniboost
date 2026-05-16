@@ -15,7 +15,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList, Lightbulb } from "lucide-react";
 
 type RubricType = "speaking" | "writing";
 type Level = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
@@ -86,7 +86,6 @@ interface RubricSummaryProps {
 export function RubricSummary({ type, level }: RubricSummaryProps) {
   const [expanded, setExpanded] = useState(false);
   const dimensions = type === "speaking" ? SPEAKING_DIMENSIONS : WRITING_DIMENSIONS;
-  const icon = type === "speaking" ? "🎙️" : "✍️";
   const label = type === "speaking" ? "Speaking" : "Writing";
 
   return (
@@ -94,7 +93,7 @@ export function RubricSummary({ type, level }: RubricSummaryProps) {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📊</span>
+          <ClipboardList className="w-5 h-5 text-primary" />
           <h3 className="font-semibold text-sm">
             How you'll be graded — {label} Rubric ({level})
           </h3>
@@ -148,10 +147,13 @@ export function RubricSummary({ type, level }: RubricSummaryProps) {
             </div>
           </div>
 
-          <div className="pt-2 text-xs text-muted-foreground">
-            💡 <strong>Tip:</strong> A score of 70 or above (Proficient on average) is a pass.
-            Below 70, you'll get feedback to improve and can submit a revised version.
-            Your teacher reviews every AI grade and can adjust it.
+          <div className="pt-2 text-xs text-muted-foreground flex gap-2">
+            <Lightbulb className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              <strong>Tip:</strong> A score of 70 or above (Proficient on average) is a pass.
+              Below 70, you'll get feedback to improve and can submit a revised version.
+              Your teacher reviews every AI grade and can adjust it.
+            </span>
           </div>
         </>
       )}

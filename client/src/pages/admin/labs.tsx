@@ -34,7 +34,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X as XIcon, Calendar, Clock, Users } from "lucide-react";
+import { Plus, Pencil, X as XIcon, Calendar, Clock, Users, Save, Sparkles } from "lucide-react";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
@@ -396,7 +396,13 @@ function LabSessionEditor({ interests, session, onClose }: LabSessionEditorProps
           <div className="flex gap-2 justify-end pt-3 border-t">
             <Button variant="ghost" onClick={onClose} disabled={saveMutation.isPending}>Cancelar</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !title.trim()}>
-              {saveMutation.isPending ? "Guardando…" : isEdit ? "💾 Actualizar" : "✨ Crear Lab"}
+              {saveMutation.isPending ? (
+                "Guardando…"
+              ) : isEdit ? (
+                <span className="inline-flex items-center gap-2"><Save className="w-4 h-4" /> Actualizar</span>
+              ) : (
+                <span className="inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> Crear Lab</span>
+              )}
             </Button>
           </div>
         </div>

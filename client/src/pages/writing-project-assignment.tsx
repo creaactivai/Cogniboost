@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { RubricSummary } from "@/components/rubric-summary";
+import { PenLine, BookOpen, Quote, AlertTriangle, CheckCircle2, Lightbulb } from "lucide-react";
 
 interface WritingProject {
   id: string;
@@ -163,7 +164,7 @@ export default function WritingProjectAssignmentPage() {
 
       <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
         <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <span>✍️</span> Writing Prompt
+          <PenLine className="w-5 h-5 text-primary" /> Writing Prompt
         </h3>
         <p className="text-base leading-relaxed">{project.prompt}</p>
       </Card>
@@ -173,7 +174,7 @@ export default function WritingProjectAssignmentPage() {
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">📚 USE THESE WORDS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><BookOpen className="w-4 h-4" /> USE THESE WORDS</h4>
           <div className="flex flex-wrap gap-1">
             {project.targetVocabulary.map((v) => (
               <span key={v} className="text-xs bg-secondary px-2 py-1 rounded">{v}</span>
@@ -181,13 +182,13 @@ export default function WritingProjectAssignmentPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">📝 GRAMMAR FOCUS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><PenLine className="w-4 h-4" /> GRAMMAR FOCUS</h4>
           <ul className="text-xs space-y-1">
             {project.targetGrammar.map((g) => <li key={g}>• {g}</li>)}
           </ul>
         </Card>
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">🗣️ EXPRESSIONS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><Quote className="w-4 h-4" /> EXPRESSIONS</h4>
           <ul className="text-xs space-y-1">
             {project.targetExpressions.map((e) => <li key={e}>• {e}</li>)}
           </ul>
@@ -213,12 +214,12 @@ export default function WritingProjectAssignmentPage() {
         />
         {tooShort && (
           <p className="text-sm text-amber-600">
-            ⚠️ Your text is shorter than the suggested minimum ({minWords} words). You can still submit, but Task Achievement will likely score low.
+            <span className="inline-flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /> Your text is shorter than the suggested minimum ({minWords} words). You can still submit, but Task Achievement will likely score low.</span>
           </p>
         )}
         {tooLong && (
           <p className="text-sm text-amber-600">
-            ⚠️ Your text is much longer than expected for {project.level} (up to {maxWords} words). Length above the target is OK, but excessive length can hurt focus.
+            <span className="inline-flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /> Your text is much longer than expected for {project.level} (up to {maxWords} words). Length above the target is OK, but excessive length can hurt focus.</span>
           </p>
         )}
         {lastSavedAt && (
@@ -244,13 +245,17 @@ export default function WritingProjectAssignmentPage() {
             disabled={!canSubmit}
             data-testid="button-submit-writing-project"
           >
-            {submitMutation.isPending ? "Submitting…" : "✅ Submit Writing"}
+            {submitMutation.isPending ? (
+              "Submitting…"
+            ) : (
+              <span className="inline-flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Submit Writing</span>
+            )}
           </Button>
         </div>
       </Card>
 
       <Card className="p-4 bg-muted/50">
-        <h4 className="font-semibold text-sm mb-2">💡 Tips for a great writing</h4>
+        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4 text-primary" /> Tips for a great writing</h4>
         <ul className="text-sm text-muted-foreground space-y-1">
           <li>• Address every part of the prompt</li>
           <li>• Try to use the target vocabulary, grammar, and expressions</li>

@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Users, Sparkles, X, Crown } from "lucide-react";
+import { Calendar, Clock, Users, Sparkles, X, Crown, Lock, BarChart3, Bookmark, CheckCircle2, Radio } from "lucide-react";
 import { canAccessLabs, getTierLimits, getStartOfCurrentWeek, getStartOfCurrentMonth, type SubscriptionTier } from "@/lib/tier-access";
 import { Link } from "wouter";
 
@@ -146,7 +146,7 @@ export function ConversationLabsV2() {
           </h1>
         </div>
         <Card className="p-8 text-center space-y-4">
-          <div className="text-5xl">🔒</div>
+          <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
           <h2 className="text-xl font-bold">Los Conversation Labs requieren un plan pago</h2>
           <p className="text-muted-foreground text-sm">
             Practica inglés en vivo con docentes y otros estudiantes de tu nivel.
@@ -177,7 +177,7 @@ export function ConversationLabsV2() {
           {tier === "premium" && <Crown className="w-4 h-4 text-amber-500" />}
           <div>
             <div className="text-xs font-mono uppercase text-muted-foreground">Tu plan: {tierLabel}</div>
-            <div className="text-sm font-semibold">📊 {quotaText}</div>
+            <div className="text-sm font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4" /> {quotaText}</div>
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@ export function ConversationLabsV2() {
             <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Pick an interest</p>
             <div className="flex flex-wrap gap-2">
               <Chip selected={interestFilter === "all"} onClick={() => setInterestFilter("all")}>
-                ✨ All
+                <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> All</span>
               </Chip>
               {interests.map((i) => (
                 <Chip key={i.id} selected={interestFilter === i.id} onClick={() => setInterestFilter(i.id)}>
@@ -237,7 +237,7 @@ export function ConversationLabsV2() {
               {/* STARTING SOON section */}
               {filtered.filter((s) => s.liveStatus === "starting_soon").length > 0 && (
                 <div className="space-y-2 pt-3">
-                  <span className="text-xs font-mono uppercase tracking-widest text-amber-600 font-bold">⏰ EMPIEZA EN BREVE</span>
+                  <span className="text-xs font-mono uppercase tracking-widest text-amber-600 font-bold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> EMPIEZA EN BREVE</span>
                   {filtered.filter((s) => s.liveStatus === "starting_soon").map((s) => (
                     <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
                       isBooked={myBookedIds.has(s.id)}
@@ -252,7 +252,7 @@ export function ConversationLabsV2() {
               {/* UPCOMING section */}
               {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).length > 0 && (
                 <div className="space-y-2 pt-3">
-                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">📅 PRÓXIMAS</span>
+                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> PRÓXIMAS</span>
                   {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).map((s) => (
                     <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
                       isBooked={myBookedIds.has(s.id)}
@@ -331,8 +331,16 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
         <div className="text-3xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            {live && <Badge className="bg-red-600 text-white text-[10px] animate-pulse">🔴 EN VIVO</Badge>}
-            {startingSoon && <Badge className="bg-amber-500 text-white text-[10px]">⏰ EMPIEZA YA</Badge>}
+            {live && (
+              <Badge className="bg-red-600 text-white text-[10px] animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> EN VIVO
+              </Badge>
+            )}
+            {startingSoon && (
+              <Badge className="bg-amber-500 text-white text-[10px] flex items-center gap-1">
+                <Clock className="w-3 h-3" /> EMPIEZA YA
+              </Badge>
+            )}
             <h3 className="font-bold text-sm">{s.title}</h3>
             <Badge variant="outline" className="text-[10px]">{s.level}</Badge>
             {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}
@@ -353,18 +361,22 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
             )}
             {live && !isBooked && !isFull && (
               <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
-                <Link href={`/dashboard/labs/${s.id}/room`}>🔴 Unirse a la clase</Link>
+                <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Unirse a la clase</Link>
               </Button>
             )}
             {!live && (
               <>
                 {isBooked ? (
-                  <Badge variant="default" className="bg-green-600">✅ Reservado</Badge>
+                  <Badge variant="default" className="bg-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Reservado</Badge>
                 ) : isFull ? (
                   <Badge variant="secondary">Lleno</Badge>
                 ) : (
                   <Button size="sm" onClick={onBook} disabled={bookPending} data-testid={`button-book-${s.id}`}>
-                    {bookPending ? "Reservando…" : `📌 Reservar mi lugar (${spotsLeft} disponibles)`}
+                    {bookPending ? (
+                      "Reservando…"
+                    ) : (
+                      <span className="flex items-center justify-center gap-2"><Bookmark className="w-4 h-4" /> Reservar mi lugar ({spotsLeft} disponibles)</span>
+                    )}
                   </Button>
                 )}
               </>

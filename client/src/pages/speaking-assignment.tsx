@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { RubricSummary } from "@/components/rubric-summary";
+import { MessageSquare, BookOpen, PenLine, Quote, Mic, Video, Headphones, AlertTriangle, RotateCw, CheckCircle2, Lightbulb } from "lucide-react";
 
 interface SpeakingProject {
   id: string;
@@ -263,7 +264,7 @@ export default function SpeakingAssignmentPage() {
       {/* The prompt */}
       <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
         <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <span>📝</span> Speaking Prompt
+          <MessageSquare className="w-5 h-5 text-primary" /> Speaking Prompt
         </h3>
         <p className="text-base leading-relaxed">{project.prompt}</p>
       </Card>
@@ -274,7 +275,7 @@ export default function SpeakingAssignmentPage() {
       {/* Targets */}
       <div className="grid md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">📚 USE THESE WORDS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><BookOpen className="w-4 h-4" /> USE THESE WORDS</h4>
           <div className="flex flex-wrap gap-1">
             {project.targetVocabulary.map((v) => (
               <span key={v} className="text-xs bg-secondary px-2 py-1 rounded">{v}</span>
@@ -282,13 +283,13 @@ export default function SpeakingAssignmentPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">📝 GRAMMAR FOCUS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><PenLine className="w-4 h-4" /> GRAMMAR FOCUS</h4>
           <ul className="text-xs space-y-1">
             {project.targetGrammar.map((g) => <li key={g}>• {g}</li>)}
           </ul>
         </Card>
         <Card className="p-4">
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">🗣️ EXPRESSIONS</h4>
+          <h4 className="font-semibold text-sm mb-2 text-muted-foreground flex items-center gap-2"><Quote className="w-4 h-4" /> EXPRESSIONS</h4>
           <ul className="text-xs space-y-1">
             {project.targetExpressions.map((e) => <li key={e}>• {e}</li>)}
           </ul>
@@ -308,7 +309,7 @@ export default function SpeakingAssignmentPage() {
               }`}
               data-testid="toggle-audio-only"
             >
-              <div className="text-2xl mb-1">🎙️</div>
+              <Mic className="w-6 h-6 mx-auto mb-1" />
               <div className="text-sm font-medium">Audio only</div>
               <div className="text-xs text-muted-foreground">Just your voice</div>
             </button>
@@ -320,7 +321,7 @@ export default function SpeakingAssignmentPage() {
               }`}
               data-testid="toggle-with-video"
             >
-              <div className="text-2xl mb-1">📹</div>
+              <Video className="w-6 h-6 mx-auto mb-1" />
               <div className="text-sm font-medium">Video</div>
               <div className="text-xs text-muted-foreground">Show your face</div>
             </button>
@@ -360,7 +361,7 @@ export default function SpeakingAssignmentPage() {
                   })}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  🔴 Recording… {remaining > 0 ? `${remaining}s suggested remaining` : "you can stop anytime"}
+                  <span className="inline-flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" /> Recording… {remaining > 0 ? `${remaining}s suggested remaining` : "you can stop anytime"}</span>
                 </p>
               </>
             )}
@@ -370,7 +371,7 @@ export default function SpeakingAssignmentPage() {
         {/* Preview after stop */}
         {recordedBlob && recordedUrl && recState === "stopped" && (
           <div className="space-y-3">
-            <h4 className="font-semibold">🎧 Listen back to your recording:</h4>
+            <h4 className="font-semibold flex items-center gap-2"><Headphones className="w-4 h-4" /> Listen back to your recording:</h4>
             {withVideo ? (
               <video
                 ref={previewVideoRef}
@@ -389,7 +390,7 @@ export default function SpeakingAssignmentPage() {
             )}
             {tooShort && (
               <p className="text-sm text-amber-600">
-                ⚠️ Your recording is shorter than suggested ({minDur}s minimum for {project.level}). You can still submit, but you'll likely get a low Task Achievement score.
+                <span className="inline-flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /> Your recording is shorter than suggested ({minDur}s minimum for {project.level}). You can still submit, but you'll likely get a low Task Achievement score.</span>
               </p>
             )}
           </div>
@@ -411,7 +412,7 @@ export default function SpeakingAssignmentPage() {
               data-testid="button-start-recording"
               className="bg-red-600 hover:bg-red-700"
             >
-              🔴 Start Recording
+              <span className="inline-flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-600" /> Start Recording</span>
             </Button>
           )}
           {recState === "recording" && (
@@ -432,7 +433,7 @@ export default function SpeakingAssignmentPage() {
                 disabled={submitMutation.isPending}
                 data-testid="button-retake"
               >
-                🔄 Retake
+                <RotateCw className="w-4 h-4 mr-2" /> Retake
               </Button>
               <Button
                 size="lg"
@@ -440,7 +441,11 @@ export default function SpeakingAssignmentPage() {
                 disabled={submitMutation.isPending}
                 data-testid="button-submit-recording"
               >
-                {submitMutation.isPending ? "Uploading…" : "✅ Submit Recording"}
+                {submitMutation.isPending ? (
+                  "Uploading…"
+                ) : (
+                  <span className="inline-flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Submit Recording</span>
+                )}
               </Button>
             </>
           )}
@@ -449,7 +454,7 @@ export default function SpeakingAssignmentPage() {
 
       {/* Help text */}
       <Card className="p-4 bg-muted/50">
-        <h4 className="font-semibold text-sm mb-2">💡 Tips for a great recording</h4>
+        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4 text-primary" /> Tips for a great recording</h4>
         <ul className="text-sm text-muted-foreground space-y-1">
           <li>• Find a quiet place with good lighting</li>
           <li>• Speak clearly and at a natural pace</li>

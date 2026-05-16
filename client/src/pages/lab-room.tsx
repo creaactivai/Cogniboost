@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, MessageSquare, BookOpen, Quote, Info, Calendar, Clock } from "lucide-react";
 import LiveVideoPanel from "@/components/lab/live-video-panel";
 
 interface LabSession {
@@ -148,8 +148,16 @@ export default function LabRoomPage() {
             <h1 className="text-lg font-bold">{session.title}</h1>
             <Badge variant="outline" className="text-[10px]">{session.level}</Badge>
             {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}
-            {isLive && <Badge className="bg-red-600 text-[10px] animate-pulse">🔴 EN VIVO</Badge>}
-            {isStartingSoon && <Badge className="bg-amber-500 text-[10px]">⏰ EMPIEZA EN BREVE</Badge>}
+            {isLive && (
+              <Badge className="bg-red-600 text-[10px] animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> EN VIVO
+              </Badge>
+            )}
+            {isStartingSoon && (
+              <Badge className="bg-amber-500 text-[10px] flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Empieza pronto
+              </Badge>
+            )}
             {isOver && <Badge variant="secondary" className="text-[10px]">Finalizada</Badge>}
           </div>
         </div>
@@ -169,7 +177,11 @@ export default function LabRoomPage() {
             Para unirte a la videollamada, primero reserva tu lugar. Una vez registrada, entras automáticamente.
           </p>
           <Button onClick={() => bookAndJoinMutation.mutate()} disabled={bookAndJoinMutation.isPending}>
-            {bookAndJoinMutation.isPending ? "Uniéndose…" : "📌 Reservar y unirme"}
+            {bookAndJoinMutation.isPending ? (
+              "Uniéndose…"
+            ) : (
+              <><Calendar className="w-4 h-4 mr-2" /> Reservar y unirme</>
+            )}
           </Button>
         </Card>
       ) : (
@@ -185,7 +197,7 @@ export default function LabRoomPage() {
           {/* Activity sidebar — right on desktop, below on mobile */}
           <div className="space-y-3">
             <Card className="p-4 space-y-2">
-              <h3 className="text-sm font-bold flex items-center gap-2">📝 Topic</h3>
+              <h3 className="text-sm font-bold flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Topic</h3>
               {session.description && <p className="text-sm">{session.description}</p>}
               {session.grammarFocus && (
                 <p className="text-xs"><strong>Grammar focus:</strong> <span className="text-muted-foreground">{session.grammarFocus}</span></p>
@@ -194,7 +206,7 @@ export default function LabRoomPage() {
 
             {session.vocabulary && session.vocabulary.length > 0 && (
               <Card className="p-4 space-y-2">
-                <h3 className="text-sm font-bold">📚 Vocabulary to use</h3>
+                <h3 className="text-sm font-bold flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Vocabulary to use</h3>
                 <div className="flex flex-wrap gap-1">
                   {session.vocabulary.map((v) => (
                     <span key={v} className="text-xs bg-secondary px-2 py-1 rounded">{v}</span>
@@ -205,7 +217,7 @@ export default function LabRoomPage() {
 
             {session.expressions && session.expressions.length > 0 && (
               <Card className="p-4 space-y-2">
-                <h3 className="text-sm font-bold">🗣️ Useful expressions</h3>
+                <h3 className="text-sm font-bold flex items-center gap-2"><Quote className="w-4 h-4 text-primary" /> Useful expressions</h3>
                 <ul className="space-y-1">
                   {session.expressions.map((e) => (
                     <li key={e} className="text-xs">• {e}</li>
@@ -214,8 +226,9 @@ export default function LabRoomPage() {
               </Card>
             )}
 
-            <Card className="p-4 text-xs text-muted-foreground">
-              💡 Si el video no carga, permite cámara + micrófono en el navegador. En móvil, usa Chrome o Safari.
+            <Card className="p-4 text-xs text-muted-foreground flex gap-2">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>Si el video no carga, permite cámara + micrófono en el navegador. En móvil, usa Chrome o Safari.</span>
             </Card>
           </div>
         </div>

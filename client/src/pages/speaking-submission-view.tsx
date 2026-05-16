@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Headphones, AlertTriangle, RotateCw, CheckCircle2, BookOpen, BarChart3, Trophy, Target, Search, Lightbulb, GraduationCap, AlertCircle, FileText, PenLine } from "lucide-react";
 
 interface DimScore { score: number; feedback: string }
 interface InlineNote {
@@ -98,7 +99,7 @@ export default function SpeakingSubmissionViewPage() {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-4">
         <Card className="p-8 text-center space-y-4">
-          <div className="text-5xl animate-pulse">🎧</div>
+          <Headphones className="w-12 h-12 mx-auto text-primary animate-pulse" />
           <h2 className="text-xl font-bold">Grading your recording…</h2>
           <p className="text-muted-foreground">
             We're grading your recording with the CogniBoost Speaking Rubric.
@@ -119,7 +120,7 @@ export default function SpeakingSubmissionViewPage() {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-4">
         <Card className="p-6 space-y-3 border-destructive/30">
-          <h2 className="text-xl font-bold text-destructive">⚠️ Grading didn't complete</h2>
+          <h2 className="text-xl font-bold text-destructive flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Grading didn't complete</h2>
           <p>{sub.aiGrade?.message || "Something went wrong while grading your recording."}</p>
           {mediaUrl && (
             <div className="pt-2">
@@ -133,7 +134,7 @@ export default function SpeakingSubmissionViewPage() {
           )}
           <div className="flex gap-2 pt-3">
             <Button variant="outline" onClick={() => navigate(`/dashboard/speaking/${sub.moduleId}`)}>
-              🔄 Try again
+              <RotateCw className="w-4 h-4 mr-2" /> Try again
             </Button>
             <Button variant="outline" onClick={() => navigate("/dashboard")}>
               Back to dashboard
@@ -165,7 +166,7 @@ export default function SpeakingSubmissionViewPage() {
         </div>
         <div>
           <Badge variant={pass ? "default" : "secondary"} className="text-sm">
-            {pass ? "✅" : "📚"} {bandLabel(grade.overall_score)}
+            <span className="inline-flex items-center gap-1">{pass ? <CheckCircle2 className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />} {bandLabel(grade.overall_score)}</span>
           </Badge>
           <Badge variant="outline" className="ml-2 text-sm">
             CEFR: {grade.level_assessment}
@@ -186,7 +187,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Audio/video playback */}
       {mediaUrl && (
         <Card className="p-4 space-y-2">
-          <h3 className="font-semibold text-sm">🎧 Your recording</h3>
+          <h3 className="font-semibold text-sm flex items-center gap-2"><Headphones className="w-4 h-4" /> Your recording</h3>
           {isVideo ? (
             <video src={mediaUrl} controls className="w-full max-h-72 rounded-lg" />
           ) : (
@@ -197,7 +198,7 @@ export default function SpeakingSubmissionViewPage() {
 
       {/* Dimensions grid */}
       <Card className="p-6 space-y-4">
-        <h3 className="font-semibold">📊 Dimension Scores</h3>
+        <h3 className="font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Dimension Scores</h3>
         <DimensionRow label="Task Achievement & Module Application" {...grade.dimensions.task_achievement} />
         <DimensionRow label="Fluency & Coherence" {...grade.dimensions.fluency_coherence} />
         <DimensionRow label="Pronunciation & Intelligibility" {...grade.dimensions.pronunciation_intelligibility} />
@@ -208,7 +209,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Strengths */}
       {grade.strengths && grade.strengths.length > 0 && (
         <Card className="p-6 space-y-2 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900">
-          <h3 className="font-semibold text-green-900 dark:text-green-100">💪 Strengths</h3>
+          <h3 className="font-semibold text-green-900 dark:text-green-100 flex items-center gap-2"><Trophy className="w-4 h-4" /> Strengths</h3>
           <ul className="space-y-1">
             {grade.strengths.map((s, i) => (
               <li key={i} className="text-sm">• {s}</li>
@@ -220,7 +221,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Improvements */}
       {grade.improvement_priorities && grade.improvement_priorities.length > 0 && (
         <Card className="p-6 space-y-2 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100">🎯 Focus on next time</h3>
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2"><Target className="w-4 h-4" /> Focus on next time</h3>
           <ol className="space-y-2 list-decimal list-inside">
             {grade.improvement_priorities.map((p, i) => (
               <li key={i} className="text-sm">{p}</li>
@@ -232,10 +233,10 @@ export default function SpeakingSubmissionViewPage() {
       {/* Target vocabulary tracking */}
       {(grade.target_vocabulary_used?.length || grade.target_vocabulary_missing?.length) && (
         <Card className="p-6 space-y-3">
-          <h3 className="font-semibold">📚 Module vocabulary tracking</h3>
+          <h3 className="font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Module vocabulary tracking</h3>
           {grade.target_vocabulary_used?.length > 0 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">✅ Words you used:</p>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Words you used:</p>
               <div className="flex flex-wrap gap-1">
                 {grade.target_vocabulary_used.map((w) => (
                   <span key={w} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 px-2 py-1 rounded">
@@ -247,7 +248,7 @@ export default function SpeakingSubmissionViewPage() {
           )}
           {grade.target_vocabulary_missing?.length > 0 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">📝 Words to try next time:</p>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5"><PenLine className="w-3.5 h-3.5" /> Words to try next time:</p>
               <div className="flex flex-wrap gap-1">
                 {grade.target_vocabulary_missing.map((w) => (
                   <span key={w} className="text-xs bg-muted px-2 py-1 rounded">
@@ -259,7 +260,7 @@ export default function SpeakingSubmissionViewPage() {
           )}
           {grade.target_grammar_demonstrated?.length > 0 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">🎯 Grammar demonstrated:</p>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Grammar demonstrated:</p>
               <div className="flex flex-wrap gap-1">
                 {grade.target_grammar_demonstrated.map((g) => (
                   <span key={g} className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 px-2 py-1 rounded">
@@ -275,7 +276,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Transcript */}
       {sub.transcript && (
         <Card className="p-6 space-y-2">
-          <h3 className="font-semibold text-sm">📝 Transcript</h3>
+          <h3 className="font-semibold text-sm flex items-center gap-2"><FileText className="w-4 h-4" /> Transcript</h3>
           <p className="text-sm text-muted-foreground italic whitespace-pre-wrap">"{sub.transcript}"</p>
         </Card>
       )}
@@ -283,7 +284,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Inline notes */}
       {grade.inline_notes && grade.inline_notes.length > 0 && (
         <Card className="p-6 space-y-3">
-          <h3 className="font-semibold">🔍 Specific notes</h3>
+          <h3 className="font-semibold flex items-center gap-2"><Search className="w-4 h-4 text-primary" /> Specific notes</h3>
           {grade.inline_notes.map((n, i) => (
             <div key={i} className="border-l-4 border-primary/30 pl-3 py-1 text-sm space-y-1">
               <div className="flex gap-2 items-center">
@@ -292,7 +293,7 @@ export default function SpeakingSubmissionViewPage() {
               </div>
               <p className="italic">"{n.text_segment}"</p>
               <p className="text-muted-foreground">{n.explanation}</p>
-              <p>💡 Try: <strong>{n.suggestion}</strong></p>
+              <p className="flex items-start gap-1.5"><Lightbulb className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Try: <strong>{n.suggestion}</strong></p>
             </div>
           ))}
         </Card>
@@ -313,7 +314,7 @@ export default function SpeakingSubmissionViewPage() {
       {/* Teacher feedback (if any) */}
       {sub.teacherFeedback && (
         <Card className="p-6 space-y-2 border-purple-200 bg-purple-50 dark:bg-purple-950/20">
-          <h3 className="font-semibold text-purple-900 dark:text-purple-100">👩‍🏫 From your teacher</h3>
+          <h3 className="font-semibold text-purple-900 dark:text-purple-100 flex items-center gap-2"><GraduationCap className="w-4 h-4" /> From your teacher</h3>
           <p className="text-sm whitespace-pre-wrap">{sub.teacherFeedback}</p>
         </Card>
       )}

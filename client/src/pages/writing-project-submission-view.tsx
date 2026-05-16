@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PenLine, AlertTriangle, RotateCw, CheckCircle2, BookOpen, BarChart3, Trophy, Target, Search, Lightbulb, GraduationCap, AlertCircle } from "lucide-react";
 
 interface DimScore { score: number; feedback: string }
 interface InlineAnnotation {
@@ -86,7 +87,7 @@ export default function WritingProjectSubmissionViewPage() {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-4">
         <Card className="p-8 text-center space-y-4">
-          <div className="text-5xl animate-pulse">📝</div>
+          <PenLine className="w-12 h-12 mx-auto text-primary animate-pulse" />
           <h2 className="text-xl font-bold">Grading your writing…</h2>
           <p className="text-muted-foreground">
             We're grading your writing with the CogniBoost Writing Rubric.
@@ -104,7 +105,7 @@ export default function WritingProjectSubmissionViewPage() {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-4">
         <Card className="p-6 space-y-3 border-destructive/30">
-          <h2 className="text-xl font-bold text-destructive">⚠️ Grading didn't complete</h2>
+          <h2 className="text-xl font-bold text-destructive flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Grading didn't complete</h2>
           <p>{sub.aiGrade?.message || "Something went wrong while grading your writing."}</p>
           <div className="pt-2">
             <p className="text-sm font-semibold mb-2">Your writing was saved:</p>
@@ -112,7 +113,7 @@ export default function WritingProjectSubmissionViewPage() {
           </div>
           <div className="flex gap-2 pt-3">
             <Button variant="outline" onClick={() => navigate(`/dashboard/writing-project/${sub.moduleId}`)}>
-              🔄 Try again
+              <RotateCw className="w-4 h-4 mr-2" /> Try again
             </Button>
             <Button variant="outline" onClick={() => navigate("/dashboard")}>
               Back to dashboard
@@ -138,8 +139,8 @@ export default function WritingProjectSubmissionViewPage() {
           <div className="text-3xl text-muted-foreground">/100</div>
         </div>
         <div>
-          <Badge variant={pass ? "default" : "secondary"} className="text-sm">
-            {pass ? "✅" : "📚"} {bandLabel(grade.overall_score)}
+          <Badge variant={pass ? "default" : "secondary"} className="text-sm inline-flex items-center gap-1">
+            {pass ? <CheckCircle2 className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />} {bandLabel(grade.overall_score)}
           </Badge>
           <Badge variant="outline" className="ml-2 text-sm">
             CEFR: {grade.level_assessment}
@@ -153,12 +154,12 @@ export default function WritingProjectSubmissionViewPage() {
       </Card>
 
       <Card className="p-4 space-y-2">
-        <h3 className="font-semibold text-sm">📝 Your writing</h3>
+        <h3 className="font-semibold text-sm flex items-center gap-2"><PenLine className="w-4 h-4" /> Your writing</h3>
         <p className="text-sm italic whitespace-pre-wrap p-3 bg-muted/50 rounded">{sub.content}</p>
       </Card>
 
       <Card className="p-6 space-y-4">
-        <h3 className="font-semibold">📊 Dimension Scores</h3>
+        <h3 className="font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Dimension Scores</h3>
         <DimensionRow label="Task Achievement" {...grade.dimensions.task_achievement} />
         <DimensionRow label="Coherence & Cohesion" {...grade.dimensions.coherence_cohesion} />
         <DimensionRow label="Lexical Range" {...grade.dimensions.lexical_range} />
@@ -168,7 +169,7 @@ export default function WritingProjectSubmissionViewPage() {
 
       {grade.strengths && grade.strengths.length > 0 && (
         <Card className="p-6 space-y-2 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900">
-          <h3 className="font-semibold text-green-900 dark:text-green-100">💪 Strengths</h3>
+          <h3 className="font-semibold text-green-900 dark:text-green-100 flex items-center gap-2"><Trophy className="w-4 h-4" /> Strengths</h3>
           <ul className="space-y-1">
             {grade.strengths.map((s, i) => <li key={i} className="text-sm">• {s}</li>)}
           </ul>
@@ -177,7 +178,7 @@ export default function WritingProjectSubmissionViewPage() {
 
       {grade.improvement_priorities && grade.improvement_priorities.length > 0 && (
         <Card className="p-6 space-y-2 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100">🎯 Focus on next time</h3>
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2"><Target className="w-4 h-4" /> Focus on next time</h3>
           <ol className="space-y-2 list-decimal list-inside">
             {grade.improvement_priorities.map((p, i) => <li key={i} className="text-sm">{p}</li>)}
           </ol>
@@ -186,10 +187,10 @@ export default function WritingProjectSubmissionViewPage() {
 
       {(grade.vocabulary_used_correctly?.length || grade.vocabulary_misused?.length) && (
         <Card className="p-6 space-y-3">
-          <h3 className="font-semibold">📚 Vocabulary tracking</h3>
+          <h3 className="font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Vocabulary tracking</h3>
           {grade.vocabulary_used_correctly?.length > 0 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">✅ Used correctly:</p>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Used correctly:</p>
               <div className="flex flex-wrap gap-1">
                 {grade.vocabulary_used_correctly.map((w) => (
                   <span key={w} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 px-2 py-1 rounded">{w}</span>
@@ -199,7 +200,7 @@ export default function WritingProjectSubmissionViewPage() {
           )}
           {grade.vocabulary_misused?.length > 0 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">⚠️ Worth revisiting:</p>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Worth revisiting:</p>
               <div className="space-y-1">
                 {grade.vocabulary_misused.map((v) => (
                   <div key={v.word} className="text-sm">
@@ -214,7 +215,7 @@ export default function WritingProjectSubmissionViewPage() {
 
       {grade.inline_annotations && grade.inline_annotations.length > 0 && (
         <Card className="p-6 space-y-3">
-          <h3 className="font-semibold">🔍 Specific notes</h3>
+          <h3 className="font-semibold flex items-center gap-2"><Search className="w-4 h-4 text-primary" /> Specific notes</h3>
           {grade.inline_annotations.map((n, i) => (
             <div key={i} className="border-l-4 border-primary/30 pl-3 py-1 text-sm space-y-1">
               <div className="flex gap-2 items-center">
@@ -223,7 +224,7 @@ export default function WritingProjectSubmissionViewPage() {
               </div>
               <p className="italic">"{n.text_segment}"</p>
               <p className="text-muted-foreground">{n.explanation}</p>
-              <p>💡 Try: <strong>{n.suggestion}</strong></p>
+              <p className="flex items-start gap-1.5"><Lightbulb className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Try: <strong>{n.suggestion}</strong></p>
             </div>
           ))}
         </Card>
@@ -231,7 +232,7 @@ export default function WritingProjectSubmissionViewPage() {
 
       {grade.spanish_speaker_patterns_noticed && grade.spanish_speaker_patterns_noticed.length > 0 && (
         <Card className="p-6 space-y-2">
-          <h3 className="font-semibold text-sm">🇪🇸 Spanish-speaker patterns to watch</h3>
+          <h3 className="font-semibold text-sm">Spanish-speaker patterns to watch</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
             {grade.spanish_speaker_patterns_noticed.map((p, i) => <li key={i}>• {p}</li>)}
           </ul>
@@ -240,7 +241,7 @@ export default function WritingProjectSubmissionViewPage() {
 
       {sub.teacherFeedback && (
         <Card className="p-6 space-y-2 border-purple-200 bg-purple-50 dark:bg-purple-950/20">
-          <h3 className="font-semibold text-purple-900 dark:text-purple-100">👩‍🏫 From your teacher</h3>
+          <h3 className="font-semibold text-purple-900 dark:text-purple-100 flex items-center gap-2"><GraduationCap className="w-4 h-4" /> From your teacher</h3>
           <p className="text-sm whitespace-pre-wrap">{sub.teacherFeedback}</p>
         </Card>
       )}
