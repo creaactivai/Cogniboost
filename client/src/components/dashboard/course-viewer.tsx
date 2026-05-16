@@ -444,19 +444,20 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                         {isModuleDone ? <CheckCircle className="w-5 h-5" /> : String(modIdx + 1).padStart(2, '0')}
                       </div>
 
-                      {/* Title + progress meta */}
+                      {/* Title + progress meta. The big "01" tile already
+                          conveys the module ordinal, and many real-world
+                          modules are titled "Module 1", "Module 2" etc —
+                          so we drop a redundant "Module N" small label and
+                          surface a single bold title with a "X of Y lessons"
+                          line underneath, which scales nicely whether the
+                          title is generic or descriptive. */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                            Module {modIdx + 1}
-                          </span>
-                          {totalCount > 0 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              · {completedCount}/{totalCount} lessons
-                            </span>
-                          )}
-                        </div>
                         <p className="text-sm font-semibold truncate leading-tight">{mod.title}</p>
+                        {totalCount > 0 && (
+                          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-1">
+                            {completedCount} of {totalCount} lessons
+                          </p>
+                        )}
                         {totalCount > 0 && (
                           <div className="mt-2 flex items-center gap-2">
                             <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">

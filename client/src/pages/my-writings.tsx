@@ -95,11 +95,9 @@ export default function MyWritingsPage() {
 
   return (
     <div className="space-y-6" data-testid="page-my-writings">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-3xl font-display uppercase mb-1 flex items-center gap-2">
-            <PenLine className="w-7 h-7" /> My Writings
-          </h1>
+          <h1 className="text-3xl font-display uppercase mb-1">My Writings</h1>
           <p className="font-mono text-sm text-muted-foreground">
             Your writing portfolio — every Writing Project you've submitted, with AI feedback and scores.
           </p>
