@@ -5669,8 +5669,11 @@ Important:
           console.error('[speaking-submit] background processing failed:', err);
         });
       } catch (err: any) {
-        console.error('Error creating speaking submission:', err);
-        res.status(500).json({ error: 'Failed to upload recording' });
+        console.error('[speaking-submissions POST] Error:', err?.message, err?.stack);
+        res.status(500).json({
+          error: 'Failed to upload recording',
+          debug: { message: err?.message, code: err?.code, name: err?.name },
+        });
       }
     }
   );
