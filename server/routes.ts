@@ -6101,6 +6101,146 @@ Important:
     }
   });
 
+  // ─── ADMIN endpoints for Lab management ────────────────────────────────
+
+  app.get('/api/admin/lab-sessions', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import("./db");
+      const { eq, and, count } = await import("drizzle-orm");
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const rows = await db.select().from(labSessionsV2);
+      rows.sort((a, b) => (b.scheduledAt?.getTime() ?? 0) - (a.scheduledAt?.getTime() ?? 0)); // newest first
+      const out: any[] = [];
+      for (const s of rows) {
+        const [{ n }] = await db
+          .select({ n: count() })
+          .from(labRegistrations)
+          .where(and(eq(labRegistrations.labSessionId, s.id), eq(labRegistrations.cancelled, false)));
+        out.push({ ...s, bookedCount: Number(n) });
+      }
+      res.json(out);
+    } catch (err: any) {
+      console.error('[admin/lab-sessions GET] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch lab sessions', debug: { message: err?.message } });
+    }
+  });
+
+  app.post('/api/admin/lab-sessions', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import("./db");
+      const { labSessionsV2 } = await import('@shared/schema');
+      const {
+        interestTopicId, level, title, description, grammarFocus,
+        vocabulary, expressions, moduleReference,
+        scheduledAt, durationMinutes, meetingUrl, maxParticipants,
+        isRecurring, recurrencePattern, seriesId, recurrenceEndDate,
+      } = req.body;
+      if (!interestTopicId || !level || !title || !scheduledAt) {
+        return res.status(400).json({ error: 'interestTopicId, level, title and scheduledAt are required' });
+      }
+      const [created] = await db.insert(labSessionsV2).values({
+        interestTopicId,
+        level,
+        title,
+        description: description || null,
+        grammarFocus: grammarFocus || null,
+        vocabulary: Array.isArray(vocabulary) ? vocabulary : [],
+        expressions: Array.isArray(expressions) ? expressions : [],
+        moduleReference: moduleReference || null,
+        scheduledAt: new Date(scheduledAt),
+        durationMinutes: durationMinutes ?? 60,
+        meetingUrl: meetingUrl || null,
+        maxParticipants: maxParticipants ?? 8,
+        status: 'scheduled',
+        isRecurring: !!isRecurring,
+        recurrencePattern: recurrencePattern || null,
+        seriesId: seriesId || null,
+        recurrenceEndDate: recurrenceEndDate ? new Date(recurrenceEndDate) : null,
+      }).returning();
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error('[admin/lab-sessions POST] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to create lab session', debug: { message: err?.message } });
+    }
+  });
+
+  app.patch('/api/admin/lab-sessions/:id', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { id } = req.params;
+      const allowedFields = ['interestTopicId','level','title','description','grammarFocus','vocabulary','expressions','moduleReference','scheduledAt','durationMinutes','meetingUrl','maxParticipants','status'] as const;
+      const updates: Record<string, any> = { updatedAt: new Date() };
+      for (const k of allowedFields) {
+        if (k in req.body) {
+          updates[k] = k === 'scheduledAt' && req.body[k] ? new Date(req.body[k]) : req.body[k];
+        }
+      }
+      const [updated] = await db.update(labSessionsV2).set(updates).where(eq(labSessionsV2.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: 'Lab session not found' });
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[admin/lab-sessions PATCH] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to update lab session', debug: { message: err?.message } });
+    }
+  });
+
+  app.delete('/api/admin/lab-sessions/:id', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { id } = req.params;
+      const [cancelled] = await db.update(labSessionsV2)
+        .set({ status: 'cancelled', updatedAt: new Date() })
+        .where(eq(labSessionsV2.id, id))
+        .returning();
+      if (!cancelled) return res.status(404).json({ error: 'Lab session not found' });
+      res.json({ ok: true, session: cancelled });
+    } catch (err: any) {
+      console.error('[admin/lab-sessions DELETE] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to cancel lab session', debug: { message: err?.message } });
+    }
+  });
+
+  app.get('/api/admin/lab-sessions/:id/registrations', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import("./db");
+      const { eq, and } = await import("drizzle-orm");
+      const { labRegistrations, users } = await import('@shared/schema');
+      const { id } = req.params;
+      const rows = await db
+        .select({ reg: labRegistrations, user: users })
+        .from(labRegistrations)
+        .innerJoin(users, eq(labRegistrations.studentId, users.id))
+        .where(and(eq(labRegistrations.labSessionId, id), eq(labRegistrations.cancelled, false)));
+      res.json(rows.map(r => ({
+        registrationId: r.reg.id,
+        registeredAt: r.reg.registeredAt,
+        attended: r.reg.attended,
+        speakingTimeMinutes: r.reg.speakingTimeMinutes,
+        teacherFeedback: r.reg.teacherFeedback,
+        teacherRating: r.reg.teacherRating,
+        student: {
+          id: r.user.id,
+          firstName: r.user.firstName,
+          lastName: r.user.lastName,
+          email: r.user.email,
+          subscriptionTier: (r.user as any).subscriptionTier,
+        },
+      })));
+    } catch (err: any) {
+      console.error('[admin/lab-sessions registrations] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch registrations', debug: { message: err?.message } });
+    }
+  });
+
   // Cancel a booking.
   app.delete('/api/lab-bookings/:id', requireAuth, async (req: any, res) => {
     try {
