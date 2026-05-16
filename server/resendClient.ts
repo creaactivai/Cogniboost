@@ -53,6 +53,34 @@ export async function getResendClient() {
 // Email template types
 export type EmailTemplate = 'welcome' | 'onboarding_reminder' | 'course_enrolled' | 'lesson_completed' | 'subscription_activated' | 'placement_quiz_result' | 'lead_day1_followup' | 'lead_day3_lab_invite' | 'lead_day7_offer' | 'class_booking_confirmation' | 'class_booking_notification' | 'demo_booking_confirmation' | 'demo_booking_notification' | 'student_invitation' | 'email_verification' | 'staff_invitation' | 'password_reset' | 'onboarding_day2_quickwin' | 'onboarding_day5_social_proof' | 'onboarding_day7_feature' | 'trial_ending' | 'trial_expired' | 'reengagement' | 'payment_failed' | 'weekly_progress' | 'admin_subscription_notification' | 'stripe_guest_activation' | 'lab_reminder_24h' | 'lab_reminder_30min';
 
+/**
+ * Send a custom one-off email — useful for admin announcements that
+ * don't have a pre-baked template. Accepts optional cc / replyTo.
+ */
+export async function sendCustomEmail(
+  to: string | string[],
+  subject: string,
+  html: string,
+  options: { cc?: string | string[]; replyTo?: string } = {}
+) {
+  try {
+    const { client, fromEmail } = await getResendClient();
+    const result = await client.emails.send({
+      from: fromEmail,
+      to,
+      subject,
+      html,
+      cc: options.cc,
+      replyTo: options.replyTo,
+    } as any);
+    console.log(`Custom email sent to ${JSON.stringify(to)}: "${subject}"`, result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error(`Failed to send custom email to ${JSON.stringify(to)}:`, error);
+    return { success: false, error };
+  }
+}
+
 // Send email using template
 export async function sendEmail(
   to: string,

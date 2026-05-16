@@ -5736,6 +5736,24 @@ Important:
     const role = (req.user as any)?.role;
     return role === 'admin' || role === 'teacher' || (req.user as any)?.isAdmin === true;
   };
+  // Send a custom email — used for admin announcements (e.g., level-cohort
+  // exam invitations, mid-cohort communications). Body: { to, subject,
+  // html, cc?, replyTo? }. `to` may be a single email or an array.
+  app.post('/api/admin/send-email', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { to, subject, html, cc, replyTo } = req.body;
+      if (!to || !subject || !html) return res.status(400).json({ error: 'to, subject, html are required' });
+      const { sendCustomEmail } = await import('./resendClient');
+      const result = await sendCustomEmail(to, subject, html, { cc, replyTo });
+      res.json(result);
+    } catch (err: any) {
+      console.error('[admin/send-email] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
   // POST a new Speaking Project. Idempotent on (moduleId, level): if a
   // project already exists for that module, returns it instead of
   // creating a duplicate.
