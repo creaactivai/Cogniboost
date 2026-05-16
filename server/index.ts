@@ -422,6 +422,117 @@ async function runStartupMigrations() {
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_registrations_unique ON lab_registrations(lab_session_id, student_id) WHERE NOT cancelled`);
     await pool.query(`CREATE INDEX IF NOT EXISTS lab_registrations_student_idx ON lab_registrations(student_id)`);
     console.log('Startup migrations: Phase 1.6 Class Lab tables verified (interest-driven design)');
+
+    // ================================================================
+    // Phase 1.7 — Final Exams + Certificates (CEFR mastery test)
+    // ================================================================
+    // One Final Exam per CEFR level. Unlocked after the student completes
+    // 100% of that level's modules. Three sections: quiz (40%) + writing
+    // (30%) + speaking (30%), pass at 70. Pass issues a Certificate with
+    // a public verification code so employers can confirm authenticity.
+    await pool.query(`DO $$ BEGIN
+      CREATE TYPE final_exam_question_type AS ENUM ('multiple_choice','fill_in','true_false');
+    EXCEPTION WHEN duplicate_object THEN null; END $$`);
+    await pool.query(`DO $$ BEGIN
+      CREATE TYPE final_exam_attempt_status AS ENUM ('in_progress','quiz_done','writing_done','speaking_done','graded','passed','failed');
+    EXCEPTION WHEN duplicate_object THEN null; END $$`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS final_exams (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        level course_level NOT NULL UNIQUE,
+        course_id varchar,
+        title text NOT NULL,
+        description text,
+        passing_score integer NOT NULL DEFAULT 70,
+        quiz_weight integer NOT NULL DEFAULT 40,
+        writing_weight integer NOT NULL DEFAULT 30,
+        speaking_weight integer NOT NULL DEFAULT 30,
+        writing_prompt text,
+        writing_min_words integer DEFAULT 80,
+        writing_max_words integer DEFAULT 150,
+        speaking_prompt text,
+        speaking_min_seconds integer DEFAULT 60,
+        speaking_max_seconds integer DEFAULT 180,
+        duration_minutes integer NOT NULL DEFAULT 45,
+        is_published boolean NOT NULL DEFAULT false,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS final_exam_questions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        exam_id varchar NOT NULL,
+        module_id varchar,
+        question_type final_exam_question_type NOT NULL DEFAULT 'multiple_choice',
+        question_text text NOT NULL,
+        options jsonb,
+        correct_answer text NOT NULL,
+        explanation text,
+        cefr_descriptor text,
+        points integer NOT NULL DEFAULT 1,
+        order_index integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS final_exam_questions_exam_idx ON final_exam_questions(exam_id)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS final_exam_attempts (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        exam_id varchar NOT NULL,
+        status final_exam_attempt_status NOT NULL DEFAULT 'in_progress',
+        started_at timestamp DEFAULT now(),
+        completed_at timestamp,
+        quiz_answers jsonb,
+        quiz_score numeric(5,2),
+        writing_submission_id varchar,
+        writing_score numeric(5,2),
+        speaking_submission_id varchar,
+        speaking_score numeric(5,2),
+        final_score numeric(5,2),
+        passed boolean
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS final_exam_attempts_user_idx ON final_exam_attempts(user_id)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS certificates (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        exam_attempt_id varchar NOT NULL,
+        level course_level NOT NULL,
+        student_name text NOT NULL,
+        final_score numeric(5,2) NOT NULL,
+        issued_at timestamp DEFAULT now(),
+        verification_code text NOT NULL UNIQUE,
+        signature_name text NOT NULL DEFAULT 'Coral Lozano, M.Ed.',
+        revoked boolean NOT NULL DEFAULT false,
+        revoked_reason text
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS certificates_user_idx ON certificates(user_id)`);
+
+    // Seed one exam shell per level (idempotent — only inserts if missing)
+    const examShells = [
+      { level: "A1", title: "A1 Mastery Exam — Beginner", desc: "Demonstrate you can introduce yourself, talk about family, daily routine, and handle basic everyday situations.", writingPrompt: "Write a short text introducing yourself, your family, and your daily routine. Use the vocabulary and grammar you learned in this level.", speakingPrompt: "Speak for about 60 seconds about your typical day. Use present simple, family vocabulary, and time expressions.", minW: 60, maxW: 100 },
+      { level: "A2", title: "A2 Mastery Exam — Elementary", desc: "Show you can talk about past experiences, future plans, health, work and travel at an elementary level.", writingPrompt: "Write about a memorable trip or experience from your past, and what you plan to do in the future. Use past tenses and future forms.", speakingPrompt: "Talk for 90 seconds about a past experience and a future plan. Use past tenses and going to / will.", minW: 100, maxW: 180 },
+      { level: "B1", title: "B1 Mastery Exam — Intermediate", desc: "Demonstrate you can tell stories, use conditionals, reported speech, and discuss society and work at an intermediate level.", writingPrompt: "Write a short story or article about a topic that interests you. Use linkers, conditionals, and a range of past/present forms.", speakingPrompt: "Speak for about 2 minutes telling a story or sharing your opinion on a current topic. Use linkers and a range of tenses.", minW: 180, maxW: 280 },
+      { level: "B2", title: "B2 Mastery Exam — Upper Intermediate", desc: "Show you can have nuanced conversations, use complex grammar, and discuss business, culture and global issues.", writingPrompt: "Write an essay arguing for or against a current global issue. Support your opinion with reasons and examples. Use complex sentence structures.", speakingPrompt: "Speak for 2-3 minutes presenting and defending your opinion on a complex topic. Use connectors and varied vocabulary.", minW: 280, maxW: 400 },
+      { level: "C1", title: "C1 Mastery Exam — Advanced", desc: "Demonstrate idiomatic mastery, academic discourse, persuasive arguments and sophisticated style.", writingPrompt: "Write an analytical essay on a topic of your choice, using idiomatic English, varied register, and sophisticated argumentation.", speakingPrompt: "Speak for 3 minutes presenting a sophisticated argument or analysis. Use idiomatic phrases, hedging, and varied register.", minW: 350, maxW: 500 },
+    ];
+    for (const s of examShells) {
+      await pool.query(
+        `INSERT INTO final_exams (level, title, description, writing_prompt, writing_min_words, writing_max_words, speaking_prompt, is_published)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, false)
+         ON CONFLICT (level) DO NOTHING`,
+        [s.level, s.title, s.desc, s.writingPrompt, s.minW, s.maxW, s.speakingPrompt]
+      );
+    }
+    console.log('Startup migrations: Phase 1.7 Final Exams + Certificates tables + exam shells seeded');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

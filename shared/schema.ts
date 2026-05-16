@@ -699,6 +699,125 @@ export type InsertQuizQuestion = z.infer<typeof insertQuizQuestionSchema>;
 export type QuizAttempt = typeof quizAttempts.$inferSelect;
 export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
 
+/* =====================================================================
+ * FINAL EXAMS + CERTIFICATES (Phase 1.7)
+ * ---------------------------------------------------------------------
+ * One Final Exam per CEFR level. Unlocked after 100% module completion.
+ * Three sections: quiz (40%) + writing (30%) + speaking (30%), pass at 70.
+ * Every question references the moduleId that taught the underlying
+ * topic + carries a CEFR can-do descriptor so the exam is provably
+ * curriculum-aligned and level-appropriate.
+ * ===================================================================== */
+
+export const finalExamQuestionTypeEnum = pgEnum("final_exam_question_type", [
+  "multiple_choice",
+  "fill_in",
+  "true_false",
+]);
+
+export const finalExamAttemptStatusEnum = pgEnum("final_exam_attempt_status", [
+  "in_progress",   // started, hasn't finalized
+  "quiz_done",     // submitted the quiz section
+  "writing_done",  // writing section submitted
+  "speaking_done", // speaking section submitted
+  "graded",        // all sections graded and final score computed
+  "passed",        // graded + meets passingScore threshold
+  "failed",        // graded + below threshold
+]);
+
+// One per CEFR level. courseId is set when this exam covers a specific
+// course (typical case: 1 course per level), but we keep the field
+// nullable in case Coral wants level-spanning exams later.
+export const finalExams = pgTable("final_exams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  level: courseLevelEnum("level").notNull().unique(),    // one active exam per level
+  courseId: varchar("course_id").references(() => courses.id),
+  title: text("title").notNull(),                         // "A1 Mastery Exam — Beginner Level"
+  description: text("description"),
+  passingScore: integer("passing_score").notNull().default(70),
+  quizWeight: integer("quiz_weight").notNull().default(40),
+  writingWeight: integer("writing_weight").notNull().default(30),
+  speakingWeight: integer("speaking_weight").notNull().default(30),
+  writingPrompt: text("writing_prompt"),                  // CEFR-aligned writing task
+  writingMinWords: integer("writing_min_words").default(80),
+  writingMaxWords: integer("writing_max_words").default(150),
+  speakingPrompt: text("speaking_prompt"),                // CEFR-aligned speaking task
+  speakingMinSeconds: integer("speaking_min_seconds").default(60),
+  speakingMaxSeconds: integer("speaking_max_seconds").default(180),
+  durationMinutes: integer("duration_minutes").notNull().default(45), // overall exam time budget
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Quiz question bank. Each question references the module it tests +
+// the CEFR descriptor (can-do statement) it maps to.
+export const finalExamQuestions = pgTable("final_exam_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  examId: varchar("exam_id").references(() => finalExams.id, { onDelete: "cascade" }).notNull(),
+  moduleId: varchar("module_id").references(() => courseModules.id), // nullable if cross-cutting
+  questionType: finalExamQuestionTypeEnum("question_type").notNull().default("multiple_choice"),
+  questionText: text("question_text").notNull(),
+  options: jsonb("options").$type<string[]>(),            // for multiple_choice
+  correctAnswer: text("correct_answer").notNull(),        // index "0".."N" for MC, exact string for fill_in, "true"/"false" for TF
+  explanation: text("explanation"),                        // shown after grading
+  cefrDescriptor: text("cefr_descriptor"),                 // e.g. "A1: Can introduce themselves..."
+  points: integer("points").notNull().default(1),
+  orderIndex: integer("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// One row per attempt. Quiz answers live inline; writing/speaking
+// scores reference submissions in the existing submissions table so we
+// reuse the rubric grader.
+export const finalExamAttempts = pgTable("final_exam_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  examId: varchar("exam_id").references(() => finalExams.id).notNull(),
+  status: finalExamAttemptStatusEnum("status").notNull().default("in_progress"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  quizAnswers: jsonb("quiz_answers").$type<Record<string, string>>(),  // questionId → answer
+  quizScore: decimal("quiz_score", { precision: 5, scale: 2 }),         // 0-100
+  writingSubmissionId: varchar("writing_submission_id"),                 // FK submissions.id
+  writingScore: decimal("writing_score", { precision: 5, scale: 2 }),
+  speakingSubmissionId: varchar("speaking_submission_id"),
+  speakingScore: decimal("speaking_score", { precision: 5, scale: 2 }),
+  finalScore: decimal("final_score", { precision: 5, scale: 2 }),        // weighted, 0-100
+  passed: boolean("passed"),
+});
+
+// Certificates — issued only when a Final Exam attempt is "passed".
+// verificationCode is a short URL-safe code that resolves at
+// /verify/{code} (public) so employers can confirm authenticity.
+export const certificates = pgTable("certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  examAttemptId: varchar("exam_attempt_id").references(() => finalExamAttempts.id).notNull(),
+  level: courseLevelEnum("level").notNull(),
+  studentName: text("student_name").notNull(),          // captured at issue time so renames don't break old certs
+  finalScore: decimal("final_score", { precision: 5, scale: 2 }).notNull(),
+  issuedAt: timestamp("issued_at").defaultNow(),
+  verificationCode: text("verification_code").notNull().unique(),
+  signatureName: text("signature_name").notNull().default("Coral Lozano, M.Ed."),
+  revoked: boolean("revoked").notNull().default(false),
+  revokedReason: text("revoked_reason"),
+});
+
+export const insertFinalExamSchema = createInsertSchema(finalExams).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFinalExamQuestionSchema = createInsertSchema(finalExamQuestions).omit({ id: true, createdAt: true });
+export const insertFinalExamAttemptSchema = createInsertSchema(finalExamAttempts).omit({ id: true, startedAt: true });
+export const insertCertificateSchema = createInsertSchema(certificates).omit({ id: true, issuedAt: true });
+
+export type FinalExam = typeof finalExams.$inferSelect;
+export type InsertFinalExam = z.infer<typeof insertFinalExamSchema>;
+export type FinalExamQuestion = typeof finalExamQuestions.$inferSelect;
+export type InsertFinalExamQuestion = z.infer<typeof insertFinalExamQuestionSchema>;
+export type FinalExamAttempt = typeof finalExamAttempts.$inferSelect;
+export type InsertFinalExamAttempt = z.infer<typeof insertFinalExamAttemptSchema>;
+export type Certificate = typeof certificates.$inferSelect;
+export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
+
 // Course levels array for UI
 export const courseLevels = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 export type CourseLevel = typeof courseLevels[number];

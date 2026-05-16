@@ -6399,6 +6399,429 @@ Important:
     }
   });
 
+  /* ===================================================================
+   * FINAL EXAMS + CERTIFICATES (Phase 1.7)
+   * ===================================================================
+   * Endpoints in this section:
+   *   GET    /api/final-exams/:level/eligibility    — can the user take it?
+   *   GET    /api/final-exams/:level                — exam config + questions (no correct answers)
+   *   POST   /api/final-exams/:level/start          — create a new attempt
+   *   GET    /api/final-exam-attempts/mine          — list my attempts
+   *   GET    /api/final-exam-attempts/:id           — single attempt
+   *   POST   /api/final-exam-attempts/:id/submit-quiz  — auto-grade quiz answers
+   *   POST   /api/final-exam-attempts/:id/finalize  — compute weighted score, issue cert if passed
+   *   GET    /api/certificates/mine                 — my certificates
+   *   GET    /api/verify/:code                      — PUBLIC certificate verification
+   *
+   *   Admin:
+   *   GET    /api/admin/final-exams                 — all exams
+   *   PATCH  /api/admin/final-exams/:id             — edit exam config
+   *   GET    /api/admin/final-exams/:examId/questions
+   *   POST   /api/admin/final-exam-questions
+   *   PATCH  /api/admin/final-exam-questions/:id
+   *   DELETE /api/admin/final-exam-questions/:id
+   */
+
+  // Helper: short URL-safe code for certificate verification
+  function makeVerificationCode(): string {
+    // 12-char base36, e.g. "k9x4qp2lm7nz"
+    return Array.from({ length: 12 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
+  }
+
+  // Eligibility: user must have 100% lesson completion across the level's
+  // course before they can sit the Final Exam.
+  app.get("/api/final-exams/:level/eligibility", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const level = req.params.level;
+      const { db } = await import("./db");
+      const { courses, lessons, lessonProgress, finalExams, finalExamAttempts } = await import("@shared/schema");
+      const { eq, and, sql } = await import("drizzle-orm");
+
+      // Find the course at this level
+      const courseRows = await db.select().from(courses).where(eq(courses.level, level)).limit(1);
+      const course = courseRows[0];
+      if (!course) return res.json({ eligible: false, reason: "No course found for this level" });
+
+      // Count total lessons + completed lessons
+      const allLessons = await db.select({ id: lessons.id }).from(lessons).where(eq(lessons.courseId, course.id));
+      const totalLessons = allLessons.length;
+      if (totalLessons === 0) return res.json({ eligible: false, reason: "Course has no lessons yet" });
+
+      const completed = await db
+        .select({ lessonId: lessonProgress.lessonId })
+        .from(lessonProgress)
+        .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.isCompleted, true)));
+      const lessonIdSet = new Set(allLessons.map(l => l.id));
+      const completedInCourse = completed.filter(c => lessonIdSet.has(c.lessonId)).length;
+      const completionPct = Math.round((completedInCourse / totalLessons) * 100);
+
+      const exam = (await db.select().from(finalExams).where(eq(finalExams.level, level)).limit(1))[0];
+      if (!exam) return res.json({ eligible: false, reason: "Exam not configured", completionPct, totalLessons, completedInCourse });
+      if (!exam.isPublished) return res.json({ eligible: false, reason: "Exam not yet published", completionPct, totalLessons, completedInCourse, exam });
+
+      // Has the user already passed? Block re-takes after pass.
+      const priorPass = await db
+        .select()
+        .from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.userId, userId), eq(finalExamAttempts.examId, exam.id), eq(finalExamAttempts.passed, true)))
+        .limit(1);
+      if (priorPass.length > 0) {
+        return res.json({ eligible: false, reason: "Already passed", alreadyPassed: true, attemptId: priorPass[0].id, completionPct, exam });
+      }
+
+      const eligible = completedInCourse === totalLessons;
+      res.json({
+        eligible,
+        reason: eligible ? null : `Complete all lessons first (${completedInCourse}/${totalLessons})`,
+        completionPct,
+        totalLessons,
+        completedInCourse,
+        exam,
+      });
+    } catch (e: any) {
+      console.error("Eligibility check failed:", e);
+      res.status(500).json({ error: e?.message || "Eligibility check failed" });
+    }
+  });
+
+  // Exam config + question bank for student. correctAnswer is stripped.
+  app.get("/api/final-exams/:level", requireAuth, async (req: any, res) => {
+    try {
+      const level = req.params.level;
+      const { db } = await import("./db");
+      const { finalExams, finalExamQuestions } = await import("@shared/schema");
+      const { eq, asc } = await import("drizzle-orm");
+
+      const exam = (await db.select().from(finalExams).where(eq(finalExams.level, level)).limit(1))[0];
+      if (!exam) return res.status(404).json({ error: "Exam not found" });
+      const questions = await db
+        .select()
+        .from(finalExamQuestions)
+        .where(eq(finalExamQuestions.examId, exam.id))
+        .orderBy(asc(finalExamQuestions.orderIndex));
+
+      // Strip correctAnswer + explanation so the student can't peek in DevTools
+      const safe = questions.map(({ correctAnswer, explanation, ...rest }) => rest);
+      res.json({ ...exam, questions: safe });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed to load exam" });
+    }
+  });
+
+  app.post("/api/final-exams/:level/start", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const level = req.params.level;
+      const { db } = await import("./db");
+      const { finalExams, finalExamAttempts } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const exam = (await db.select().from(finalExams).where(eq(finalExams.level, level)).limit(1))[0];
+      if (!exam) return res.status(404).json({ error: "Exam not found" });
+
+      // Resume an in-progress attempt if one already exists; otherwise create
+      const inProgress = await db
+        .select()
+        .from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.userId, userId), eq(finalExamAttempts.examId, exam.id), eq(finalExamAttempts.status, "in_progress")))
+        .limit(1);
+      if (inProgress[0]) return res.json(inProgress[0]);
+
+      const [created] = await db
+        .insert(finalExamAttempts)
+        .values({ userId, examId: exam.id, status: "in_progress" })
+        .returning();
+      res.json(created);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed to start attempt" });
+    }
+  });
+
+  app.get("/api/final-exam-attempts/mine", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { db } = await import("./db");
+      const { finalExamAttempts } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const rows = await db
+        .select()
+        .from(finalExamAttempts)
+        .where(eq(finalExamAttempts.userId, userId))
+        .orderBy(desc(finalExamAttempts.startedAt));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.get("/api/final-exam-attempts/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { db } = await import("./db");
+      const { finalExamAttempts } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [row] = await db
+        .select()
+        .from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.id, req.params.id), eq(finalExamAttempts.userId, userId)))
+        .limit(1);
+      if (!row) return res.status(404).json({ error: "Not found" });
+      res.json(row);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.post("/api/final-exam-attempts/:id/submit-quiz", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const attemptId = req.params.id;
+      const { answers } = req.body as { answers: Record<string, string> };
+      if (!answers || typeof answers !== "object") return res.status(400).json({ error: "answers required" });
+
+      const { db } = await import("./db");
+      const { finalExamAttempts, finalExamQuestions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const [attempt] = await db.select().from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.id, attemptId), eq(finalExamAttempts.userId, userId)))
+        .limit(1);
+      if (!attempt) return res.status(404).json({ error: "Attempt not found" });
+
+      const questions = await db.select().from(finalExamQuestions).where(eq(finalExamQuestions.examId, attempt.examId));
+      let totalPoints = 0;
+      let earnedPoints = 0;
+      for (const q of questions) {
+        totalPoints += q.points;
+        const userAns = (answers[q.id] || "").toString().trim().toLowerCase();
+        const correct = (q.correctAnswer || "").toString().trim().toLowerCase();
+        if (userAns && userAns === correct) earnedPoints += q.points;
+      }
+      const quizScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 10000) / 100 : 0;
+
+      const [updated] = await db
+        .update(finalExamAttempts)
+        .set({ quizAnswers: answers, quizScore: String(quizScore) as any, status: "quiz_done" })
+        .where(eq(finalExamAttempts.id, attemptId))
+        .returning();
+
+      res.json({ ...updated, totalPoints, earnedPoints });
+    } catch (e: any) {
+      console.error("submit-quiz error:", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Finalize: combine quiz/writing/speaking scores using exam weights.
+  // Writing + Speaking scores are pulled from their respective submission
+  // rows (if linked). Pass threshold = exam.passingScore. On pass we
+  // issue a Certificate row with a fresh verification code.
+  app.post("/api/final-exam-attempts/:id/finalize", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const attemptId = req.params.id;
+      const { db } = await import("./db");
+      const { finalExamAttempts, finalExams, submissions, certificates } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const [attempt] = await db.select().from(finalExamAttempts)
+        .where(and(eq(finalExamAttempts.id, attemptId), eq(finalExamAttempts.userId, userId)))
+        .limit(1);
+      if (!attempt) return res.status(404).json({ error: "Attempt not found" });
+      const [exam] = await db.select().from(finalExams).where(eq(finalExams.id, attempt.examId)).limit(1);
+      if (!exam) return res.status(404).json({ error: "Exam not found" });
+
+      const quiz = Number(attempt.quizScore || 0);
+
+      // Pull writing + speaking scores from submissions if linked
+      let writing = Number(attempt.writingScore || 0);
+      let speaking = Number(attempt.speakingScore || 0);
+      if (attempt.writingSubmissionId) {
+        const [w] = await db.select().from(submissions).where(eq(submissions.id, attempt.writingSubmissionId)).limit(1);
+        if (w?.aiScore) writing = Number(w.aiScore);
+      }
+      if (attempt.speakingSubmissionId) {
+        const [s] = await db.select().from(submissions).where(eq(submissions.id, attempt.speakingSubmissionId)).limit(1);
+        if (s?.aiScore) speaking = Number(s.aiScore);
+      }
+
+      const total = exam.quizWeight + exam.writingWeight + exam.speakingWeight;
+      const final = total > 0 ? (quiz * exam.quizWeight + writing * exam.writingWeight + speaking * exam.speakingWeight) / total : 0;
+      const passed = final >= exam.passingScore;
+
+      const [updated] = await db
+        .update(finalExamAttempts)
+        .set({
+          quizScore: String(quiz) as any,
+          writingScore: String(writing) as any,
+          speakingScore: String(speaking) as any,
+          finalScore: String(Math.round(final * 100) / 100) as any,
+          passed,
+          status: passed ? "passed" : "failed",
+          completedAt: new Date(),
+        })
+        .where(eq(finalExamAttempts.id, attemptId))
+        .returning();
+
+      let certificate = null;
+      if (passed) {
+        const userRow = await storage.getUser(userId);
+        const studentName = [userRow?.firstName, userRow?.lastName].filter(Boolean).join(" ") || userRow?.email || "Student";
+        const code = makeVerificationCode();
+        const [cert] = await db
+          .insert(certificates)
+          .values({
+            userId,
+            examAttemptId: attemptId,
+            level: exam.level,
+            studentName,
+            finalScore: String(Math.round(final * 100) / 100) as any,
+            verificationCode: code,
+          })
+          .returning();
+        certificate = cert;
+      }
+
+      res.json({ attempt: updated, certificate });
+    } catch (e: any) {
+      console.error("finalize error:", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.get("/api/certificates/mine", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { db } = await import("./db");
+      const { certificates } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const rows = await db.select().from(certificates).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issuedAt));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // PUBLIC — anyone with the code can verify authenticity
+  app.get("/api/verify/:code", async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { certificates } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [cert] = await db.select().from(certificates).where(eq(certificates.verificationCode, req.params.code)).limit(1);
+      if (!cert) return res.status(404).json({ valid: false, error: "Certificate not found" });
+      if (cert.revoked) return res.json({ valid: false, revoked: true, reason: cert.revokedReason || "Revoked" });
+      res.json({
+        valid: true,
+        level: cert.level,
+        studentName: cert.studentName,
+        finalScore: cert.finalScore,
+        issuedAt: cert.issuedAt,
+        signatureName: cert.signatureName,
+        verificationCode: cert.verificationCode,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Verification failed" });
+    }
+  });
+
+  /* --- Admin endpoints for the question bank ----------------------- */
+
+  app.get("/api/admin/final-exams", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExams } = await import("@shared/schema");
+      const { asc } = await import("drizzle-orm");
+      const rows = await db.select().from(finalExams).orderBy(asc(finalExams.level));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.patch("/api/admin/final-exams/:id", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExams } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const allowed = ["title", "description", "passingScore", "quizWeight", "writingWeight", "speakingWeight",
+        "writingPrompt", "writingMinWords", "writingMaxWords", "speakingPrompt", "speakingMinSeconds",
+        "speakingMaxSeconds", "durationMinutes", "isPublished"];
+      const patch: any = {};
+      for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+      patch.updatedAt = new Date();
+      const [updated] = await db.update(finalExams).set(patch).where(eq(finalExams.id, req.params.id)).returning();
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.get("/api/admin/final-exams/:examId/questions", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExamQuestions } = await import("@shared/schema");
+      const { eq, asc } = await import("drizzle-orm");
+      const rows = await db.select().from(finalExamQuestions)
+        .where(eq(finalExamQuestions.examId, req.params.examId))
+        .orderBy(asc(finalExamQuestions.orderIndex));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.post("/api/admin/final-exam-questions", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExamQuestions } = await import("@shared/schema");
+      const [created] = await db.insert(finalExamQuestions).values(req.body).returning();
+      res.json(created);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.patch("/api/admin/final-exam-questions/:id", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExamQuestions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const allowed = ["moduleId", "questionType", "questionText", "options", "correctAnswer", "explanation", "cefrDescriptor", "points", "orderIndex"];
+      const patch: any = {};
+      for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+      const [updated] = await db.update(finalExamQuestions).set(patch).where(eq(finalExamQuestions.id, req.params.id)).returning();
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.delete("/api/admin/final-exam-questions/:id", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { finalExamQuestions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      await db.delete(finalExamQuestions).where(eq(finalExamQuestions.id, req.params.id));
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
   return httpServer;
 }
 
