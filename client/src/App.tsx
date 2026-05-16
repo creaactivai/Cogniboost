@@ -35,6 +35,7 @@ import ChoosePlan from "@/pages/choose-plan";
 import AcceptInvitation from "@/pages/accept-invitation";
 import ActivatePage from "@/pages/activate";
 import VerifyEmailPage from "@/pages/verify-email";
+import VerifyCertificatePage from "@/pages/verify-certificate";
 import { CookieConsent } from "@/components/cookie-consent";
 import { I18nProvider } from "@/lib/i18n";
 import { Loader2 } from "lucide-react";
@@ -156,6 +157,9 @@ function Router() {
       <Route path="/legal" component={Legal} />
       <Route path="/activate" component={ActivatePage} />
       <Route path="/verify-email" component={VerifyEmailPage} />
+      {/* Public certificate verification (no auth required, used by
+          employers + LinkedIn viewers) */}
+      <Route path="/verify/:code" component={VerifyCertificatePage} />
       <Route path="/accept-invitation" component={AcceptInvitation} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/choose-plan">

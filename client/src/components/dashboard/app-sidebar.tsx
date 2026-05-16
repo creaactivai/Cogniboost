@@ -23,6 +23,7 @@ import {
   PenLine,
   ClipboardList,
   Library,
+  Award,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -66,6 +67,11 @@ const menuItems = [
     title: "Conversation Labs",
     url: "/dashboard/labs",
     icon: Users,
+  },
+  {
+    title: "Mastery Exam",
+    url: "/dashboard/exams",
+    icon: Award,
   },
   {
     title: "My Progress",
