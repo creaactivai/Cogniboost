@@ -66,7 +66,10 @@ function ProtectedRoute({ children, requireOnboarding = true }: { children: Reac
   }
 
   // Redirect users who haven't completed onboarding (using wouter)
-  if (requireOnboarding && !user.onboardingCompleted) {
+  // — admins/teachers skip this gate even if their onboardingCompleted
+  // flag was never set, otherwise they get bounced out of /dashboard/teacher
+  // and similar admin-facing surfaces.
+  if (requireOnboarding && !user.onboardingCompleted && !user.isAdmin) {
     return <Redirect to="/onboarding" />;
   }
 
