@@ -47,6 +47,7 @@ interface LabSession {
   maxParticipants: number;
   status: string;
   bookedCount?: number;            // derived server-side
+  liveStatus?: "live" | "starting_soon" | "upcoming";
   registrationId?: string;          // present on my-bookings response
 }
 
@@ -205,58 +206,63 @@ export function ConversationLabsV2() {
             </div>
           </div>
 
-          {/* Sessions list */}
+          {/* Split into LIVE NOW + STARTING SOON + UPCOMING for prominent display */}
           {filtered.length === 0 ? (
             <Card className="p-8 text-center text-muted-foreground">
               No upcoming labs for {studentLevel}{interestFilter !== "all" && " in this interest"}. Check back soon!
             </Card>
           ) : (
-            <div className="space-y-3">
-              {filtered.map((s) => {
-                const interest = interestById.get(s.interestTopicId);
-                const isBooked = myBookedIds.has(s.id);
-                const spotsLeft = s.maxParticipants - (s.bookedCount ?? 0);
-                const isFull = spotsLeft <= 0;
-                return (
-                  <Card key={s.id} className="p-4 hover-elevate">
-                    <div className="flex items-start gap-3">
-                      <div className="text-3xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="font-bold text-sm">{s.title}</h3>
-                          <Badge variant="outline" className="text-[10px]">{s.level}</Badge>
-                          {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(s.scheduledAt)}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(s.scheduledAt)} · {s.durationMinutes} min</span>
-                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{s.bookedCount ?? 0}/{s.maxParticipants}</span>
-                        </div>
-                        {s.grammarFocus && (
-                          <p className="text-xs mt-2"><strong>Focus:</strong> <span className="text-muted-foreground">{s.grammarFocus}</span></p>
-                        )}
-                        <div className="mt-3">
-                          {isBooked ? (
-                            <Badge variant="default" className="bg-green-600">✅ Reservado</Badge>
-                          ) : isFull ? (
-                            <Badge variant="secondary">Lleno</Badge>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => bookMutation.mutate(s.id)}
-                              disabled={bookMutation.isPending}
-                              data-testid={`button-book-${s.id}`}
-                            >
-                              {bookMutation.isPending ? "Reservando…" : `📌 Reservar mi lugar (${spotsLeft} disponibles)`}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+            <>
+              {/* LIVE NOW section */}
+              {filtered.filter((s) => s.liveStatus === "live").length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-red-600 font-bold">EN VIVO AHORA</span>
+                  </div>
+                  {filtered.filter((s) => s.liveStatus === "live").map((s) => (
+                    <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
+                      isBooked={myBookedIds.has(s.id)}
+                      onBook={() => bookMutation.mutate(s.id)}
+                      bookPending={bookMutation.isPending}
+                      live
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* STARTING SOON section */}
+              {filtered.filter((s) => s.liveStatus === "starting_soon").length > 0 && (
+                <div className="space-y-2 pt-3">
+                  <span className="text-xs font-mono uppercase tracking-widest text-amber-600 font-bold">⏰ EMPIEZA EN BREVE</span>
+                  {filtered.filter((s) => s.liveStatus === "starting_soon").map((s) => (
+                    <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
+                      isBooked={myBookedIds.has(s.id)}
+                      onBook={() => bookMutation.mutate(s.id)}
+                      bookPending={bookMutation.isPending}
+                      startingSoon
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* UPCOMING section */}
+              {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).length > 0 && (
+                <div className="space-y-2 pt-3">
+                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">📅 PRÓXIMAS</span>
+                  {filtered.filter((s) => s.liveStatus === "upcoming" || !s.liveStatus).map((s) => (
+                    <SessionCard key={s.id} session={s} interest={interestById.get(s.interestTopicId)}
+                      isBooked={myBookedIds.has(s.id)}
+                      onBook={() => bookMutation.mutate(s.id)}
+                      bookPending={bookMutation.isPending}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -302,6 +308,73 @@ export function ConversationLabsV2() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+interface SessionCardProps {
+  session: LabSession;
+  interest: InterestTopic | undefined;
+  isBooked: boolean;
+  onBook: () => void;
+  bookPending: boolean;
+  live?: boolean;
+  startingSoon?: boolean;
+}
+
+function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live, startingSoon }: SessionCardProps) {
+  const spotsLeft = s.maxParticipants - (s.bookedCount ?? 0);
+  const isFull = spotsLeft <= 0;
+  const borderColor = live ? "border-red-500" : startingSoon ? "border-amber-500" : "";
+  const bgTint = live ? "bg-red-50 dark:bg-red-950/20" : startingSoon ? "bg-amber-50 dark:bg-amber-950/20" : "";
+
+  return (
+    <Card className={`p-4 hover-elevate ${borderColor} ${bgTint} ${live ? "border-2" : ""}`}>
+      <div className="flex items-start gap-3">
+        <div className="text-3xl flex-shrink-0">{interest?.icon ?? "📚"}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            {live && <Badge className="bg-red-600 text-white text-[10px] animate-pulse">🔴 EN VIVO</Badge>}
+            {startingSoon && <Badge className="bg-amber-500 text-white text-[10px]">⏰ EMPIEZA YA</Badge>}
+            <h3 className="font-bold text-sm">{s.title}</h3>
+            <Badge variant="outline" className="text-[10px]">{s.level}</Badge>
+            {interest && <Badge variant="secondary" className="text-[10px]">{interest.name}</Badge>}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(s.scheduledAt)}</span>
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(s.scheduledAt)} · {s.durationMinutes} min</span>
+            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{s.bookedCount ?? 0}/{s.maxParticipants}</span>
+          </div>
+          {s.grammarFocus && (
+            <p className="text-xs mt-2"><strong>Focus:</strong> <span className="text-muted-foreground">{s.grammarFocus}</span></p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {live && isBooked && s.meetingUrl && (
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
+                <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer">▶️ Unirse ahora</a>
+              </Button>
+            )}
+            {live && !isBooked && s.meetingUrl && !isFull && (
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={onBook} disabled={bookPending}>
+                {bookPending ? "Uniéndose…" : "🔴 Unirse a la clase"}
+              </Button>
+            )}
+            {!live && (
+              <>
+                {isBooked ? (
+                  <Badge variant="default" className="bg-green-600">✅ Reservado</Badge>
+                ) : isFull ? (
+                  <Badge variant="secondary">Lleno</Badge>
+                ) : (
+                  <Button size="sm" onClick={onBook} disabled={bookPending} data-testid={`button-book-${s.id}`}>
+                    {bookPending ? "Reservando…" : `📌 Reservar mi lugar (${spotsLeft} disponibles)`}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 

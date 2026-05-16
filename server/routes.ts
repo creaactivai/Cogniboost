@@ -5898,27 +5898,34 @@ Important:
     }
   });
 
-  // List upcoming lab sessions, filtered by the student's level. Includes
-  // a derived `bookedCount` so the UI shows "3/8 spots taken".
+  // List active lab sessions for the student's level — includes both
+  // sessions that haven't started yet AND sessions that started but
+  // haven't ended yet (live). A session is "active" while
+  // scheduled_at + duration > now AND status != 'cancelled'.
+  // Each row gets bookedCount + a computed liveStatus field:
+  //   'live'         — started, still within duration window
+  //   'starting_soon'— within 15 min of scheduled start
+  //   'upcoming'     — more than 15 min away
   app.get('/api/lab-sessions/upcoming', requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
-      const { eq, and, gte, sql, count } = await import("drizzle-orm");
+      const { eq, and, count, ne, sql } = await import("drizzle-orm");
       const { labSessionsV2, labRegistrations } = await import('@shared/schema');
       const levelFilter = (req.query.level as string) || (req.user as any)?.currentLevel || 'A1';
+      const now = new Date();
 
+      // We want sessions where scheduled_at + duration_minutes > now,
+      // i.e. the session has not yet ended. Compute via SQL.
       const sessions = await db
         .select()
         .from(labSessionsV2)
         .where(and(
           eq(labSessionsV2.level, levelFilter as any),
-          gte(labSessionsV2.scheduledAt, new Date()),
-          eq(labSessionsV2.status, 'scheduled'),
+          ne(labSessionsV2.status, 'cancelled'),
+          sql`${labSessionsV2.scheduledAt} + (${labSessionsV2.durationMinutes} * INTERVAL '1 minute') > NOW()`,
         ));
-      // Order chronologically client-side (lighter than ORDER BY)
       sessions.sort((a, b) => (a.scheduledAt?.getTime() ?? 0) - (b.scheduledAt?.getTime() ?? 0));
 
-      // For each session count its non-cancelled registrations
       const out: any[] = [];
       for (const s of sessions) {
         const [{ n }] = await db
@@ -5928,7 +5935,13 @@ Important:
             eq(labRegistrations.labSessionId, s.id),
             eq(labRegistrations.cancelled, false),
           ));
-        out.push({ ...s, bookedCount: Number(n) });
+        const sStart = s.scheduledAt instanceof Date ? s.scheduledAt : new Date(s.scheduledAt as any);
+        const sEnd = new Date(sStart.getTime() + s.durationMinutes * 60_000);
+        let liveStatus: 'live' | 'starting_soon' | 'upcoming';
+        if (sStart <= now && sEnd > now) liveStatus = 'live';
+        else if (sStart.getTime() - now.getTime() <= 15 * 60_000) liveStatus = 'starting_soon';
+        else liveStatus = 'upcoming';
+        out.push({ ...s, bookedCount: Number(n), liveStatus });
       }
       res.json(out);
     } catch (err: any) {
