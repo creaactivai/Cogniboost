@@ -1,6 +1,7 @@
 import { Route, Switch, useLocation } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DashboardOverview } from "@/components/dashboard/overview";
 import { CourseCatalog } from "@/components/dashboard/course-catalog";
@@ -178,10 +179,18 @@ export default function Dashboard() {
     "--sidebar-width-icon": "3rem",
   };
 
+  // When an admin is on a teacher-only surface (/dashboard/teacher/*),
+  // show the AdminSidebar instead of the student-facing AppSidebar so
+  // they stay in a consistent admin navigation context. Students never
+  // hit those routes (they're admin-only).
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isTeacherSurface = path.startsWith('/dashboard/teacher');
+  const useAdminChrome = !!user?.isAdmin && isTeacherSurface;
+
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex min-h-screen w-full">
-        <AppSidebar />
+        {useAdminChrome ? <AdminSidebar /> : <AppSidebar />}
         <div className="flex flex-col flex-1 min-w-0">
           {/* Header */}
           <header className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b border-border bg-background/80 backdrop-blur-md">
