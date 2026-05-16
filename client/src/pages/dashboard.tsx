@@ -24,6 +24,7 @@ import WritingProjectSubmissionViewPage from "@/pages/writing-project-submission
 import LabRoomPage from "@/pages/lab-room";
 import TeacherGradingQueuePage from "@/pages/teacher-grading-queue";
 import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
+import TeacherSpeakingReviewPage from "@/pages/teacher-speaking-review";
 import TeacherLessonLibraryPage from "@/pages/teacher-lesson-library";
 import TeacherLessonPlanPage from "@/pages/teacher-lesson-plan";
 import { useAuth } from "@/hooks/use-auth";
@@ -202,6 +203,7 @@ export default function Dashboard() {
               <Route path="/dashboard/writing-project-submissions/:id" component={WritingProjectSubmissionViewPage} />
               {/* Phase 1 — Teacher review surface (Master Plan v2.0 §4.4 + §7.1) */}
               <Route path="/dashboard/teacher/submissions/:id" component={TeacherSubmissionReviewPage} />
+              <Route path="/dashboard/teacher/speaking/:id" component={TeacherSpeakingReviewPage} />
               {/* Phase 1.5 — Lesson Library (Master Plan v2.0 §7.4) */}
               <Route path="/dashboard/teacher/lessons/:id" component={TeacherLessonPlanPage} />
               <Route path="/dashboard/teacher/lessons" component={TeacherLessonLibraryPage} />

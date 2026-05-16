@@ -54,10 +54,11 @@ function QueueRow({ submission }: { submission: Submission }) {
   // before the transcript has been written.
   const preview = (submission.content || (isSpeaking ? "(audio recording — transcript pending)" : "")).slice(0, 140);
 
-  // Speaking submissions route to the student view for now (read-only teacher
-  // path). Writing/writing-project routes to the existing review surface.
+  // Route by type: speaking submissions go to the dedicated speaking
+  // review surface with score override; writing/writing-project go to
+  // the original review surface.
   const href = isSpeaking
-    ? `/dashboard/speaking-submissions/${submission.id}`
+    ? `/dashboard/teacher/speaking/${submission.id}`
     : `/dashboard/teacher/submissions/${submission.id}`;
 
   return (
