@@ -7364,6 +7364,29 @@ ${JSON.stringify(items)}`;
       if (session.status !== 'scheduled') return res.status(400).json({ error: 'Session not open for booking' });
       if (session.scheduledAt && session.scheduledAt < new Date()) return res.status(400).json({ error: 'Session already started' });
 
+      // LEVEL ENFORCEMENT (Coral's requirement): student can only join
+      // labs at their CEFR level — no A1 student in a B2 session.
+      // Admins/teachers are exempt so they can observe any session.
+      const studentRow = await storage.getUser(userId);
+      const isStaff = studentRow?.isAdmin || (req.user as any)?.role === 'teacher';
+      if (!isStaff) {
+        const studentLevel = studentRow?.placementLevel;
+        if (!studentLevel) {
+          return res.status(403).json({
+            error: 'Placement level required',
+            message: 'Necesitas completar tu quiz de nivel antes de reservar un Lab.',
+          });
+        }
+        if (studentLevel !== session.level) {
+          return res.status(403).json({
+            error: 'Level mismatch',
+            message: `Esta sesión es para nivel ${session.level}. Tu nivel actual es ${studentLevel}. Solo puedes reservar Labs de tu nivel.`,
+            yourLevel: studentLevel,
+            sessionLevel: session.level,
+          });
+        }
+      }
+
       // Already registered for this exact session?
       const [existing] = await db
         .select()

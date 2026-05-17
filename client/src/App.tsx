@@ -23,6 +23,8 @@ import AdminStudents from "@/pages/admin/students";
 import AdminFinancials from "@/pages/admin/financials";
 import AdminAnalytics from "@/pages/admin/analytics";
 import AdminLabs from "@/pages/admin/labs";
+import LabsMethodology from "@/pages/admin/labs-methodology";
+import LabsPlansPage from "@/pages/admin/labs-plans";
 import AdminFinalExamsPage from "@/pages/admin/exams";
 import AdminInstructors from "@/pages/admin/instructors";
 import AdminOnboarding from "@/pages/admin/onboarding";
@@ -202,6 +204,12 @@ function Router() {
       </Route>
       <Route path="/admin/analytics">
         <AdminRoute><AdminAnalytics /></AdminRoute>
+      </Route>
+      <Route path="/admin/labs/methodology">
+        <AdminRoute><LabsMethodology /></AdminRoute>
+      </Route>
+      <Route path="/admin/labs/plans">
+        <AdminRoute><LabsPlansPage /></AdminRoute>
       </Route>
       <Route path="/admin/labs">
         <AdminRoute><AdminLabs /></AdminRoute>

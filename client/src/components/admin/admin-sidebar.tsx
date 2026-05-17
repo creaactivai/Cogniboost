@@ -68,6 +68,11 @@ const menuItems = [
     icon: Calendar,
   },
   {
+    title: "HABLA Lab Plans",
+    url: "/admin/labs/plans",
+    icon: GraduationCap,
+  },
+  {
     title: "Final Exams",
     url: "/admin/exams",
     icon: Award,
