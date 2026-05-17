@@ -6351,10 +6351,10 @@ Important:
       );
       if (bareCards.length === 0) return res.json({ enriched: 0, remaining: 0 });
 
-      const { getAnthropicClient, getGradingModel, parseJsonFromResponse, extractTextContent } =
+      const { getAnthropicClient, ANTHROPIC_MODELS, parseJsonFromResponse, extractTextContent } =
         await import("./anthropicClient");
       const client = getAnthropicClient();
-      const model = getGradingModel();
+      const model = ANTHROPIC_MODELS.grading;
 
       const items = bareCards.map((c: any) => ({ id: c.id, term: c.term, isExpr: c.is_expression, level: c.level }));
       const prompt = `You are a CEFR-aligned ESL lexicographer. For each item in the JSON array below, produce a Spanish-Latin-America translation and a short, level-appropriate English example sentence (8–14 words). If it is an expression/idiom, give its meaning rather than a literal translation.
@@ -6405,30 +6405,14 @@ ${JSON.stringify(items)}`;
 
   // ----------------------------------------------------------------
   // GET /api/vocab/audio?term=... — ElevenLabs TTS in Coral's
-  // cloned voice. Streams MP3 binary. Cached in-memory (LRU) so
-  // repeat plays don't burn API credits.
+  // cloned voice with PERSISTENT GCS cache ("generate once, store
+  // forever"). First click on a word ever: ElevenLabs API call →
+  // upload to GCS → 302 redirect to public URL. Every future click
+  // (any student, any time, even after Railway redeploys): 302
+  // straight to GCS, zero ElevenLabs cost.
+  //
+  // Mirrors the lesson-factory pattern of pre-generated MP3s on GCS.
   // ----------------------------------------------------------------
-  // Simple in-process LRU (max 500 entries, ~few MB). For multi-
-  // instance scale, swap to GCS later.
-  const TTS_CACHE = new Map<string, Buffer>();
-  const TTS_CACHE_MAX = 500;
-  function ttsCacheGet(key: string): Buffer | undefined {
-    const buf = TTS_CACHE.get(key);
-    if (buf) {
-      // refresh recency
-      TTS_CACHE.delete(key);
-      TTS_CACHE.set(key, buf);
-    }
-    return buf;
-  }
-  function ttsCacheSet(key: string, buf: Buffer) {
-    if (TTS_CACHE.size >= TTS_CACHE_MAX) {
-      const firstKey = TTS_CACHE.keys().next().value;
-      if (firstKey) TTS_CACHE.delete(firstKey);
-    }
-    TTS_CACHE.set(key, buf);
-  }
-
   app.get('/api/vocab/audio', requireAuth, async (req: any, res) => {
     try {
       const term = String(req.query.term || '').trim();
@@ -6441,16 +6425,20 @@ ${JSON.stringify(items)}`;
         return res.status(503).json({ error: 'TTS not configured (ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID required)' });
       }
 
-      const cacheKey = `${voiceId}:${term.toLowerCase()}`;
-      const cached = ttsCacheGet(cacheKey);
-      if (cached) {
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        res.setHeader('X-Cache', 'HIT');
-        return res.send(cached);
+      const { vocabAudioExists, gcsVocabAudioUrl, saveVocabAudio } = await import('./gcsDirectUpload');
+
+      // Fast path: already in GCS — redirect, no work needed
+      try {
+        if (await vocabAudioExists(voiceId, term)) {
+          res.setHeader('X-Cache', 'HIT');
+          return res.redirect(302, gcsVocabAudioUrl(voiceId, term));
+        }
+      } catch (existsErr: any) {
+        console.warn('[vocab/audio] existence check failed, falling through to generate:', existsErr?.message);
       }
 
-      // Mirror lesson-factory/generate_audio.py settings — Coral's standard
+      // Slow path: generate via ElevenLabs, upload to GCS, then redirect
+      // Mirror lesson-factory/generate_audio.py voice settings exactly
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
         headers: {
@@ -6476,7 +6464,16 @@ ${JSON.stringify(items)}`;
       }
       const arr = await r.arrayBuffer();
       const buf = Buffer.from(arr);
-      ttsCacheSet(cacheKey, buf);
+
+      // Save to GCS (deterministic path) — fire-and-forget upload while we
+      // also stream the same buffer back to the user, so they hear it now
+      // and future requests get it from GCS.
+      try {
+        await saveVocabAudio(voiceId, term, buf);
+      } catch (saveErr: any) {
+        console.error('[vocab/audio] GCS save failed (still serving inline):', saveErr?.message);
+      }
+
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.setHeader('X-Cache', 'MISS');

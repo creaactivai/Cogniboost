@@ -158,13 +158,32 @@ export default function VocabularyPage() {
     onError: (e: any) => toast({ title: "Sync failed", description: e?.message, variant: "destructive" }),
   });
 
-  // Play audio in Coral's cloned voice
-  const playAudio = (term: string) => {
-    const audio = new Audio(`/api/vocab/audio?term=${encodeURIComponent(term)}`);
-    audio.play().catch((err) => {
-      console.warn("Audio play failed:", err);
-      toast({ title: "Couldn't play audio", description: "Try clicking the speaker again.", variant: "destructive" });
-    });
+  // Play audio in Coral's cloned voice (with browser-voice fallback)
+  const playAudio = async (term: string) => {
+    // First try server-side (ElevenLabs → GCS cache, in Coral's voice)
+    try {
+      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, { credentials: "include" });
+      if (r.ok) {
+        const blob = await r.blob();
+        const audio = new Audio(URL.createObjectURL(blob));
+        await audio.play();
+        return;
+      }
+      // 503 = TTS not configured on backend → fallback to browser voice
+      // 502 = ElevenLabs upstream error → fallback to browser voice
+      console.warn(`Server TTS unavailable (${r.status}), using browser voice`);
+    } catch (err) {
+      console.warn("Server TTS fetch failed, using browser voice:", err);
+    }
+    // Fallback: browser SpeechSynthesis (works offline, free, decent quality)
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(term);
+      utterance.lang = "en-US";
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast({ title: "Audio not available", variant: "destructive" });
+    }
   };
 
   return (
