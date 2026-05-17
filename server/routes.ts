@@ -5396,14 +5396,19 @@ Important:
 
       const { db } = await import("./db");
       const { submissions } = await import("@shared/schema");
-      const { eq, desc, or } = await import("drizzle-orm");
+      const { eq, desc, or, and, ne, sql } = await import("drizzle-orm");
 
       // ai_graded submissions await teacher signoff; pending_ai may be
       // still grading (useful for ops visibility) or failed (ai_grade.error).
+      // Reading quizzes are auto-graded multiple-choice with no teacher
+      // review needed, so they're excluded from the queue.
       const rows = await db
         .select()
         .from(submissions)
-        .where(or(eq(submissions.status, "ai_graded"), eq(submissions.status, "pending_ai")))
+        .where(and(
+          or(eq(submissions.status, "ai_graded"), eq(submissions.status, "pending_ai")),
+          sql`(${submissions.assignmentType} IS NULL OR ${submissions.assignmentType} != 'reading_quiz')`,
+        ))
         .orderBy(desc(submissions.submittedAt))
         .limit(50);
 

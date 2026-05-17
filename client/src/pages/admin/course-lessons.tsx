@@ -17,7 +17,8 @@ import { Plus, Pencil, Trash2, Video, FileText, Eye, EyeOff, ArrowLeft, GripVert
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Course, Lesson, CourseModule } from "@shared/schema";
 import { ProjectEditorDialog, type ProjectData } from "@/components/admin/project-editor-dialog";
-import { Mic, PenTool } from "lucide-react";
+import { ReadingProjectEditorDialog, type ReadingProjectData } from "@/components/admin/reading-project-editor-dialog";
+import { Mic, PenTool, BookOpen } from "lucide-react";
 
 interface LessonCardProps {
   lesson: Lesson;
@@ -180,6 +181,15 @@ export default function AdminCourseLessons() {
   );
   const writingProjectByModule = new Map<string, ProjectData>(
     writingProjects.map((p) => [p.moduleId, p])
+  );
+
+  // Reading Projects per module (auto-graded comprehension quizzes).
+  const { data: readingProjects = [] } = useQuery<ReadingProjectData[]>({
+    queryKey: [`/api/admin/reading-projects/by-course/${courseId}`],
+    enabled: !!courseId,
+  });
+  const readingProjectByModule = new Map<string, ReadingProjectData>(
+    readingProjects.map((p) => [p.moduleId, p])
   );
 
   const { data: modules = [] } = useQuery<CourseModule[]>({
@@ -1205,6 +1215,41 @@ export default function AdminCourseLessons() {
                               <span className="text-xs text-muted-foreground truncate ml-2">{wp.title}</span>
                             </div>
                             <ProjectEditorDialog type="writing" project={wp} />
+                          </div>
+                        </Card>
+                      );
+                    })()}
+
+                    {/* Reading Project card — auto-graded comprehension
+                        quiz tied to a passage. One per module. */}
+                    {(() => {
+                      const rp = readingProjectByModule.get(module.id);
+                      if (!rp) return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                          <div className="flex items-center gap-2 text-sm" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                            <BookOpen className="w-4 h-4" style={{ color: '#10B981' }} />
+                            <span className="font-bold">Reading Project</span>
+                            <Badge variant="secondary" className="text-[10px]">No creado para este módulo</Badge>
+                          </div>
+                        </Card>
+                      );
+                      return (
+                        <Card className="p-3 border-dashed" style={{ borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                              <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: '#10B981' }} />
+                              <span className="font-bold text-sm">Reading Project</span>
+                              <Badge variant={rp.isPublished ? "default" : "secondary"} className="text-[10px]" style={{ backgroundColor: rp.isPublished ? '#10B981' : undefined }}>
+                                {rp.isPublished ? 'Publicado' : 'Borrador'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground truncate ml-2">{rp.title}</span>
+                              {rp.questions && (
+                                <Badge variant="outline" className="text-[9px] ml-auto flex-shrink-0">
+                                  {rp.questions.length} preguntas
+                                </Badge>
+                              )}
+                            </div>
+                            <ReadingProjectEditorDialog project={rp} courseId={courseId!} />
                           </div>
                         </Card>
                       );
