@@ -93,7 +93,7 @@ const teacherMenuItems = [
     icon: ClipboardList,
   },
   {
-    title: "Lesson Library",
+    title: "Library",
     url: "/dashboard/teacher/lessons",
     icon: Library,
   },
