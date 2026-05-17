@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, pgEnum, jsonb, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, pgEnum, jsonb, primaryKey, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -434,6 +434,42 @@ export const vocabularyMastery = pgTable(
   },
   (t) => [primaryKey({ columns: [t.studentId, t.vocabularyId] })],
 );
+
+// Phase 1.9 — Vocabulary SRS cards (per-student spaced repetition queue).
+// Includes single words AND multi-word expressions/idioms/slang from:
+//   - writing_projects.targetVocabulary + targetExpressions
+//   - speaking_projects.targetVocabulary + targetExpressions
+//   - lab_sessions.vocabulary + expressions (Conversation Labs)
+//   - lessons.json vocabulary lists (planet/module content)
+//   - grader feedback (words used incorrectly → auto-add for correction)
+// SM-2-lite SRS algorithm: ease starts 2.5, modified by Again/Hard/Good/Easy.
+// Mastery transitions: new → learning (1+ correct) → familiar (3 streak)
+//   → mastered (6 streak).
+export const vocabSrsCards = pgTable("vocab_srs_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  term: text("term").notNull(),                              // word OR expression
+  translation: text("translation"),                          // ES
+  exampleEn: text("example_en"),
+  exampleEs: text("example_es"),
+  partOfSpeech: text("part_of_speech"),
+  isExpression: boolean("is_expression").notNull().default(false),
+  vocabularyId: varchar("vocabulary_id"),                    // optional link to global vocab.id
+  sourceType: text("source_type").notNull(),                 // writing_project|speaking_project|lab|lesson|grader_correction|manual
+  sourceId: varchar("source_id"),
+  sourceModuleId: varchar("source_module_id"),
+  level: courseLevelEnum("level"),
+  intervalDays: integer("interval_days").notNull().default(0),
+  easeFactor: real("ease_factor").notNull().default(2.5),
+  reviewCount: integer("review_count").notNull().default(0),
+  correctStreak: integer("correct_streak").notNull().default(0),
+  totalCorrect: integer("total_correct").notNull().default(0),
+  totalIncorrect: integer("total_incorrect").notNull().default(0),
+  masteryLevel: text("mastery_level").notNull().default("new"),   // new|learning|familiar|mastered
+  nextReviewDue: timestamp("next_review_due").defaultNow(),
+  lastReviewedAt: timestamp("last_reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // (Old Lab Packs / labTopics / labSessions / labRegistrations / labFeedback
 //  definitions were removed 2026-05-15 — they were a duplicate Phase 1.6

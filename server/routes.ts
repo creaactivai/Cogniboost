@@ -5911,6 +5911,365 @@ Important:
     } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
   });
 
+  // ============================================================
+  // Phase 1.9 — Vocabulary SRS (spaced repetition flashcards)
+  // ============================================================
+  // Per Coral's spec: cards include words AND expressions/idioms/slang.
+  // Sources: writing_projects.targetVocabulary + targetExpressions,
+  // speaking_projects.targetVocabulary + targetExpressions, plus
+  // global vocabulary table. SM-2-lite algorithm.
+  //
+  // Defensive migration runs on every endpoint in case startup
+  // migration didn't fire (Railway hot-deploy edge case).
+  // ============================================================
+
+  async function ensureVocabSrsTable() {
+    try {
+      const { pool } = await import("./db");
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS vocab_srs_cards (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id varchar NOT NULL,
+        term text NOT NULL,
+        translation text,
+        example_en text,
+        example_es text,
+        part_of_speech text,
+        is_expression boolean NOT NULL DEFAULT false,
+        vocabulary_id varchar,
+        source_type text NOT NULL,
+        source_id varchar,
+        source_module_id varchar,
+        level course_level,
+        interval_days integer NOT NULL DEFAULT 0,
+        ease_factor real NOT NULL DEFAULT 2.5,
+        review_count integer NOT NULL DEFAULT 0,
+        correct_streak integer NOT NULL DEFAULT 0,
+        total_correct integer NOT NULL DEFAULT 0,
+        total_incorrect integer NOT NULL DEFAULT 0,
+        mastery_level text NOT NULL DEFAULT 'new',
+        next_review_due timestamp DEFAULT now(),
+        last_reviewed_at timestamp,
+        created_at timestamp DEFAULT now()
+      )`);
+      // Case-insensitive uniqueness so "Hello" + "hello" don't double-up
+      await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS vocab_srs_cards_student_term_idx ON vocab_srs_cards(student_id, lower(term))`);
+      await (pool as any).query(`CREATE INDEX IF NOT EXISTS vocab_srs_cards_due_idx ON vocab_srs_cards(student_id, next_review_due)`);
+    } catch (migErr: any) {
+      console.warn('[vocab-srs] defensive migration warning:', migErr?.message);
+    }
+  }
+
+  // GET /api/vocab/queue — today's due cards + new cards (up to limit)
+  app.get('/api/vocab/queue', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const limit = Math.min(parseInt(String(req.query.limit || '20'), 10) || 20, 50);
+      const { rows } = await (pool as any).query(
+        `SELECT * FROM vocab_srs_cards
+         WHERE student_id = $1
+           AND mastery_level != 'mastered'
+           AND (next_review_due IS NULL OR next_review_due <= now())
+         ORDER BY
+           CASE mastery_level WHEN 'new' THEN 0 WHEN 'learning' THEN 1 WHEN 'familiar' THEN 2 ELSE 3 END,
+           next_review_due ASC NULLS FIRST
+         LIMIT $2`,
+        [studentId, limit]
+      );
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        term: r.term,
+        translation: r.translation,
+        exampleEn: r.example_en,
+        exampleEs: r.example_es,
+        partOfSpeech: r.part_of_speech,
+        isExpression: r.is_expression,
+        masteryLevel: r.mastery_level,
+        reviewCount: r.review_count,
+        level: r.level,
+        sourceType: r.source_type,
+      })));
+    } catch (e: any) {
+      console.error('[vocab/queue]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // POST /api/vocab/review — body { cardId, rating: 'again'|'hard'|'good'|'easy' }
+  // SM-2-lite: updates interval, ease, mastery, nextReviewDue.
+  app.post('/api/vocab/review', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const { cardId, rating } = req.body || {};
+      if (!cardId || !['again', 'hard', 'good', 'easy'].includes(rating)) {
+        return res.status(400).json({ error: 'cardId + valid rating required' });
+      }
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const { rows } = await (pool as any).query(
+        `SELECT * FROM vocab_srs_cards WHERE id = $1 AND student_id = $2`,
+        [cardId, studentId]
+      );
+      const card = rows[0];
+      if (!card) return res.status(404).json({ error: 'Card not found' });
+
+      let interval = card.interval_days || 0;
+      let ease = card.ease_factor || 2.5;
+      let streak = card.correct_streak || 0;
+      let masteryLevel = card.mastery_level || 'new';
+      let totalCorrect = card.total_correct || 0;
+      let totalIncorrect = card.total_incorrect || 0;
+      const reviewCount = (card.review_count || 0) + 1;
+
+      if (rating === 'again') {
+        // Wrong — reset interval, drop ease, drop mastery one notch
+        interval = 0;
+        ease = Math.max(1.3, ease - 0.2);
+        streak = 0;
+        totalIncorrect += 1;
+        if (masteryLevel === 'mastered') masteryLevel = 'familiar';
+        else if (masteryLevel === 'familiar') masteryLevel = 'learning';
+        else masteryLevel = 'learning';
+      } else if (rating === 'hard') {
+        ease = Math.max(1.3, ease - 0.15);
+        streak += 1;
+        totalCorrect += 1;
+        if (interval === 0) interval = 1;
+        else interval = Math.max(1, Math.round(interval * 1.2));
+      } else if (rating === 'good') {
+        streak += 1;
+        totalCorrect += 1;
+        if (interval === 0) interval = 1;
+        else if (interval < 6) interval = 3;
+        else interval = Math.round(interval * ease);
+      } else if (rating === 'easy') {
+        ease = ease + 0.15;
+        streak += 1;
+        totalCorrect += 1;
+        if (interval === 0) interval = 4;
+        else interval = Math.round(interval * ease * 1.3);
+      }
+
+      // Mastery progression
+      if (rating !== 'again') {
+        if (masteryLevel === 'new') masteryLevel = 'learning';
+        if (masteryLevel === 'learning' && streak >= 3) masteryLevel = 'familiar';
+        if (masteryLevel === 'familiar' && streak >= 6) masteryLevel = 'mastered';
+      }
+
+      // For "again" with mastery already reset, schedule short (1 min)
+      const nextReviewMs = rating === 'again'
+        ? Date.now() + 60 * 1000
+        : Date.now() + interval * 24 * 60 * 60 * 1000;
+      const nextReview = new Date(nextReviewMs);
+
+      await (pool as any).query(
+        `UPDATE vocab_srs_cards SET
+          interval_days = $1, ease_factor = $2, correct_streak = $3,
+          mastery_level = $4, review_count = $5, total_correct = $6,
+          total_incorrect = $7, next_review_due = $8, last_reviewed_at = now()
+         WHERE id = $9`,
+        [interval, ease, streak, masteryLevel, reviewCount, totalCorrect, totalIncorrect, nextReview, cardId]
+      );
+
+      res.json({ ok: true, masteryLevel, nextReviewDue: nextReview.toISOString(), intervalDays: interval });
+    } catch (e: any) {
+      console.error('[vocab/review]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/vocab/stats — counts + streak
+  app.get('/api/vocab/stats', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const { rows } = await (pool as any).query(
+        `SELECT mastery_level, COUNT(*)::int AS c FROM vocab_srs_cards
+         WHERE student_id = $1 GROUP BY mastery_level`,
+        [studentId]
+      );
+      const byMastery: Record<string, number> = { new: 0, learning: 0, familiar: 0, mastered: 0 };
+      for (const r of rows) byMastery[r.mastery_level] = r.c;
+      const total = Object.values(byMastery).reduce((a, b) => a + b, 0);
+
+      const dueRes = await (pool as any).query(
+        `SELECT COUNT(*)::int AS c FROM vocab_srs_cards
+         WHERE student_id = $1 AND mastery_level != 'mastered'
+           AND (next_review_due IS NULL OR next_review_due <= now())`,
+        [studentId]
+      );
+      const due = dueRes.rows[0]?.c || 0;
+
+      const reviewedTodayRes = await (pool as any).query(
+        `SELECT COUNT(*)::int AS c FROM vocab_srs_cards
+         WHERE student_id = $1 AND last_reviewed_at >= date_trunc('day', now())`,
+        [studentId]
+      );
+      const reviewedToday = reviewedTodayRes.rows[0]?.c || 0;
+
+      res.json({ total, ...byMastery, dueNow: due, reviewedToday });
+    } catch (e: any) {
+      console.error('[vocab/stats]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // POST /api/vocab/sync — pull cards from student's exposed projects.
+  // Idempotent on (studentId, lower(term)). Adds:
+  //   - writing_projects.targetVocabulary (single words, isExpression=false)
+  //   - writing_projects.targetExpressions (multi-word, isExpression=true)
+  //   - speaking_projects.targetVocabulary
+  //   - speaking_projects.targetExpressions
+  //   - lab_session_briefs.expressions (Conversation Labs)
+  // Only includes projects whose level matches student's placement level
+  // or lower (so we don't drown an A2 student in C1 vocab).
+  app.post('/api/vocab/sync', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const student = await storage.getUser(studentId);
+      const studentLevel = student?.placementLevel || 'A1';
+
+      // Level filter: include current level + all below
+      const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1'];
+      const cutoff = LEVEL_ORDER.indexOf(studentLevel);
+      const allowedLevels = LEVEL_ORDER.slice(0, cutoff + 1);
+
+      const inserts: any[] = [];
+
+      // Writing projects
+      try {
+        const wp = await (pool as any).query(
+          `SELECT id, module_id, level, target_vocabulary, target_expressions
+           FROM writing_projects
+           WHERE level = ANY($1::course_level[])`,
+          [allowedLevels]
+        );
+        for (const p of wp.rows) {
+          for (const w of (p.target_vocabulary || [])) {
+            inserts.push({ term: w, isExpr: false, src: 'writing_project', srcId: p.id, modId: p.module_id, level: p.level });
+          }
+          for (const e of (p.target_expressions || [])) {
+            inserts.push({ term: e, isExpr: true, src: 'writing_project', srcId: p.id, modId: p.module_id, level: p.level });
+          }
+        }
+      } catch {}
+
+      // Speaking projects
+      try {
+        const sp = await (pool as any).query(
+          `SELECT id, module_id, level, target_vocabulary, target_expressions
+           FROM speaking_projects
+           WHERE level = ANY($1::course_level[])`,
+          [allowedLevels]
+        );
+        for (const p of sp.rows) {
+          for (const w of (p.target_vocabulary || [])) {
+            inserts.push({ term: w, isExpr: false, src: 'speaking_project', srcId: p.id, modId: p.module_id, level: p.level });
+          }
+          for (const e of (p.target_expressions || [])) {
+            inserts.push({ term: e, isExpr: true, src: 'speaking_project', srcId: p.id, modId: p.module_id, level: p.level });
+          }
+        }
+      } catch {}
+
+      // Conversation Lab sessions (vocabulary + expressions arrays)
+      try {
+        const labs = await (pool as any).query(
+          `SELECT id, level, vocabulary, expressions FROM lab_sessions
+           WHERE level = ANY($1::course_level[])`,
+          [allowedLevels]
+        );
+        for (const l of labs.rows) {
+          for (const w of (l.vocabulary || [])) {
+            inserts.push({ term: w, isExpr: false, src: 'lab', srcId: l.id, modId: null, level: l.level });
+          }
+          for (const e of (l.expressions || [])) {
+            inserts.push({ term: e, isExpr: true, src: 'lab', srcId: l.id, modId: null, level: l.level });
+          }
+        }
+      } catch {}
+
+      // Dedupe in-memory by lower(term)
+      const seen = new Set<string>();
+      const uniqueInserts = inserts.filter(i => {
+        const k = String(i.term).trim().toLowerCase();
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+
+      let added = 0;
+      for (const i of uniqueInserts) {
+        try {
+          const r = await (pool as any).query(
+            `INSERT INTO vocab_srs_cards (student_id, term, is_expression, source_type, source_id, source_module_id, level)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (student_id, lower(term)) DO NOTHING
+             RETURNING id`,
+            [studentId, String(i.term).trim(), i.isExpr, i.src, i.srcId, i.modId, i.level]
+          );
+          if (r.rowCount > 0) added += 1;
+        } catch {}
+      }
+
+      res.json({ added, scanned: uniqueInserts.length });
+    } catch (e: any) {
+      console.error('[vocab/sync]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/vocab/cards — browse library (paginated). Filter by mastery.
+  app.get('/api/vocab/cards', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const mastery = req.query.mastery as string | undefined;
+      const limit = Math.min(parseInt(String(req.query.limit || '100'), 10) || 100, 500);
+      const offset = parseInt(String(req.query.offset || '0'), 10) || 0;
+
+      const params: any[] = [studentId];
+      let sql = `SELECT id, term, translation, example_en, is_expression, mastery_level, source_type, level,
+                        next_review_due, total_correct, total_incorrect
+                 FROM vocab_srs_cards WHERE student_id = $1`;
+      if (mastery && ['new', 'learning', 'familiar', 'mastered'].includes(mastery)) {
+        params.push(mastery);
+        sql += ` AND mastery_level = $${params.length}`;
+      }
+      params.push(limit, offset);
+      sql += ` ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
+      const { rows } = await (pool as any).query(sql, params);
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        term: r.term,
+        translation: r.translation,
+        exampleEn: r.example_en,
+        isExpression: r.is_expression,
+        masteryLevel: r.mastery_level,
+        sourceType: r.source_type,
+        level: r.level,
+        nextReviewDue: r.next_review_due,
+        totalCorrect: r.total_correct,
+        totalIncorrect: r.total_incorrect,
+      })));
+    } catch (e: any) {
+      console.error('[vocab/cards]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // Send a custom email — used for admin announcements (e.g., level-cohort
   // exam invitations, mid-cohort communications). Body: { to, subject,
   // html, cc?, replyTo? }. `to` may be a single email or an array.

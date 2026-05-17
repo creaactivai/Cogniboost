@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Library,
   Award,
+  Brain,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -67,6 +68,11 @@ const menuItems = [
     title: "Conversation Labs",
     url: "/dashboard/labs",
     icon: Users,
+  },
+  {
+    title: "My Vocabulary",
+    url: "/dashboard/vocabulary",
+    icon: Brain,
   },
   {
     title: "Mastery Exam",

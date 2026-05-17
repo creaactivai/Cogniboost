@@ -30,6 +30,7 @@ import TeacherSubmissionReviewPage from "@/pages/teacher-submission-review";
 import TeacherSpeakingReviewPage from "@/pages/teacher-speaking-review";
 import TeacherLessonLibraryPage from "@/pages/teacher-lesson-library";
 import TeacherLessonPlanPage from "@/pages/teacher-lesson-plan";
+import VocabularyPage from "@/pages/vocabulary";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
@@ -212,6 +213,7 @@ export default function Dashboard() {
               <Route path="/dashboard/labs" component={ConversationLabsV2} />
               <Route path="/dashboard/labs-legacy" component={ConversationLabs} />
               <Route path="/dashboard/labs/:sessionId/room" component={LabRoomPage} />
+              <Route path="/dashboard/vocabulary" component={VocabularyPage} />
               <Route path="/dashboard/progress" component={ProgressTracking} />
               <Route path="/dashboard/settings" component={Settings} />
               <Route path="/dashboard/help" component={HelpSupport} />

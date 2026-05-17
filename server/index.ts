@@ -559,6 +559,38 @@ async function runStartupMigrations() {
     `);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reading_projects_module_idx ON reading_projects(module_id)`);
     console.log('Startup migrations: Phase 1.8 Reading Projects table verified');
+
+    // Phase 1.9 — Vocabulary SRS cards
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vocab_srs_cards (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id varchar NOT NULL,
+        term text NOT NULL,
+        translation text,
+        example_en text,
+        example_es text,
+        part_of_speech text,
+        is_expression boolean NOT NULL DEFAULT false,
+        vocabulary_id varchar,
+        source_type text NOT NULL,
+        source_id varchar,
+        source_module_id varchar,
+        level course_level,
+        interval_days integer NOT NULL DEFAULT 0,
+        ease_factor real NOT NULL DEFAULT 2.5,
+        review_count integer NOT NULL DEFAULT 0,
+        correct_streak integer NOT NULL DEFAULT 0,
+        total_correct integer NOT NULL DEFAULT 0,
+        total_incorrect integer NOT NULL DEFAULT 0,
+        mastery_level text NOT NULL DEFAULT 'new',
+        next_review_due timestamp DEFAULT now(),
+        last_reviewed_at timestamp,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS vocab_srs_cards_student_term_idx ON vocab_srs_cards(student_id, lower(term))`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS vocab_srs_cards_due_idx ON vocab_srs_cards(student_id, next_review_due)`);
+    console.log('Startup migrations: Phase 1.9 Vocabulary SRS table verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }
