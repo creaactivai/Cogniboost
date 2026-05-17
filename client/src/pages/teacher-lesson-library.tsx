@@ -176,104 +176,13 @@ export default function TeacherLessonLibraryPage() {
         />
       </Card>
 
-      <Tabs defaultValue="lessons" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="lessons" className="flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4" /> Self-paced Lessons
-          </TabsTrigger>
-          <TabsTrigger value="habla" className="flex items-center gap-1.5">
-            <Mic className="w-4 h-4" /> HABLA Lab Plans
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="lessons" className="space-y-4">
-
-      {isLoading && <p className="text-sm text-muted-foreground">Loading lessons…</p>}
-
-      {!isLoading && filtered.length === 0 && (
-        <Card className="p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            {lessons.length === 0
-              ? "No lessons published yet. Add lessons via the admin courses pages."
-              : "No lessons match the current filters."}
-          </p>
-        </Card>
-      )}
-
-      <div className="space-y-5">
-        {grouped.map((course) => (
-          <section key={course.id}>
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="font-bold text-lg">{course.courseTitle}</h2>
-              {course.courseLevel && (
-                <Badge variant="outline" className={levelColor(course.courseLevel as TeacherLessonRow["courseLevel"])}>
-                  {course.courseLevel}
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {course.lessons.length} lesson{course.lessons.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {course.lessons.map((l) => {
-                const pct = planCompletenessPct(l.teacherLessonPlan);
-                return (
-                  <Link key={l.id} href={`/dashboard/teacher/lessons/${l.id}`}>
-                    <Card
-                      className="p-3 hover:bg-accent cursor-pointer transition-colors"
-                      data-testid={`row-lesson-${l.id}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate">{l.title}</div>
-                          {l.moduleTitle && (
-                            <div className="text-xs text-muted-foreground">{l.moduleTitle}</div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-xs text-muted-foreground tabular-nums">
-                            {l.duration} min
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={
-                              pct >= 80
-                                ? "bg-emerald-50 text-emerald-900 border-emerald-300"
-                                : pct >= 40
-                                  ? "bg-amber-50 text-amber-900 border-amber-300"
-                                  : "bg-slate-50 text-slate-700 border-slate-300"
-                            }
-                            data-testid={`badge-plan-completeness-${l.id}`}
-                          >
-                            Plan {pct}%
-                          </Badge>
-                          {!l.isPublished && (
-                            <Badge variant="outline" className="bg-slate-50 text-slate-700">
-                              Draft
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-        </TabsContent>
-
-        <TabsContent value="habla" className="space-y-4">
-          <HablaPlansBrowser
-            levelFilter={levelFilter}
-            interestFilter={interestFilter}
-            setInterestFilter={setInterestFilter}
-            interests={interests}
-            search={search}
-          />
-        </TabsContent>
-      </Tabs>
+      <HablaPlansBrowser
+        levelFilter={levelFilter}
+        interestFilter={interestFilter}
+        setInterestFilter={setInterestFilter}
+        interests={interests}
+        search={search}
+      />
     </div>
   );
 }

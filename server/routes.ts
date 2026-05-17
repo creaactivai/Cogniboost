@@ -6000,35 +6000,105 @@ PEDAGOGICAL FRAMEWORK — HABLA Method (5 phases):
 4. LIVE (25 min): Pushed output via task-based learning (Swain, Willis & Willis TBLT). Student MUST use the grammar + vocab to complete a real task (debate, role-play, storytelling, compare-contrast).
 5. ANCHOR (10 min): 3 highlights + 1 takeaway phrase. Words for spaced retrieval in their SRS deck.
 
-OUTPUT REQUIREMENTS:
-Return ONLY a valid JSON array of EXACTLY 4 objects (no markdown fences, no commentary), each with this shape:
-{"variantNumber":1,"title":"<Spanish-friendly evocative title max 60 chars>","grammarFocus":"<specific grammar e.g. 'Past Simple — regular + irregular verbs'>","pedagogicalObjective":"<By the end, student will… (one sentence, output-focused)>","previewBlurb":"<1-paragraph teaser for pre-class email ~40 words exciting no grammar jargon>","vocabulary":["6-8 module words relevant to this variant"],"expressions":["3-5 expressions/phrases blending interest + grammar"],"plan":{"hook":{"durationMinutes":5,"prompt":"<exact teacher opening question>","teacherScript":"<1-2 sentence script>","variants":["alt 1","alt 2"]},"activate":{"durationMinutes":10,"objective":"<what should surface>","teacherScript":"<how to guide elicitation>","vocabToSurface":["3-5 module words"]},"build":{"durationMinutes":10,"focusGrammar":"<grammar lens>","examples":["mini-example 1","mini-example 2","mini-example 3"],"discoveryQuestion":"<question to notice the pattern>"},"live":{"durationMinutes":25,"task":"<engaging real task>","taskRubric":["3-5 success behaviors"],"outputTargets":["how many sentences/turns"]},"anchor":{"durationMinutes":10,"takeawayPhrase":"<one phrase to use this week>","vocabForSrs":["3-5 words for SRS"]}}}
+LANGUAGE POLICY:
+- ENGLISH ONLY in every field. No Spanish words, no Spanish bridging, no "tú", "tu vocabulario", "abuela", etc.
+- The titles, scripts, examples, prompts — all in English.
+- Treat this as if you were writing for a US/UK English-as-a-foreign-language course.
 
 CRITICAL RULES:
-- All teacher scripts in English with occasional Spanish bridging when natural.
 - HOOK must connect emotionally to ${interest.name} — never start cold.
-- LIVE task must be something a real Latin American adult would actually enjoy.
+- LIVE task must be something a real adult would actually enjoy.
 - All 4 variants share interest ${interest.name} but DIFFERENT grammar (variant 1 present, 2 past, 3 comparison/conditional, 4 future or modal) so the student can take any one.
 - Vocabulary MUST come from the module's vocab list above when possible.
-- Output ONLY the JSON array.`;
 
+Use the save_habla_plans tool to return exactly 4 plans.`;
+
+    // Use Anthropic tool_use for guaranteed structured JSON output.
+    // Eliminates parse-error class entirely.
     const msg = await client.messages.create({
-      model: ANTHROPIC_MODELS.grading, // Sonnet — fits in Vercel proxy timeout
-      max_tokens: 6000,
+      model: ANTHROPIC_MODELS.grading,
+      max_tokens: 8000,
+      tools: [{
+        name: 'save_habla_plans',
+        description: 'Save the 4 HABLA Method Conversation Lab plans for this (level × module × interest) combination.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            plans: {
+              type: 'array',
+              minItems: 4,
+              maxItems: 4,
+              items: {
+                type: 'object',
+                properties: {
+                  variantNumber: { type: 'number', enum: [1, 2, 3, 4] },
+                  title: { type: 'string' },
+                  grammarFocus: { type: 'string' },
+                  pedagogicalObjective: { type: 'string' },
+                  previewBlurb: { type: 'string' },
+                  vocabulary: { type: 'array', items: { type: 'string' } },
+                  expressions: { type: 'array', items: { type: 'string' } },
+                  plan: {
+                    type: 'object',
+                    properties: {
+                      hook: { type: 'object', properties: {
+                        durationMinutes: { type: 'number' },
+                        prompt: { type: 'string' },
+                        teacherScript: { type: 'string' },
+                        variants: { type: 'array', items: { type: 'string' } },
+                      }, required: ['durationMinutes', 'prompt', 'teacherScript'] },
+                      activate: { type: 'object', properties: {
+                        durationMinutes: { type: 'number' },
+                        objective: { type: 'string' },
+                        teacherScript: { type: 'string' },
+                        vocabToSurface: { type: 'array', items: { type: 'string' } },
+                      }, required: ['durationMinutes', 'objective'] },
+                      build: { type: 'object', properties: {
+                        durationMinutes: { type: 'number' },
+                        focusGrammar: { type: 'string' },
+                        examples: { type: 'array', items: { type: 'string' } },
+                        discoveryQuestion: { type: 'string' },
+                      }, required: ['durationMinutes', 'focusGrammar', 'examples'] },
+                      live: { type: 'object', properties: {
+                        durationMinutes: { type: 'number' },
+                        task: { type: 'string' },
+                        taskRubric: { type: 'array', items: { type: 'string' } },
+                        outputTargets: { type: 'array', items: { type: 'string' } },
+                      }, required: ['durationMinutes', 'task'] },
+                      anchor: { type: 'object', properties: {
+                        durationMinutes: { type: 'number' },
+                        takeawayPhrase: { type: 'string' },
+                        vocabForSrs: { type: 'array', items: { type: 'string' } },
+                      }, required: ['durationMinutes', 'takeawayPhrase'] },
+                    },
+                    required: ['hook', 'activate', 'build', 'live', 'anchor'],
+                  },
+                },
+                required: ['variantNumber', 'title', 'grammarFocus', 'pedagogicalObjective', 'plan'],
+              },
+            },
+          },
+          required: ['plans'],
+        },
+      }],
+      tool_choice: { type: 'tool', name: 'save_habla_plans' },
       messages: [{ role: 'user', content: prompt }],
     });
-    const text = extractTextContent(msg);
+
     let plans: any[] = [];
-    try {
-      plans = parseJsonFromResponse<any[]>(text);
-    } catch {
-      const arr = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (arr) {
-        try { plans = JSON.parse(arr[0]); } catch {
-          throw new Error('Could not parse Claude response');
-        }
-      } else {
-        throw new Error('No JSON array in Claude response');
+    const toolUseBlock = msg.content.find((b: any) => b.type === 'tool_use');
+    if (toolUseBlock && (toolUseBlock as any).input?.plans) {
+      plans = (toolUseBlock as any).input.plans;
+    } else {
+      // Fallback: try to find JSON in any text block
+      const textBlock = msg.content.find((b: any) => b.type === 'text');
+      const text = (textBlock as any)?.text || '';
+      try {
+        const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        const parsedAny = JSON.parse(cleaned);
+        plans = Array.isArray(parsedAny) ? parsedAny : parsedAny.plans || [];
+      } catch {
+        throw new Error('Claude did not return structured plans');
       }
     }
     if (!Array.isArray(plans) || plans.length === 0) {
@@ -6427,23 +6497,29 @@ CRITICAL RULES:
         finishedAt: null, currentCombo: null, errorList: [],
       });
 
-      // Fire-and-forget background work
+      // Fire-and-forget background work — 3 concurrent calls
+      const CONCURRENCY = 3;
       (async () => {
         const job = BULK_JOBS.get(jobId)!;
-        for (let i = 0; i < combos.length; i++) {
-          const c = combos[i];
-          job.currentCombo = `${c.moduleTitle} × ${c.interestName}`;
-          try {
-            await generateHablaPlansFor(level, c.moduleId, c.interestId);
-            job.generated += 1;
-          } catch (err: any) {
-            job.errors += 1;
-            job.errorList.push({ combo: job.currentCombo, error: err?.message || 'unknown' });
-            console.error(`[habla-bulk] failed ${job.currentCombo}:`, err?.message);
+        let index = 0;
+        const workers = Array.from({ length: CONCURRENCY }, async () => {
+          while (true) {
+            const i = index++;
+            if (i >= combos.length) return;
+            const c = combos[i];
+            const label = `${c.moduleTitle} × ${c.interestName}`;
+            job.currentCombo = label;
+            try {
+              await generateHablaPlansFor(level, c.moduleId, c.interestId);
+              job.generated += 1;
+            } catch (err: any) {
+              job.errors += 1;
+              job.errorList.push({ combo: label, error: err?.message || 'unknown' });
+              console.error(`[habla-bulk] failed ${label}:`, err?.message);
+            }
           }
-          // Small pause to avoid Anthropic rate limits
-          await new Promise(r => setTimeout(r, 500));
-        }
+        });
+        await Promise.all(workers);
         job.finishedAt = new Date().toISOString();
         job.currentCombo = null;
       })().catch(err => console.error('[habla-bulk] fatal:', err));
