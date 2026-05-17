@@ -6029,10 +6029,10 @@ Important:
 
       // Interest topic name
       const itRes = await (pool as any).query(
-        `SELECT name, slug FROM lab_interest_topics WHERE id = $1`,
+        `SELECT name FROM lab_interest_topics WHERE id = $1`,
         [interestTopicId]
       );
-      const interest = itRes.rows[0] || { name: 'General', slug: 'general' };
+      const interest = itRes.rows[0] || { name: 'General' };
 
       // 2. Ask Claude to produce 4 HABLA variants
       const { getAnthropicClient, ANTHROPIC_MODELS, parseJsonFromResponse, extractTextContent } =
