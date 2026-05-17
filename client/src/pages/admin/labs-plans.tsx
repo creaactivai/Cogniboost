@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { InterestIcon } from "@/components/lab/interest-icon";
 import { Link } from "wouter";
+import { useEffect } from "react";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1"];
 
@@ -70,10 +71,51 @@ export default function LabsPlansPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [selectedLevel, setSelectedLevel] = useState<string>("A2");
+  const [selectedLevel, setSelectedLevel] = useState<string>("B1");
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
   const [selectedModuleId, setSelectedModuleId] = useState<string>("");
   const [selectedInterestId, setSelectedInterestId] = useState<string>("");
+  const [bulkJobId, setBulkJobId] = useState<string | null>(null);
+  const [bulkStatus, setBulkStatus] = useState<any>(null);
+
+  // Poll bulk status every 2s when a job is running
+  useEffect(() => {
+    if (!bulkJobId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/admin/lab-plans/generate-bulk/${bulkJobId}/status`, { credentials: "include" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (cancelled) return;
+        setBulkStatus(data);
+        if (data.finishedAt) {
+          queryClient.invalidateQueries({ queryKey: [`/api/admin/lab-plans/by-module/${selectedModuleId}`] });
+          // keep job visible for a bit so the user sees the final result
+          setTimeout(() => { if (!cancelled) { setBulkJobId(null); setBulkStatus(null); } }, 30000);
+          return;
+        }
+        setTimeout(poll, 2000);
+      } catch {
+        setTimeout(poll, 4000);
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [bulkJobId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bulkGenerate = useMutation({
+    mutationFn: async () => {
+      const r = await apiRequest("POST", "/api/admin/lab-plans/generate-bulk", { level: selectedLevel });
+      return r.json();
+    },
+    onSuccess: (data) => {
+      setBulkJobId(data.jobId);
+      setBulkStatus({ ...data, generated: 0, errors: 0, total: data.total });
+      toast({ title: `Bulk generation started for ${selectedLevel}`, description: `${data.total} combinations queued. Tracking progress…` });
+    },
+    onError: (e: any) => toast({ title: "Bulk failed", description: e?.message, variant: "destructive" }),
+  });
 
   const { data: courses = [] } = useQuery<Course[]>({ queryKey: ["/api/admin/courses"] });
   const coursesForLevel = courses.filter((c) => c.level === selectedLevel);
@@ -212,6 +254,80 @@ export default function LabsPlansPage() {
               )}
             </Button>
           </div>
+        </Card>
+
+        {/* Bulk pre-generation card */}
+        <Card className="p-5 border-2 border-dashed border-primary/30 bg-gradient-to-br from-primary/5 to-cyan-500/5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold">Pre-generate all HABLA plans for a level</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                One-time job: ~72 combinations per level × 4 plans = ~288 plans saved permanently.
+                Runs in background (~6–8 min per level). After this, no teacher needs to "generate"
+                anything ever again — they just browse and edit.
+              </p>
+            </div>
+          </div>
+
+          {!bulkStatus && (
+            <div className="flex items-center gap-3">
+              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => bulkGenerate.mutate()}
+                disabled={bulkGenerate.isPending || !!bulkJobId}
+                variant="default"
+                data-testid="button-bulk-generate"
+              >
+                {bulkGenerate.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-2" /> Pre-generate ALL {selectedLevel} plans</>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {bulkStatus && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-mono">
+                  {bulkStatus.finishedAt
+                    ? `Finished · ${bulkStatus.generated}/${bulkStatus.total} done · ${bulkStatus.errors} errors`
+                    : `Progress: ${bulkStatus.generated}/${bulkStatus.total} combos`}
+                </span>
+                {!bulkStatus.finishedAt && (
+                  <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {bulkStatus.currentCombo || "starting…"}
+                  </span>
+                )}
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${(bulkStatus.generated / Math.max(bulkStatus.total, 1)) * 100}%` }}
+                />
+              </div>
+              {bulkStatus.finishedAt && bulkStatus.errors > 0 && (
+                <p className="text-xs text-amber-600">
+                  {bulkStatus.errors} combination{bulkStatus.errors === 1 ? "" : "s"} failed. You can retry just those by selecting them above and clicking "Generate 4 HABLA Plans".
+                </p>
+              )}
+              {bulkStatus.finishedAt && (
+                <p className="text-xs text-emerald-700 font-semibold">
+                  ✓ All {selectedLevel} plans saved. Refresh the page to see the full library, or pick a specific module above.
+                </p>
+              )}
+            </div>
+          )}
         </Card>
 
         {/* Plans list */}

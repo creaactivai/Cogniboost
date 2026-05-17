@@ -5926,6 +5926,150 @@ Important:
   // student and a 1-month veteran can both join and learn meaningfully.
   // ════════════════════════════════════════════════════════════════
 
+  // In-memory bulk job state. Expires when the process restarts.
+  // For a single-instance Railway service this is fine.
+  const BULK_JOBS = new Map<string, any>();
+
+  // Shared helper used by both single-combo and bulk generation paths.
+  // Generates 4 HABLA plans for (level, moduleId, interestTopicId) and
+  // upserts them. Throws on failure so the caller can track per-combo errors.
+  async function generateHablaPlansFor(
+    level: string, moduleId: string, interestTopicId: string,
+  ): Promise<{ generated: number }> {
+    const { pool } = await import("./db");
+    await ensureLabLessonPlansTable();
+
+    const moduleRes = await (pool as any).query(
+      `SELECT id, title, description FROM course_modules WHERE id = $1`,
+      [moduleId]
+    );
+    if (!moduleRes.rows[0]) throw new Error('Module not found');
+    const mod = moduleRes.rows[0];
+
+    const lessonsRes = await (pool as any).query(
+      `SELECT title, html_content, teacher_lesson_plan FROM lessons
+       WHERE module_id = $1 AND is_published = true ORDER BY order_index`,
+      [moduleId]
+    );
+    const lessons = lessonsRes.rows;
+    const moduleVocab = new Set<string>();
+    const moduleGrammar = new Set<string>();
+    for (const lsn of lessons) {
+      if (lsn.html_content) {
+        const m = String(lsn.html_content).match(/(?:const|var|let)\s+wordAudioFiles\s*=\s*\{([\s\S]*?)\}\s*;/);
+        if (m) {
+          const entryRe = /["'](\w[\w'\-\s]*?)["']\s*:\s*["'][^"']+["']/g;
+          let em: RegExpExecArray | null;
+          while ((em = entryRe.exec(m[1])) !== null) moduleVocab.add(em[1].trim());
+        }
+      }
+      const tlp = lsn.teacher_lesson_plan;
+      if (tlp && typeof tlp === 'object') {
+        if (Array.isArray(tlp.vocabularyTarget)) tlp.vocabularyTarget.forEach((w: any) => typeof w === 'string' && moduleVocab.add(w));
+        if (Array.isArray(tlp.targetExpressions)) tlp.targetExpressions.forEach((w: any) => typeof w === 'string' && moduleVocab.add(w));
+        if (tlp.grammarFocus) moduleGrammar.add(String(tlp.grammarFocus));
+      }
+    }
+
+    const itRes = await (pool as any).query(
+      `SELECT name FROM lab_interest_topics WHERE id = $1`,
+      [interestTopicId]
+    );
+    const interest = itRes.rows[0] || { name: 'General' };
+
+    const { getAnthropicClient, ANTHROPIC_MODELS, parseJsonFromResponse, extractTextContent } =
+      await import("./anthropicClient");
+    const client = getAnthropicClient();
+
+    const prompt = `You are designing 4 Conversation Lab lesson plans for CogniBoost ESL platform, following the HABLA Method.
+
+CONTEXT:
+- Level: ${level}
+- Module: "${mod.title}" — ${mod.description || ''}
+- Module vocabulary already studied: ${Array.from(moduleVocab).slice(0, 30).join(', ')}
+- Module grammar already studied: ${Array.from(moduleGrammar).join(', ') || 'see lesson content'}
+- Student interest topic: ${interest.name}
+- Duration per session: 60 minutes
+- All 4 sessions share the same interest (${interest.name}) but rotate grammar focus.
+- Sessions are DROP-IN: a brand-new student and a 1-month veteran can both attend any session and gain meaningful learning. No prerequisites between sessions.
+
+PEDAGOGICAL FRAMEWORK — HABLA Method (5 phases):
+1. HOOK (5 min): Personal, interest-driven warm-up. NEVER starts with grammar. Lowers affective filter (Krashen).
+2. ACTIVATE (10 min): Activate prior knowledge. Teacher draws out what student already knows about the topic. Vocab surfaces naturally (Ausubel).
+3. BUILD (10 min): Targeted comprehensible input i+1 (Krashen). Show 2-3 authentic mini-examples where the target grammar appears naturally in the interest context. Student DISCOVERS the pattern.
+4. LIVE (25 min): Pushed output via task-based learning (Swain, Willis & Willis TBLT). Student MUST use the grammar + vocab to complete a real task (debate, role-play, storytelling, compare-contrast).
+5. ANCHOR (10 min): 3 highlights + 1 takeaway phrase. Words for spaced retrieval in their SRS deck.
+
+OUTPUT REQUIREMENTS:
+Return ONLY a valid JSON array of EXACTLY 4 objects (no markdown fences, no commentary), each with this shape:
+{"variantNumber":1,"title":"<Spanish-friendly evocative title max 60 chars>","grammarFocus":"<specific grammar e.g. 'Past Simple — regular + irregular verbs'>","pedagogicalObjective":"<By the end, student will… (one sentence, output-focused)>","previewBlurb":"<1-paragraph teaser for pre-class email ~40 words exciting no grammar jargon>","vocabulary":["6-8 module words relevant to this variant"],"expressions":["3-5 expressions/phrases blending interest + grammar"],"plan":{"hook":{"durationMinutes":5,"prompt":"<exact teacher opening question>","teacherScript":"<1-2 sentence script>","variants":["alt 1","alt 2"]},"activate":{"durationMinutes":10,"objective":"<what should surface>","teacherScript":"<how to guide elicitation>","vocabToSurface":["3-5 module words"]},"build":{"durationMinutes":10,"focusGrammar":"<grammar lens>","examples":["mini-example 1","mini-example 2","mini-example 3"],"discoveryQuestion":"<question to notice the pattern>"},"live":{"durationMinutes":25,"task":"<engaging real task>","taskRubric":["3-5 success behaviors"],"outputTargets":["how many sentences/turns"]},"anchor":{"durationMinutes":10,"takeawayPhrase":"<one phrase to use this week>","vocabForSrs":["3-5 words for SRS"]}}}
+
+CRITICAL RULES:
+- All teacher scripts in English with occasional Spanish bridging when natural.
+- HOOK must connect emotionally to ${interest.name} — never start cold.
+- LIVE task must be something a real Latin American adult would actually enjoy.
+- All 4 variants share interest ${interest.name} but DIFFERENT grammar (variant 1 present, 2 past, 3 comparison/conditional, 4 future or modal) so the student can take any one.
+- Vocabulary MUST come from the module's vocab list above when possible.
+- Output ONLY the JSON array.`;
+
+    const msg = await client.messages.create({
+      model: ANTHROPIC_MODELS.grading, // Sonnet — fits in Vercel proxy timeout
+      max_tokens: 6000,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = extractTextContent(msg);
+    let plans: any[] = [];
+    try {
+      plans = parseJsonFromResponse<any[]>(text);
+    } catch {
+      const arr = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (arr) {
+        try { plans = JSON.parse(arr[0]); } catch {
+          throw new Error('Could not parse Claude response');
+        }
+      } else {
+        throw new Error('No JSON array in Claude response');
+      }
+    }
+    if (!Array.isArray(plans) || plans.length === 0) {
+      throw new Error('Claude returned no plans');
+    }
+
+    let saved = 0;
+    for (let i = 0; i < plans.length; i++) {
+      const p = plans[i];
+      if (!p?.title || !p?.plan) continue;
+      try {
+        const r = await (pool as any).query(
+          `INSERT INTO lab_lesson_plans (
+              level, module_id, interest_topic_id, variant_number, title,
+              grammar_focus, pedagogical_objective, duration_minutes, plan,
+              vocabulary, expressions, preview_blurb, generated_by, is_published
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'ai',false)
+           ON CONFLICT (level, module_id, interest_topic_id, variant_number)
+           DO UPDATE SET
+              title = EXCLUDED.title, grammar_focus = EXCLUDED.grammar_focus,
+              pedagogical_objective = EXCLUDED.pedagogical_objective,
+              plan = EXCLUDED.plan, vocabulary = EXCLUDED.vocabulary,
+              expressions = EXCLUDED.expressions, preview_blurb = EXCLUDED.preview_blurb,
+              generated_by = 'ai', updated_at = now()`,
+          [
+            level, moduleId, interestTopicId,
+            p.variantNumber || (i + 1),
+            p.title, p.grammarFocus || '', p.pedagogicalObjective || '',
+            60, JSON.stringify(p.plan),
+            p.vocabulary || [], p.expressions || [],
+            p.previewBlurb || null,
+          ]
+        );
+        if (r.rowCount > 0) saved += 1;
+      } catch (insertErr: any) {
+        console.error('[habla] insert error:', insertErr?.message);
+      }
+    }
+    return { generated: saved };
+  }
+
   async function ensureLabLessonPlansTable() {
     try {
       const { pool } = await import("./db");
@@ -5978,9 +6122,8 @@ Important:
   });
 
   // POST /api/admin/lab-plans/generate — Generate 4 HABLA plans for
-  // (level + module + interest). Reads the module's lesson HTML +
-  // teacher_lesson_plan to extract real vocab/grammar so plans aren't
-  // generic — they recycle what the student is already studying.
+  // (level + module + interest). Thin handler — real work in
+  // generateHablaPlansFor() so the bulk path can reuse it.
   app.post('/api/admin/lab-plans/generate', requireAuth, async (req: any, res) => {
     try {
       const user = await storage.getUser((req.user as any)?.id);
@@ -5989,8 +6132,22 @@ Important:
       if (!level || !moduleId || !interestTopicId) {
         return res.status(400).json({ error: 'level, moduleId, interestTopicId required' });
       }
-      await ensureLabLessonPlansTable();
+      const result = await generateHablaPlansFor(level, moduleId, interestTopicId);
+      // Return the freshly inserted plans
       const { pool } = await import("./db");
+      const { rows } = await (pool as any).query(
+        `SELECT * FROM lab_lesson_plans WHERE level = $1 AND module_id = $2 AND interest_topic_id = $3 ORDER BY variant_number`,
+        [level, moduleId, interestTopicId]
+      );
+      res.json({ generated: result.generated, plans: rows });
+    } catch (e: any) {
+      console.error('[habla/generate]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // Old inline handler (kept as comment for reference, dead code path)
+  if (false) { /*
 
       // 1. Gather module context: title, lessons, teacher_lesson_plan vocab/grammar
       const moduleRes = await (pool as any).query(
@@ -6110,9 +6267,11 @@ CRITICAL RULES:
 - Output ONLY the JSON array. No markdown, no commentary.`;
 
       console.log(`[habla/generate] Asking Claude for 4 plans: ${level} / ${mod.title} / ${interest.name}`);
+      // Sonnet for speed (Vercel proxy timeout ~30s; Opus took >30s).
+      // 95% of Opus quality for structured plan generation.
       const msg = await client.messages.create({
-        model: ANTHROPIC_MODELS.content, // Opus for higher-quality plans
-        max_tokens: 8000,
+        model: ANTHROPIC_MODELS.grading,
+        max_tokens: 6000,
         messages: [{ role: 'user', content: prompt }],
       });
       const text = extractTextContent(msg);
@@ -6182,7 +6341,8 @@ CRITICAL RULES:
       console.error('[habla/generate]', e);
       res.status(500).json({ error: e?.message || 'Failed' });
     }
-  });
+  */ }
+  // ^ end dead-code block
 
   // PATCH /api/admin/lab-plans/:id — edit a generated plan
   app.patch('/api/admin/lab-plans/:id', requireAuth, async (req: any, res) => {
@@ -6219,6 +6379,88 @@ CRITICAL RULES:
       console.error('[lab-plans PATCH]', e);
       res.status(500).json({ error: e?.message || 'Failed' });
     }
+  });
+
+  // ----------------------------------------------------------------
+  // POST /api/admin/lab-plans/generate-bulk — Pre-generate ALL HABLA
+  // plans for a level (every module × every interest = ~72 combos
+  // per level → ~288 plans). Runs in background; returns a jobId.
+  // Poll status via GET /generate-bulk/:jobId/status.
+  // ----------------------------------------------------------------
+  app.post('/api/admin/lab-plans/generate-bulk', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { level } = req.body || {};
+      if (!level || !['A1', 'A2', 'B1', 'B2', 'C1'].includes(level)) {
+        return res.status(400).json({ error: 'valid level required' });
+      }
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+
+      // Find all modules for this level via course → modules
+      const modulesRes = await (pool as any).query(
+        `SELECT cm.id, cm.title FROM course_modules cm
+         JOIN courses c ON c.id = cm.course_id
+         WHERE c.level = $1
+         ORDER BY cm.order_index`,
+        [level]
+      );
+      const modules = modulesRes.rows;
+      const interestsRes = await (pool as any).query(
+        `SELECT id, name FROM lab_interest_topics WHERE is_active = true ORDER BY display_order`
+      );
+      const interests = interestsRes.rows;
+      const combos = modules.flatMap((m: any) =>
+        interests.map((it: any) => ({ moduleId: m.id, moduleTitle: m.title, interestId: it.id, interestName: it.name }))
+      );
+
+      if (combos.length === 0) {
+        return res.status(400).json({ error: `No modules or interests for level ${level}` });
+      }
+
+      // Initialize job state
+      const jobId = `bulk-${level}-${Date.now()}`;
+      BULK_JOBS.set(jobId, {
+        jobId, level, total: combos.length, generated: 0, errors: 0,
+        startedAt: new Date().toISOString(),
+        finishedAt: null, currentCombo: null, errorList: [],
+      });
+
+      // Fire-and-forget background work
+      (async () => {
+        const job = BULK_JOBS.get(jobId)!;
+        for (let i = 0; i < combos.length; i++) {
+          const c = combos[i];
+          job.currentCombo = `${c.moduleTitle} × ${c.interestName}`;
+          try {
+            await generateHablaPlansFor(level, c.moduleId, c.interestId);
+            job.generated += 1;
+          } catch (err: any) {
+            job.errors += 1;
+            job.errorList.push({ combo: job.currentCombo, error: err?.message || 'unknown' });
+            console.error(`[habla-bulk] failed ${job.currentCombo}:`, err?.message);
+          }
+          // Small pause to avoid Anthropic rate limits
+          await new Promise(r => setTimeout(r, 500));
+        }
+        job.finishedAt = new Date().toISOString();
+        job.currentCombo = null;
+      })().catch(err => console.error('[habla-bulk] fatal:', err));
+
+      res.json({ jobId, total: combos.length, level });
+    } catch (e: any) {
+      console.error('[lab-plans bulk]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  app.get('/api/admin/lab-plans/generate-bulk/:jobId/status', requireAuth, async (req: any, res) => {
+    const user = await storage.getUser((req.user as any)?.id);
+    if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+    const job = BULK_JOBS.get(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found (may have expired)' });
+    res.json(job);
   });
 
   // ============================================================
