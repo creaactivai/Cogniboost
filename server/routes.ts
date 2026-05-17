@@ -6203,6 +6203,62 @@ Important:
         }
       } catch {}
 
+      // Lessons — parse vocabulary from htmlContent + teacherLessonPlan.
+      // Pulls from BOTH:
+      //   (a) lessons.html_content — extracts wordAudioFiles {"word": "file.mp3"}
+      //       block (same pattern lesson-factory/generate_audio.py parses)
+      //   (b) lessons.teacher_lesson_plan.vocabularyTarget — explicit list
+      //       Coral adds via the lesson-plan UI
+      //   (c) lessons.teacher_lesson_plan.targetExpressions if present
+      // Levels filter: only lessons in courses whose level is allowed.
+      try {
+        const lessonsRows = await (pool as any).query(
+          `SELECT l.id, l.module_id, l.html_content, l.teacher_lesson_plan, c.level
+           FROM lessons l
+           JOIN courses c ON c.id = l.course_id
+           WHERE c.level = ANY($1::course_level[])
+             AND l.is_published = true`,
+          [allowedLevels]
+        );
+
+        for (const lsn of lessonsRows.rows) {
+          // (a) wordAudioFiles parsing — same regex as lesson-factory
+          if (lsn.html_content && typeof lsn.html_content === 'string') {
+            const blockMatch = lsn.html_content.match(/(?:const|var|let)\s+wordAudioFiles\s*=\s*\{([\s\S]*?)\}\s*;/);
+            if (blockMatch) {
+              const block = blockMatch[1];
+              const entryRe = /["'](\w[\w'\-\s]*?)["']\s*:\s*["'][^"']+["']/g;
+              let m: RegExpExecArray | null;
+              while ((m = entryRe.exec(block)) !== null) {
+                const word = m[1].trim();
+                if (word && word.length > 1 && word.length < 60) {
+                  inserts.push({ term: word, isExpr: word.includes(' '), src: 'lesson', srcId: lsn.id, modId: lsn.module_id, level: lsn.level });
+                }
+              }
+            }
+          }
+
+          // (b) + (c) teacherLessonPlan structured fields
+          const plan = lsn.teacher_lesson_plan;
+          if (plan && typeof plan === 'object') {
+            const vocab = Array.isArray(plan.vocabularyTarget) ? plan.vocabularyTarget : [];
+            for (const w of vocab) {
+              if (typeof w === 'string' && w.trim()) {
+                inserts.push({ term: w.trim(), isExpr: w.includes(' '), src: 'lesson', srcId: lsn.id, modId: lsn.module_id, level: lsn.level });
+              }
+            }
+            const exprs = Array.isArray(plan.targetExpressions) ? plan.targetExpressions : [];
+            for (const e of exprs) {
+              if (typeof e === 'string' && e.trim()) {
+                inserts.push({ term: e.trim(), isExpr: true, src: 'lesson', srcId: lsn.id, modId: lsn.module_id, level: lsn.level });
+              }
+            }
+          }
+        }
+      } catch (lsnErr: any) {
+        console.warn('[vocab/sync] lessons scan warning:', lsnErr?.message);
+      }
+
       // Dedupe in-memory by lower(term)
       const seen = new Set<string>();
       const uniqueInserts = inserts.filter(i => {
