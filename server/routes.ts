@@ -6359,12 +6359,13 @@ Important:
       const items = bareCards.map((c: any) => ({ id: c.id, term: c.term, isExpr: c.is_expression, level: c.level }));
       const prompt = `You are a CEFR-aligned ESL lexicographer. For each item in the JSON array below, produce a Spanish-Latin-America translation and a short, level-appropriate English example sentence (8–14 words). If it is an expression/idiom, give its meaning rather than a literal translation.
 
-Return ONLY a valid JSON array (no commentary) with this exact shape per item:
-[{ "id": "<id>", "translation": "<es>", "exampleEn": "<en sentence>", "exampleEs": "<es translation of that sentence>", "partOfSpeech": "<noun|verb|adj|adv|expression|phrase|idiom>", "phonetic": "<IPA without slashes>" }]
+Return ONLY a valid JSON array (no commentary, no markdown fences) with this exact shape per item:
+[{"id":"<id>","translation":"<es>","exampleEn":"<en sentence>","exampleEs":"<es translation of that sentence>","partOfSpeech":"<noun|verb|adj|adv|expression|phrase|idiom>","phonetic":"<IPA without slashes>"}]
 
 Items:
 ${JSON.stringify(items)}`;
 
+      console.log(`[vocab/enrich] requesting Claude for ${items.length} terms`);
       const msg = await client.messages.create({
         model,
         max_tokens: 4000,
@@ -6372,9 +6373,22 @@ ${JSON.stringify(items)}`;
       });
       const text = extractTextContent(msg);
       let parsed: any[] = [];
-      try { parsed = parseJsonFromResponse<any[]>(text); } catch {
-        return res.status(500).json({ error: 'Could not parse enrichment response' });
+      try {
+        parsed = parseJsonFromResponse<any[]>(text);
+      } catch (parseErr: any) {
+        // Try to extract a JSON array from anywhere in the response
+        const arrayMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (arrayMatch) {
+          try { parsed = JSON.parse(arrayMatch[0]); } catch {
+            console.error('[vocab/enrich] Claude returned unparseable text:', text.slice(0, 500));
+            return res.status(500).json({ error: 'Could not parse enrichment response', sample: text.slice(0, 200) });
+          }
+        } else {
+          console.error('[vocab/enrich] No JSON array in response:', text.slice(0, 500));
+          return res.status(500).json({ error: 'No JSON array in response', sample: text.slice(0, 200) });
+        }
       }
+      console.log(`[vocab/enrich] Claude returned ${parsed.length} items`);
 
       let enriched = 0;
       for (const p of parsed) {
@@ -6399,6 +6413,156 @@ ${JSON.stringify(items)}`;
       res.json({ enriched, remaining: remRows[0]?.c || 0 });
     } catch (e: any) {
       console.error('[vocab/enrich]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // ----------------------------------------------------------------
+  // GET /api/vocab/word-info?word=...&level=... — on-demand word info
+  // for Reading-passage clickable words. Returns translation +
+  // definition + partOfSpeech + phonetic + inMyVocab flag.
+  // Cached in a global `word_info_cache` table so the same word is
+  // only ever asked of Claude once across all students.
+  // ----------------------------------------------------------------
+  app.get('/api/vocab/word-info', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const word = String(req.query.word || '').trim();
+      const level = (String(req.query.level || '').trim() || null) as any;
+      if (!word) return res.status(400).json({ error: 'word required' });
+      if (word.length > 60) return res.status(400).json({ error: 'word too long' });
+
+      const { pool } = await import("./db");
+
+      // Defensive migration: shared word info cache (one row per
+      // lowercased word, regardless of level — the same word means
+      // the same thing in Spanish across levels).
+      try {
+        await (pool as any).query(`CREATE TABLE IF NOT EXISTS word_info_cache (
+          word_lower text PRIMARY KEY,
+          translation text,
+          definition text,
+          part_of_speech text,
+          phonetic text,
+          level text,
+          created_at timestamp DEFAULT now()
+        )`);
+      } catch {}
+
+      const key = word.toLowerCase();
+
+      // 1. Check shared cache
+      const cached = await (pool as any).query(
+        `SELECT translation, definition, part_of_speech, phonetic FROM word_info_cache WHERE word_lower = $1`,
+        [key]
+      );
+      let translation: string | null = null;
+      let definition: string | null = null;
+      let partOfSpeech: string | null = null;
+      let phonetic: string | null = null;
+
+      if (cached.rows[0]) {
+        translation = cached.rows[0].translation;
+        definition = cached.rows[0].definition;
+        partOfSpeech = cached.rows[0].part_of_speech;
+        phonetic = cached.rows[0].phonetic;
+      } else {
+        // 2. Call Claude
+        try {
+          const { getAnthropicClient, ANTHROPIC_MODELS, parseJsonFromResponse, extractTextContent } =
+            await import("./anthropicClient");
+          const client = getAnthropicClient();
+          const prompt = `For the English word "${word}" at CEFR level ${level || 'A2'}, return ONLY a JSON object (no commentary, no markdown fences):
+{"translation":"<spanish-latam translation, lowercase>","definition":"<short english definition, 5-12 words>","partOfSpeech":"<noun|verb|adj|adv|prep|conj|pronoun|article|interjection>","phonetic":"<IPA without slashes>"}`;
+          const msg = await client.messages.create({
+            model: ANTHROPIC_MODELS.grading,
+            max_tokens: 300,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          const text = extractTextContent(msg);
+          let parsed: any = null;
+          try { parsed = parseJsonFromResponse<any>(text); } catch {
+            const m = text.match(/\{[\s\S]*\}/);
+            if (m) try { parsed = JSON.parse(m[0]); } catch {}
+          }
+          if (parsed) {
+            translation = parsed.translation || null;
+            definition = parsed.definition || null;
+            partOfSpeech = parsed.partOfSpeech || null;
+            phonetic = parsed.phonetic || null;
+            // Save to cache (best-effort)
+            try {
+              await (pool as any).query(
+                `INSERT INTO word_info_cache (word_lower, translation, definition, part_of_speech, phonetic, level)
+                 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (word_lower) DO NOTHING`,
+                [key, translation, definition, partOfSpeech, phonetic, level]
+              );
+            } catch {}
+          }
+        } catch (claudeErr: any) {
+          console.error('[vocab/word-info] Claude failed:', claudeErr?.message);
+        }
+      }
+
+      // 3. Check if it's already in this student's vocabulary
+      let inMyVocab = false;
+      try {
+        await ensureVocabSrsTable();
+        const exists = await (pool as any).query(
+          `SELECT 1 FROM vocab_srs_cards WHERE student_id = $1 AND lower(term) = $2 LIMIT 1`,
+          [studentId, key]
+        );
+        inMyVocab = exists.rows.length > 0;
+      } catch {}
+
+      res.json({
+        term: word,
+        translation: translation || "—",
+        definition: definition || "",
+        partOfSpeech: partOfSpeech || undefined,
+        phonetic: phonetic || undefined,
+        inMyVocab,
+      });
+    } catch (e: any) {
+      console.error('[vocab/word-info]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // ----------------------------------------------------------------
+  // POST /api/vocab/add — manually add a word to the student's SRS.
+  // Idempotent on (studentId, lower(term)). Used by the Reading
+  // passage clickable-word "Add to my vocabulary" button.
+  // ----------------------------------------------------------------
+  app.post('/api/vocab/add', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const { term, translation, exampleEn, partOfSpeech, level, moduleId, sourceType } = req.body || {};
+      if (!term || typeof term !== 'string') return res.status(400).json({ error: 'term required' });
+      const cleaned = term.trim();
+      if (cleaned.length < 1 || cleaned.length > 200) return res.status(400).json({ error: 'term length' });
+
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const isExpr = cleaned.includes(' ');
+
+      const r = await (pool as any).query(
+        `INSERT INTO vocab_srs_cards (
+            student_id, term, translation, example_en, part_of_speech,
+            is_expression, source_type, source_module_id, level
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (student_id, lower(term)) DO NOTHING
+         RETURNING id`,
+        [studentId, cleaned, translation || null, exampleEn || null, partOfSpeech || null,
+         isExpr, sourceType || 'manual', moduleId || null, level || null]
+      );
+
+      const added = r.rowCount > 0;
+      res.json({ added, alreadyExists: !added });
+    } catch (e: any) {
+      console.error('[vocab/add]', e);
       res.status(500).json({ error: e?.message || 'Failed' });
     }
   });

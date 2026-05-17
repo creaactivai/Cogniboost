@@ -18,7 +18,7 @@
  *   - (Future) lesson hover-clicked words + grader feedback corrections
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,10 +129,21 @@ export default function VocabularyPage() {
   const enrich = useMutation({
     mutationFn: async () => {
       const r = await apiRequest("POST", "/api/vocab/enrich", {});
-      return r.json();
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Enrich failed");
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("[vocab/enrich] result:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/vocab/queue"] });
+    },
+    onError: (err: any) => {
+      console.error("[vocab/enrich] error:", err);
+      toast({
+        title: "Couldn't fetch translations",
+        description: err?.message || "Check Anthropic API key on Railway",
+        variant: "destructive",
+      });
     },
   });
 
@@ -158,25 +169,51 @@ export default function VocabularyPage() {
     onError: (e: any) => toast({ title: "Sync failed", description: e?.message, variant: "destructive" }),
   });
 
-  // Play audio in Coral's cloned voice (with browser-voice fallback)
+  // Play audio in Coral's cloned voice (with browser-voice fallback).
+  // Caches per-term blob URLs on the client so the 2nd click is instant
+  // and never blocked by browser auto-play policy on a "stale" audio el.
+  const audioCacheRef = useRef<Map<string, string>>(new Map());
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const playAudio = async (term: string) => {
-    // First try server-side (ElevenLabs → GCS cache, in Coral's voice)
+    // If something is already playing, stop it so the new click responds
+    // instantly instead of being swallowed by the browser.
+    if (currentAudioRef.current) {
+      try { currentAudioRef.current.pause(); } catch {}
+      currentAudioRef.current = null;
+    }
+
+    // Cached blob URL? Instant replay path.
+    const cachedUrl = audioCacheRef.current.get(term.toLowerCase());
+    if (cachedUrl) {
+      const audio = new Audio(cachedUrl);
+      currentAudioRef.current = audio;
+      audio.play().catch((err) => console.warn("Replay failed:", err));
+      return;
+    }
+
+    // First time hearing this term — fetch from server
     try {
-      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, { credentials: "include" });
+      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, {
+        credentials: "include",
+      });
       if (r.ok) {
         const blob = await r.blob();
-        const audio = new Audio(URL.createObjectURL(blob));
+        const blobUrl = URL.createObjectURL(blob);
+        audioCacheRef.current.set(term.toLowerCase(), blobUrl);
+        const audio = new Audio(blobUrl);
+        currentAudioRef.current = audio;
         await audio.play();
         return;
       }
-      // 503 = TTS not configured on backend → fallback to browser voice
-      // 502 = ElevenLabs upstream error → fallback to browser voice
+      // 503 = TTS not configured  ·  502 = ElevenLabs upstream error
       console.warn(`Server TTS unavailable (${r.status}), using browser voice`);
     } catch (err) {
       console.warn("Server TTS fetch failed, using browser voice:", err);
     }
     // Fallback: browser SpeechSynthesis (works offline, free, decent quality)
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel(); // stop anything queued
       const utterance = new SpeechSynthesisUtterance(term);
       utterance.lang = "en-US";
       utterance.rate = 0.9;

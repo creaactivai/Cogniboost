@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { ClickableWordPassage } from "@/components/reading/clickable-word-passage";
 
 interface Question {
   id: string;
@@ -100,14 +101,16 @@ export default function ReadingAssignmentPage() {
         <Badge className="text-xs bg-primary">Pass at {proj.passingScore}</Badge>
       </div>
 
-      {/* Passage */}
+      {/* Passage — every word is clickable; tap to see translation,
+          definition, pronunciation, and add to your vocabulary. */}
       <Card className="p-6">
-        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">
           <BookOpen className="w-4 h-4 text-primary" /> Reading passage
         </h3>
-        <article className="prose prose-slate max-w-none text-[15px] leading-relaxed whitespace-pre-wrap">
-          {proj.passage}
-        </article>
+        <p className="text-[11px] text-muted-foreground mb-3 italic">
+          Tap any word for translation, pronunciation, or to add it to your vocabulary.
+        </p>
+        <ClickableWordPassage passage={proj.passage} level={proj.level} moduleId={proj.moduleId} />
       </Card>
 
       {/* Progress */}
