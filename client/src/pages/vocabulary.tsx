@@ -187,6 +187,51 @@ export default function VocabularyPage() {
   // and never blocked by browser auto-play policy on a "stale" audio el.
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const prefetchInFlightRef = useRef<Set<string>>(new Set());
+
+  // Prefetch a term's audio in the background WITHOUT playing it.
+  // Result is stashed in audioCacheRef so the next playAudio() call is
+  // instant. Idempotent — won't double-fetch the same term.
+  const prefetchAudio = async (term: string) => {
+    if (!term || !term.trim()) return;
+    const key = term.toLowerCase();
+    if (audioCacheRef.current.has(key) || prefetchInFlightRef.current.has(key)) return;
+    prefetchInFlightRef.current.add(key);
+    try {
+      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, {
+        credentials: "include",
+      });
+      if (r.ok) {
+        const blob = await r.blob();
+        audioCacheRef.current.set(key, URL.createObjectURL(blob));
+      }
+    } catch {
+      /* ignore — playAudio() will fall back gracefully */
+    } finally {
+      prefetchInFlightRef.current.delete(key);
+    }
+  };
+
+  // Prefetch the current term as soon as the card appears, AND prefetch
+  // the next few cards in the queue so subsequent clicks are also fast.
+  useEffect(() => {
+    if (!currentCard) return;
+    prefetchAudio(currentCard.term);
+    // Pre-warm the next 3 cards in the queue so they're ready when the
+    // student advances. Stagger by 200ms each so we don't slam the API.
+    if (queue && queue.length > 1) {
+      queue.slice(1, 4).forEach((c, idx) => {
+        setTimeout(() => prefetchAudio(c.term), 200 * (idx + 1));
+      });
+    }
+  }, [currentCard?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When meaning is revealed, prefetch the example sentence audio too
+  useEffect(() => {
+    if (revealed && currentCard?.exampleEn) {
+      prefetchAudio(currentCard.exampleEn);
+    }
+  }, [revealed, currentCard?.exampleEn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAudio = async (term: string) => {
     // If something is already playing, stop it so the new click responds
