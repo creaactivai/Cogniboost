@@ -6275,6 +6275,162 @@ Important:
     }
   });
 
+  // ----------------------------------------------------------------
+  // POST /api/vocab/enrich — populate translation + example + IPA
+  // for cards that don't have them yet. Batches to Claude in groups
+  // of 30 so cost stays low. Returns how many were enriched.
+  // ----------------------------------------------------------------
+  app.post('/api/vocab/enrich', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureVocabSrsTable();
+      const { pool } = await import("./db");
+      const { rows: bareCards } = await (pool as any).query(
+        `SELECT id, term, is_expression, level FROM vocab_srs_cards
+         WHERE student_id = $1
+           AND (translation IS NULL OR translation = '' OR example_en IS NULL OR example_en = '')
+         LIMIT 60`,
+        [studentId]
+      );
+      if (bareCards.length === 0) return res.json({ enriched: 0, remaining: 0 });
+
+      const { getAnthropicClient, getGradingModel, parseJsonFromResponse, extractTextContent } =
+        await import("./anthropicClient");
+      const client = getAnthropicClient();
+      const model = getGradingModel();
+
+      const items = bareCards.map((c: any) => ({ id: c.id, term: c.term, isExpr: c.is_expression, level: c.level }));
+      const prompt = `You are a CEFR-aligned ESL lexicographer. For each item in the JSON array below, produce a Spanish-Latin-America translation and a short, level-appropriate English example sentence (8–14 words). If it is an expression/idiom, give its meaning rather than a literal translation.
+
+Return ONLY a valid JSON array (no commentary) with this exact shape per item:
+[{ "id": "<id>", "translation": "<es>", "exampleEn": "<en sentence>", "exampleEs": "<es translation of that sentence>", "partOfSpeech": "<noun|verb|adj|adv|expression|phrase|idiom>", "phonetic": "<IPA without slashes>" }]
+
+Items:
+${JSON.stringify(items)}`;
+
+      const msg = await client.messages.create({
+        model,
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const text = extractTextContent(msg);
+      let parsed: any[] = [];
+      try { parsed = parseJsonFromResponse<any[]>(text); } catch {
+        return res.status(500).json({ error: 'Could not parse enrichment response' });
+      }
+
+      let enriched = 0;
+      for (const p of parsed) {
+        if (!p?.id) continue;
+        try {
+          const r = await (pool as any).query(
+            `UPDATE vocab_srs_cards SET translation = $1, example_en = $2, example_es = $3,
+                                         part_of_speech = $4
+             WHERE id = $5 AND student_id = $6`,
+            [p.translation || null, p.exampleEn || null, p.exampleEs || null, p.partOfSpeech || null, p.id, studentId]
+          );
+          if (r.rowCount > 0) enriched += 1;
+        } catch {}
+      }
+
+      // How many still bare
+      const { rows: remRows } = await (pool as any).query(
+        `SELECT COUNT(*)::int AS c FROM vocab_srs_cards
+         WHERE student_id = $1 AND (translation IS NULL OR translation = '')`,
+        [studentId]
+      );
+      res.json({ enriched, remaining: remRows[0]?.c || 0 });
+    } catch (e: any) {
+      console.error('[vocab/enrich]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // ----------------------------------------------------------------
+  // GET /api/vocab/audio?term=... — ElevenLabs TTS in Coral's
+  // cloned voice. Streams MP3 binary. Cached in-memory (LRU) so
+  // repeat plays don't burn API credits.
+  // ----------------------------------------------------------------
+  // Simple in-process LRU (max 500 entries, ~few MB). For multi-
+  // instance scale, swap to GCS later.
+  const TTS_CACHE = new Map<string, Buffer>();
+  const TTS_CACHE_MAX = 500;
+  function ttsCacheGet(key: string): Buffer | undefined {
+    const buf = TTS_CACHE.get(key);
+    if (buf) {
+      // refresh recency
+      TTS_CACHE.delete(key);
+      TTS_CACHE.set(key, buf);
+    }
+    return buf;
+  }
+  function ttsCacheSet(key: string, buf: Buffer) {
+    if (TTS_CACHE.size >= TTS_CACHE_MAX) {
+      const firstKey = TTS_CACHE.keys().next().value;
+      if (firstKey) TTS_CACHE.delete(firstKey);
+    }
+    TTS_CACHE.set(key, buf);
+  }
+
+  app.get('/api/vocab/audio', requireAuth, async (req: any, res) => {
+    try {
+      const term = String(req.query.term || '').trim();
+      if (!term) return res.status(400).json({ error: 'term required' });
+      if (term.length > 200) return res.status(400).json({ error: 'term too long' });
+
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      const voiceId = process.env.ELEVENLABS_VOICE_ID;
+      if (!apiKey || !voiceId) {
+        return res.status(503).json({ error: 'TTS not configured (ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID required)' });
+      }
+
+      const cacheKey = `${voiceId}:${term.toLowerCase()}`;
+      const cached = ttsCacheGet(cacheKey);
+      if (cached) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('X-Cache', 'HIT');
+        return res.send(cached);
+      }
+
+      // Mirror lesson-factory/generate_audio.py settings — Coral's standard
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text: term,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: 0.75,
+            similarity_boost: 0.85,
+            style: 0.20,
+            use_speaker_boost: true,
+          },
+        }),
+      });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => '');
+        console.error('[vocab/audio] ElevenLabs error:', r.status, errText.slice(0, 200));
+        return res.status(502).json({ error: `TTS upstream ${r.status}` });
+      }
+      const arr = await r.arrayBuffer();
+      const buf = Buffer.from(arr);
+      ttsCacheSet(cacheKey, buf);
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('X-Cache', 'MISS');
+      res.send(buf);
+    } catch (e: any) {
+      console.error('[vocab/audio]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // Send a custom email — used for admin announcements (e.g., level-cohort
   // exam invitations, mid-cohort communications). Body: { to, subject,
   // html, cc?, replyTo? }. `to` may be a single email or an array.
