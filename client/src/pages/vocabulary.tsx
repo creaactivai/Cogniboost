@@ -136,6 +136,19 @@ export default function VocabularyPage() {
     onSuccess: (data) => {
       console.log("[vocab/enrich] result:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/vocab/queue"] });
+      if (data?.enriched > 0) {
+        toast({ title: `Translated ${data.enriched} word${data.enriched === 1 ? "" : "s"} ✓` });
+      } else if (data?.remaining === 0) {
+        toast({ title: "All cards already have translations" });
+      } else {
+        toast({
+          title: "No translations added",
+          description: data?.sample
+            ? `Claude returned unexpected text: ${data.sample.slice(0, 100)}…`
+            : "Try again — Claude may have hiccupped.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (err: any) => {
       console.error("[vocab/enrich] error:", err);
@@ -231,16 +244,30 @@ export default function VocabularyPage() {
         <Badge variant="outline" className="text-xs">Spaced repetition</Badge>
         <Button
           size="sm"
+          variant="ghost"
+          onClick={() => enrich.mutate()}
+          disabled={enrich.isPending}
+          className="ml-auto"
+          data-testid="button-enrich-vocab"
+          title="Add translations to cards"
+        >
+          {enrich.isPending ? (
+            <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Translating…</>
+          ) : (
+            <><Sparkles className="w-3 h-3 mr-1" /> Translate</>
+          )}
+        </Button>
+        <Button
+          size="sm"
           variant="outline"
           onClick={() => sync.mutate()}
           disabled={sync.isPending}
-          className="ml-auto"
           data-testid="button-sync-vocab"
         >
           {sync.isPending ? (
             <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Syncing…</>
           ) : (
-            <><RefreshCw className="w-3 h-3 mr-1" /> Sync from my projects</>
+            <><RefreshCw className="w-3 h-3 mr-1" /> Sync</>
           )}
         </Button>
       </div>

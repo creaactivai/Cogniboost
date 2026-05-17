@@ -6390,19 +6390,36 @@ ${JSON.stringify(items)}`;
       }
       console.log(`[vocab/enrich] Claude returned ${parsed.length} items`);
 
+      // Build a lookup of (lower-term → card.id) so we can match Claude
+      // responses even when it forgets to echo the original ID.
+      const termToId = new Map<string, string>();
+      for (const c of bareCards) termToId.set(String(c.term).trim().toLowerCase(), c.id);
+
       let enriched = 0;
       for (const p of parsed) {
-        if (!p?.id) continue;
+        // Resolve which card this Claude response is for
+        let cardId: string | null = p?.id || null;
+        if (!cardId && p?.term) {
+          cardId = termToId.get(String(p.term).trim().toLowerCase()) || null;
+        }
+        // Fallback: if neither id nor term matches, but Claude returned a
+        // 'word' field instead
+        if (!cardId && p?.word) {
+          cardId = termToId.get(String(p.word).trim().toLowerCase()) || null;
+        }
+        if (!cardId) continue;
         try {
           const r = await (pool as any).query(
             `UPDATE vocab_srs_cards SET translation = $1, example_en = $2, example_es = $3,
                                          part_of_speech = $4
-             WHERE id = $5 AND student_id = $6`,
-            [p.translation || null, p.exampleEn || null, p.exampleEs || null, p.partOfSpeech || null, p.id, studentId]
+             WHERE id = $5 AND student_id = $6
+               AND (translation IS NULL OR translation = '')`,
+            [p.translation || null, p.exampleEn || null, p.exampleEs || null, p.partOfSpeech || null, cardId, studentId]
           );
           if (r.rowCount > 0) enriched += 1;
         } catch {}
       }
+      console.log(`[vocab/enrich] enriched ${enriched}/${parsed.length} cards`);
 
       // How many still bare
       const { rows: remRows } = await (pool as any).query(
@@ -6601,9 +6618,11 @@ ${JSON.stringify(items)}`;
         console.warn('[vocab/audio] existence check failed, falling through to generate:', existsErr?.message);
       }
 
-      // Slow path: generate via ElevenLabs, upload to GCS, then redirect
-      // Mirror lesson-factory/generate_audio.py voice settings exactly
-      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      // Slow path: generate via ElevenLabs Turbo (3-5x faster than
+      // multilingual_v2 — sub-second for short vocab terms), upload to
+      // GCS, then stream back. Voice cloning quality is identical with
+      // turbo for short utterances; only the latency drops.
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=3`, {
         method: 'POST',
         headers: {
           'Accept': 'audio/mpeg',
@@ -6612,7 +6631,7 @@ ${JSON.stringify(items)}`;
         },
         body: JSON.stringify({
           text: term,
-          model_id: 'eleven_multilingual_v2',
+          model_id: 'eleven_turbo_v2_5',
           voice_settings: {
             stability: 0.75,
             similarity_boost: 0.85,
