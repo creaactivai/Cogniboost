@@ -591,6 +591,32 @@ async function runStartupMigrations() {
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS vocab_srs_cards_student_term_idx ON vocab_srs_cards(student_id, lower(term))`);
     await pool.query(`CREATE INDEX IF NOT EXISTS vocab_srs_cards_due_idx ON vocab_srs_cards(student_id, next_review_due)`);
     console.log('Startup migrations: Phase 1.9 Vocabulary SRS table verified');
+
+    // Phase 2.0 — HABLA Method lab lesson plans
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lab_lesson_plans (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        level course_level NOT NULL,
+        module_id varchar NOT NULL,
+        interest_topic_id varchar NOT NULL,
+        variant_number integer NOT NULL,
+        title text NOT NULL,
+        grammar_focus text NOT NULL,
+        pedagogical_objective text NOT NULL,
+        duration_minutes integer NOT NULL DEFAULT 60,
+        plan jsonb NOT NULL,
+        vocabulary text[] DEFAULT '{}',
+        expressions text[] DEFAULT '{}',
+        preview_blurb text,
+        is_published boolean NOT NULL DEFAULT false,
+        generated_by text,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_lesson_plans_combo_idx ON lab_lesson_plans(level, module_id, interest_topic_id, variant_number)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS lab_lesson_plans_module_idx ON lab_lesson_plans(module_id)`);
+    console.log('Startup migrations: Phase 2.0 HABLA lab_lesson_plans table verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

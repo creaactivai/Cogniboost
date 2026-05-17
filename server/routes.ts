@@ -5916,6 +5916,311 @@ Important:
     } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
   });
 
+  // ════════════════════════════════════════════════════════════════
+  // Phase 2.0 — HABLA Method Lab Lesson Plan endpoints
+  // ════════════════════════════════════════════════════════════════
+  // HABLA = Hook · Activate · Build · Live · Anchor (5 phases × ~12 min)
+  // Grounded in Krashen, Swain, Ausubel, Deci & Ryan, Willis & Willis.
+  // Per (level × module × interest) → 4 variant plans (same interest,
+  // rotating grammar/vocab). Each plan is self-contained: a brand-new
+  // student and a 1-month veteran can both join and learn meaningfully.
+  // ════════════════════════════════════════════════════════════════
+
+  async function ensureLabLessonPlansTable() {
+    try {
+      const { pool } = await import("./db");
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS lab_lesson_plans (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        level course_level NOT NULL,
+        module_id varchar NOT NULL,
+        interest_topic_id varchar NOT NULL,
+        variant_number integer NOT NULL,
+        title text NOT NULL,
+        grammar_focus text NOT NULL,
+        pedagogical_objective text NOT NULL,
+        duration_minutes integer NOT NULL DEFAULT 60,
+        plan jsonb NOT NULL,
+        vocabulary text[] DEFAULT '{}',
+        expressions text[] DEFAULT '{}',
+        preview_blurb text,
+        is_published boolean NOT NULL DEFAULT false,
+        generated_by text,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )`);
+      await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_lesson_plans_combo_idx ON lab_lesson_plans(level, module_id, interest_topic_id, variant_number)`);
+    } catch (err: any) {
+      console.warn('[habla] defensive migration warning:', err?.message);
+    }
+  }
+
+  // GET /api/admin/lab-plans/by-module/:moduleId?interest=<id> — list plans
+  app.get('/api/admin/lab-plans/by-module/:moduleId', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+      const interestTopicId = req.query.interest as string | undefined;
+      const params: any[] = [req.params.moduleId];
+      let sql = `SELECT * FROM lab_lesson_plans WHERE module_id = $1`;
+      if (interestTopicId) {
+        params.push(interestTopicId);
+        sql += ` AND interest_topic_id = $${params.length}`;
+      }
+      sql += ` ORDER BY interest_topic_id, variant_number`;
+      const { rows } = await (pool as any).query(sql, params);
+      res.json(rows);
+    } catch (e: any) {
+      console.error('[lab-plans GET]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // POST /api/admin/lab-plans/generate — Generate 4 HABLA plans for
+  // (level + module + interest). Reads the module's lesson HTML +
+  // teacher_lesson_plan to extract real vocab/grammar so plans aren't
+  // generic — they recycle what the student is already studying.
+  app.post('/api/admin/lab-plans/generate', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { level, moduleId, interestTopicId } = req.body || {};
+      if (!level || !moduleId || !interestTopicId) {
+        return res.status(400).json({ error: 'level, moduleId, interestTopicId required' });
+      }
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+
+      // 1. Gather module context: title, lessons, teacher_lesson_plan vocab/grammar
+      const moduleRes = await (pool as any).query(
+        `SELECT id, title, description FROM course_modules WHERE id = $1`,
+        [moduleId]
+      );
+      if (!moduleRes.rows[0]) return res.status(404).json({ error: 'Module not found' });
+      const mod = moduleRes.rows[0];
+
+      const lessonsRes = await (pool as any).query(
+        `SELECT title, html_content, teacher_lesson_plan FROM lessons
+         WHERE module_id = $1 AND is_published = true ORDER BY order_index`,
+        [moduleId]
+      );
+      const lessons = lessonsRes.rows;
+
+      // Collect vocab from lessons (wordAudioFiles + teacherLessonPlan)
+      const moduleVocab = new Set<string>();
+      const moduleGrammar = new Set<string>();
+      for (const lsn of lessons) {
+        if (lsn.html_content) {
+          const m = String(lsn.html_content).match(/(?:const|var|let)\s+wordAudioFiles\s*=\s*\{([\s\S]*?)\}\s*;/);
+          if (m) {
+            const entryRe = /["'](\w[\w'\-\s]*?)["']\s*:\s*["'][^"']+["']/g;
+            let em: RegExpExecArray | null;
+            while ((em = entryRe.exec(m[1])) !== null) moduleVocab.add(em[1].trim());
+          }
+        }
+        const tlp = lsn.teacher_lesson_plan;
+        if (tlp && typeof tlp === 'object') {
+          if (Array.isArray(tlp.vocabularyTarget)) tlp.vocabularyTarget.forEach((w: any) => typeof w === 'string' && moduleVocab.add(w));
+          if (Array.isArray(tlp.targetExpressions)) tlp.targetExpressions.forEach((w: any) => typeof w === 'string' && moduleVocab.add(w));
+          if (tlp.grammarFocus) moduleGrammar.add(String(tlp.grammarFocus));
+        }
+      }
+
+      // Interest topic name
+      const itRes = await (pool as any).query(
+        `SELECT name, slug FROM lab_interest_topics WHERE id = $1`,
+        [interestTopicId]
+      );
+      const interest = itRes.rows[0] || { name: 'General', slug: 'general' };
+
+      // 2. Ask Claude to produce 4 HABLA variants
+      const { getAnthropicClient, ANTHROPIC_MODELS, parseJsonFromResponse, extractTextContent } =
+        await import("./anthropicClient");
+      const client = getAnthropicClient();
+
+      const prompt = `You are designing 4 Conversation Lab lesson plans for CogniBoost ESL platform, following the HABLA Method.
+
+CONTEXT:
+- Level: ${level}
+- Module: "${mod.title}" — ${mod.description || ''}
+- Module vocabulary already studied: ${Array.from(moduleVocab).slice(0, 30).join(', ')}
+- Module grammar already studied: ${Array.from(moduleGrammar).join(', ') || 'see lesson content'}
+- Student interest topic: ${interest.name}
+- Duration per session: 60 minutes
+- All 4 sessions share the same interest (${interest.name}) but rotate grammar focus.
+- Sessions are DROP-IN: a brand-new student and a 1-month veteran can both attend any session and gain meaningful learning. No prerequisites between sessions.
+
+PEDAGOGICAL FRAMEWORK — HABLA Method (5 phases):
+1. HOOK (5 min): Personal, interest-driven warm-up. NEVER starts with grammar. Lowers affective filter (Krashen).
+2. ACTIVATE (10 min): Activate prior knowledge. Teacher draws out what student already knows about the topic. Vocab surfaces naturally (Ausubel — meaningful learning).
+3. BUILD (10 min): Targeted comprehensible input i+1 (Krashen). Show 2-3 authentic mini-examples where the target grammar appears naturally in the interest context. Student DISCOVERS the pattern.
+4. LIVE (25 min): Pushed output via task-based learning (Swain, Willis & Willis TBLT). Student MUST use the grammar + vocab to complete a real task (debate, role-play, storytelling, compare-contrast).
+5. ANCHOR (10 min): 3 highlights + 1 takeaway phrase. Words for spaced retrieval in their SRS deck.
+
+OUTPUT REQUIREMENTS:
+Return ONLY a valid JSON array of EXACTLY 4 objects, each with this shape:
+{
+  "variantNumber": 1,
+  "title": "Spanish-friendly evocative title (max 60 chars)",
+  "grammarFocus": "specific grammar e.g. 'Past Simple — regular + irregular verbs'",
+  "pedagogicalObjective": "By the end, student will… (one sentence, output-focused)",
+  "previewBlurb": "1-paragraph teaser for the pre-class email (~40 words, exciting, no grammar jargon)",
+  "vocabulary": ["6-8 module words relevant to this variant"],
+  "expressions": ["3-5 expressions/phrases blending interest + grammar"],
+  "plan": {
+    "hook": {
+      "durationMinutes": 5,
+      "prompt": "the EXACT teacher opening question, personal and topic-anchored",
+      "teacherScript": "1-2 sentence script the teacher reads to set tone",
+      "variants": ["alt question 1", "alt question 2"]
+    },
+    "activate": {
+      "durationMinutes": 10,
+      "objective": "what the student should surface from prior knowledge",
+      "teacherScript": "how to guide the elicitation in 1-2 sentences",
+      "vocabToSurface": ["3-5 module words that should come out organically"]
+    },
+    "build": {
+      "durationMinutes": 10,
+      "focusGrammar": "the grammar lens for this session",
+      "examples": ["mini-example 1 in the interest context", "mini-example 2", "mini-example 3"],
+      "discoveryQuestion": "the question teacher asks after examples to make student notice the pattern"
+    },
+    "live": {
+      "durationMinutes": 25,
+      "task": "describe the real task the student must complete (emotionally engaging, requires the grammar+vocab)",
+      "taskRubric": ["3-5 specific behaviors that prove successful task completion"],
+      "outputTargets": ["how many sentences/turns/words the student must produce"]
+    },
+    "anchor": {
+      "durationMinutes": 10,
+      "takeawayPhrase": "one memorable phrase for the student to use this week",
+      "vocabForSrs": ["3-5 words to send to their spaced repetition deck"]
+    }
+  }
+}
+
+CRITICAL RULES:
+- All teacher scripts in English (the language being taught) with occasional Spanish bridging when natural.
+- The HOOK must connect emotionally to ${interest.name} — never start cold.
+- The LIVE task must be something a real adult in Latin America would actually enjoy doing.
+- All 4 variants share interest ${interest.name} but DIFFERENT grammar (e.g. variant 1 = present, 2 = past, 3 = comparison, 4 = future/conditional) so the student can take any one.
+- Vocabulary MUST be drawn from the module's actual vocab list (above).
+- Output ONLY the JSON array. No markdown, no commentary.`;
+
+      console.log(`[habla/generate] Asking Claude for 4 plans: ${level} / ${mod.title} / ${interest.name}`);
+      const msg = await client.messages.create({
+        model: ANTHROPIC_MODELS.content, // Opus for higher-quality plans
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const text = extractTextContent(msg);
+      let plans: any[] = [];
+      try {
+        plans = parseJsonFromResponse<any[]>(text);
+      } catch {
+        const arr = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (arr) {
+          try { plans = JSON.parse(arr[0]); } catch {
+            console.error('[habla/generate] unparseable:', text.slice(0, 500));
+            return res.status(500).json({ error: 'Could not parse Claude response', sample: text.slice(0, 300) });
+          }
+        }
+      }
+
+      if (!Array.isArray(plans) || plans.length === 0) {
+        return res.status(500).json({ error: 'Claude returned no plans', sample: text.slice(0, 300) });
+      }
+
+      // 3. Upsert into DB
+      let saved = 0;
+      const inserted: any[] = [];
+      for (const p of plans) {
+        if (!p?.title || !p?.plan) continue;
+        try {
+          const r = await (pool as any).query(
+            `INSERT INTO lab_lesson_plans (
+                level, module_id, interest_topic_id, variant_number, title,
+                grammar_focus, pedagogical_objective, duration_minutes, plan,
+                vocabulary, expressions, preview_blurb, generated_by, is_published
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'ai',false)
+             ON CONFLICT (level, module_id, interest_topic_id, variant_number)
+             DO UPDATE SET
+                title = EXCLUDED.title,
+                grammar_focus = EXCLUDED.grammar_focus,
+                pedagogical_objective = EXCLUDED.pedagogical_objective,
+                plan = EXCLUDED.plan,
+                vocabulary = EXCLUDED.vocabulary,
+                expressions = EXCLUDED.expressions,
+                preview_blurb = EXCLUDED.preview_blurb,
+                generated_by = 'ai',
+                updated_at = now()
+             RETURNING *`,
+            [
+              level, moduleId, interestTopicId,
+              p.variantNumber || (saved + 1),
+              p.title, p.grammarFocus || '', p.pedagogicalObjective || '',
+              p.plan?.hook?.durationMinutes && p.plan?.live?.durationMinutes ? 60 : 60,
+              JSON.stringify(p.plan),
+              p.vocabulary || [],
+              p.expressions || [],
+              p.previewBlurb || null,
+            ]
+          );
+          if (r.rows[0]) {
+            saved += 1;
+            inserted.push(r.rows[0]);
+          }
+        } catch (insertErr: any) {
+          console.error('[habla/generate] insert error:', insertErr?.message);
+        }
+      }
+
+      res.json({ generated: saved, plans: inserted });
+    } catch (e: any) {
+      console.error('[habla/generate]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // PATCH /api/admin/lab-plans/:id — edit a generated plan
+  app.patch('/api/admin/lab-plans/:id', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+      const allowed = ['title', 'grammarFocus', 'pedagogicalObjective', 'plan', 'vocabulary',
+                       'expressions', 'previewBlurb', 'isPublished', 'durationMinutes'];
+      const sqlCols: Record<string, string> = {
+        title: 'title', grammarFocus: 'grammar_focus', pedagogicalObjective: 'pedagogical_objective',
+        plan: 'plan', vocabulary: 'vocabulary', expressions: 'expressions',
+        previewBlurb: 'preview_blurb', isPublished: 'is_published', durationMinutes: 'duration_minutes',
+      };
+      const sets: string[] = [];
+      const params: any[] = [];
+      for (const k of allowed) {
+        if (k in req.body) {
+          params.push(k === 'plan' ? JSON.stringify(req.body[k]) : req.body[k]);
+          sets.push(`${sqlCols[k]} = $${params.length}`);
+        }
+      }
+      if (sets.length === 0) return res.status(400).json({ error: 'no fields to update' });
+      sets.push(`updated_at = now()`);
+      sets.push(`generated_by = COALESCE(generated_by, 'manual')`);
+      params.push(req.params.id);
+      const { rows } = await (pool as any).query(
+        `UPDATE lab_lesson_plans SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+        params
+      );
+      res.json(rows[0]);
+    } catch (e: any) {
+      console.error('[lab-plans PATCH]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // ============================================================
   // Phase 1.9 — Vocabulary SRS (spaced repetition flashcards)
   // ============================================================
