@@ -6168,6 +6168,50 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
     }
   }
 
+  // GET /api/admin/lab-plans/all — return ALL plans across all levels.
+  // Used by the Library page to render Level → Interest → Module groups
+  // in a single shot instead of N+1 queries.
+  app.get('/api/admin/lab-plans/all', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+      const { rows } = await (pool as any).query(
+        `SELECT lp.*, cm.title as module_title, cm.course_id, cm.order_index as module_order_index,
+                it.name as interest_name, it.icon as interest_icon
+         FROM lab_lesson_plans lp
+         LEFT JOIN course_modules cm ON cm.id = lp.module_id
+         LEFT JOIN lab_interest_topics it ON it.id = lp.interest_topic_id
+         ORDER BY lp.level, lp.interest_topic_id, cm.order_index, lp.variant_number`
+      );
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        level: r.level,
+        moduleId: r.module_id,
+        moduleTitle: r.module_title,
+        moduleOrderIndex: r.module_order_index,
+        courseId: r.course_id,
+        interestTopicId: r.interest_topic_id,
+        interestName: r.interest_name,
+        interestIcon: r.interest_icon,
+        variantNumber: r.variant_number,
+        title: r.title,
+        grammarFocus: r.grammar_focus,
+        pedagogicalObjective: r.pedagogical_objective,
+        durationMinutes: r.duration_minutes,
+        plan: r.plan,
+        vocabulary: r.vocabulary || [],
+        expressions: r.expressions || [],
+        previewBlurb: r.preview_blurb,
+        isPublished: r.is_published,
+      })));
+    } catch (e: any) {
+      console.error('[lab-plans/all]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // GET /api/admin/lab-plans/by-module/:moduleId?interest=<id> — list plans
   app.get('/api/admin/lab-plans/by-module/:moduleId', requireAuth, async (req: any, res) => {
     try {

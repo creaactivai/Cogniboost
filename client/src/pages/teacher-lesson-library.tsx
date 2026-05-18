@@ -204,51 +204,166 @@ function HablaPlansBrowser({
   interests: InterestTopic[];
   search: string;
 }) {
-  const { data: courses = [] } = useQuery<Course[]>({ queryKey: ["/api/admin/courses"] });
-
-  const visibleCourses = useMemo(() => {
-    return courses.filter((c) => levelFilter === "all" || c.level === levelFilter);
-  }, [courses, levelFilter]);
-
   return (
     <>
-      <Card className="p-3 flex items-center gap-3 flex-wrap">
-        <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-          Interest:
-        </span>
-        <Select value={interestFilter} onValueChange={setInterestFilter}>
-          <SelectTrigger className="w-56"><SelectValue placeholder="All interests" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All interests</SelectItem>
-            {interests.map((it) => (
-              <SelectItem key={it.id} value={it.id}>{it.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Interest selector — colorful cards, not a tiny dropdown */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+            Pick an interest
+          </span>
+          {interestFilter !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setInterestFilter("all")}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          {interests.map((it) => {
+            const active = interestFilter === it.id;
+            return (
+              <button
+                key={it.id}
+                onClick={() => setInterestFilter(active ? "all" : it.id)}
+                className={`p-3 rounded-lg border-2 text-left transition-all hover:scale-[1.02] ${
+                  active
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border bg-card hover:border-primary/40"
+                }`}
+              >
+                <div className="text-2xl mb-1">{it.icon || "🎯"}</div>
+                <div className="text-xs font-semibold leading-tight">{it.name}</div>
+              </button>
+            );
+          })}
+        </div>
       </Card>
 
-      {visibleCourses.length === 0 && (
-        <Card className="p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            No HABLA plans available for this level yet.
-          </p>
-        </Card>
-      )}
-
-      <div className="space-y-5">
-        {visibleCourses.map((course) => (
-          <CourseHablaSection
-            key={course.id}
-            course={course}
-            interestFilter={interestFilter}
-            interests={interests}
-            search={search}
-          />
-        ))}
-      </div>
+      <PlansLibrary
+        levelFilter={levelFilter}
+        interestFilter={interestFilter}
+        interests={interests}
+        search={search}
+      />
     </>
   );
 }
+
+// Plans organized by Level → Interest → Module
+function PlansLibrary({
+  levelFilter, interestFilter, interests, search,
+}: {
+  levelFilter: LevelFilter;
+  interestFilter: string;
+  interests: InterestTopic[];
+  search: string;
+}) {
+  // Single endpoint returns ALL plans with module + interest details joined.
+  const { data: allPlans = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/lab-plans/all"],
+  });
+
+  // Filter by Level + Interest + search
+  const filtered = useMemo(() => {
+    return allPlans.filter((p) => {
+      if (levelFilter !== "all" && p.level !== levelFilter) return false;
+      if (interestFilter !== "all" && p.interestTopicId !== interestFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const hay = (p.title + " " + p.grammarFocus + " " + (p.previewBlurb || "") + " " + (p.vocabulary || []).join(" ")).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [allPlans, levelFilter, interestFilter, search]);
+
+  // Group: Level → Interest → Module → variants
+  const grouped = useMemo(() => {
+    const out = new Map<string, Map<string, Map<string, LabPlan[]>>>();
+    for (const p of filtered) {
+      if (!out.has(p.level)) out.set(p.level, new Map());
+      const byInterest = out.get(p.level)!;
+      if (!byInterest.has(p.interestTopicId)) byInterest.set(p.interestTopicId, new Map());
+      const byModule = byInterest.get(p.interestTopicId)!;
+      if (!byModule.has(p.moduleId)) byModule.set(p.moduleId, []);
+      byModule.get(p.moduleId)!.push(p);
+    }
+    // sort variants within each module
+    out.forEach((byInterest) => byInterest.forEach((byModule) => byModule.forEach((arr) => arr.sort((a, b) => a.variantNumber - b.variantNumber))));
+    return out;
+  }, [filtered]);
+
+  if (isLoading) {
+    return <Card className="p-6 text-center"><p className="text-sm text-muted-foreground">Loading plans…</p></Card>;
+  }
+  if (filtered.length === 0) {
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          No plans match these filters yet.
+        </p>
+      </Card>
+    );
+  }
+
+  // Render groups
+  return (
+    <div className="space-y-6">
+      {Array.from(grouped.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([level, byInterest]) => (
+          <div key={level} className="space-y-4">
+            <div className="flex items-center gap-2 sticky top-0 bg-background py-2 z-10">
+              <Badge variant="outline" className={`text-xs ${levelColor(level as any)}`}>{level}</Badge>
+              <h2 className="text-lg font-bold">{LEVEL_NAMES[level] || level}</h2>
+            </div>
+            {Array.from(byInterest.entries()).map(([interestId, byModule]) => {
+              const interest = interests.find((i) => i.id === interestId);
+              return (
+                <div key={interestId} className="space-y-2">
+                  <div className="flex items-center gap-2 pl-1">
+                    <span className="text-xl">{interest?.icon || "🎯"}</span>
+                    <h3 className="text-base font-bold">{interest?.name || "Interest"}</h3>
+                    <span className="text-xs text-muted-foreground">
+                      ({Array.from(byModule.values()).flat().length} plans)
+                    </span>
+                  </div>
+                  <div className="space-y-2 pl-2 border-l-2 border-muted">
+                    {Array.from(byModule.entries()).map(([moduleId, plans]) => {
+                      const moduleTitle = (plans[0] as any)?.moduleTitle || "Module";
+                      return (
+                        <div key={moduleId} className="space-y-1.5">
+                          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground pl-2">
+                            {moduleTitle}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {plans.map((p) => <HablaPlanRow key={p.id} plan={p} />)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+    </div>
+  );
+}
+
+const LEVEL_NAMES: Record<string, string> = {
+  A1: "A1 · Beginner",
+  A2: "A2 · Elementary",
+  B1: "B1 · Intermediate",
+  B2: "B2 · Upper Intermediate",
+  C1: "C1 · Advanced",
+};
 
 function CourseHablaSection({
   course, interestFilter, interests, search,
@@ -376,6 +491,28 @@ function ModuleHablaCard({
   );
 }
 
+function PhaseBlock({
+  letter, label, duration, colorFrom, colorTo, children,
+}: {
+  letter: string; label: string; duration: number;
+  colorFrom: string; colorTo: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border bg-card overflow-hidden">
+      <div className="flex items-center gap-2 px-2 py-1.5 border-b bg-muted/20">
+        <div className={`w-6 h-6 rounded bg-gradient-to-br ${colorFrom} ${colorTo} flex items-center justify-center flex-shrink-0`}>
+          <span className="text-[11px] font-black text-white">{letter}</span>
+        </div>
+        <span className="text-xs font-bold">{label}</span>
+        <span className="text-[10px] text-muted-foreground ml-auto font-mono">{duration} min</span>
+      </div>
+      <div className="px-3 py-2 text-xs space-y-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function HablaPlanRow({ plan }: { plan: LabPlan }) {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -400,25 +537,189 @@ function HablaPlanRow({ plan }: { plan: LabPlan }) {
         </Badge>
       </button>
       {open && (
-        <div className="mt-2 pt-2 border-t space-y-1.5 text-[11px]">
+        <div className="mt-3 pt-3 border-t space-y-3 text-sm">
+          {/* Objective + blurb */}
           {plan.pedagogicalObjective && (
-            <p className="italic">{plan.pedagogicalObjective}</p>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-0.5">Objective</p>
+              <p className="text-xs italic">{plan.pedagogicalObjective}</p>
+            </div>
           )}
           {plan.previewBlurb && (
-            <p className="text-muted-foreground">"{plan.previewBlurb}"</p>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-0.5">
+                Student preview
+              </p>
+              <p className="text-xs text-muted-foreground italic">"{plan.previewBlurb}"</p>
+            </div>
           )}
-          <div className="flex flex-wrap gap-1 pt-1">
-            {(plan.vocabulary || []).slice(0, 6).map((w, i) => (
-              <Badge key={i} variant="secondary" className="text-[9px]">{w}</Badge>
-            ))}
+
+          {/* The 5 HABLA phases */}
+          <div className="space-y-2">
+            {/* H — Hook */}
+            {plan.plan?.hook && (
+              <PhaseBlock
+                letter="H"
+                label="Hook"
+                duration={plan.plan.hook.durationMinutes || 5}
+                colorFrom="from-pink-500"
+                colorTo="to-rose-500"
+              >
+                {plan.plan.hook.prompt && (
+                  <p className="font-medium">"{plan.plan.hook.prompt}"</p>
+                )}
+                {plan.plan.hook.teacherScript && (
+                  <p className="text-muted-foreground italic mt-1">{plan.plan.hook.teacherScript}</p>
+                )}
+                {plan.plan.hook.variants?.length > 0 && (
+                  <div className="mt-1.5 pl-2 border-l-2 border-pink-300">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Alt questions</p>
+                    {plan.plan.hook.variants.map((v: string, i: number) => (
+                      <p key={i} className="text-xs italic">· {v}</p>
+                    ))}
+                  </div>
+                )}
+              </PhaseBlock>
+            )}
+
+            {/* A — Activate */}
+            {plan.plan?.activate && (
+              <PhaseBlock
+                letter="A"
+                label="Activate"
+                duration={plan.plan.activate.durationMinutes || 10}
+                colorFrom="from-amber-500"
+                colorTo="to-orange-500"
+              >
+                {plan.plan.activate.objective && (
+                  <p>{plan.plan.activate.objective}</p>
+                )}
+                {plan.plan.activate.teacherScript && (
+                  <p className="text-muted-foreground italic mt-1">{plan.plan.activate.teacherScript}</p>
+                )}
+                {plan.plan.activate.vocabToSurface?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {plan.plan.activate.vocabToSurface.map((w: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-[10px]">{w}</Badge>
+                    ))}
+                  </div>
+                )}
+              </PhaseBlock>
+            )}
+
+            {/* B — Build */}
+            {plan.plan?.build && (
+              <PhaseBlock
+                letter="B"
+                label="Build"
+                duration={plan.plan.build.durationMinutes || 10}
+                colorFrom="from-cyan-500"
+                colorTo="to-blue-500"
+              >
+                {plan.plan.build.focusGrammar && (
+                  <p className="font-medium">Grammar lens: {plan.plan.build.focusGrammar}</p>
+                )}
+                {plan.plan.build.examples?.length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Examples</p>
+                    {plan.plan.build.examples.map((ex: string, i: number) => (
+                      <p key={i} className="text-xs italic pl-2 border-l-2 border-cyan-300">"{ex}"</p>
+                    ))}
+                  </div>
+                )}
+                {plan.plan.build.discoveryQuestion && (
+                  <p className="mt-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Ask: </span>
+                    <span className="italic">{plan.plan.build.discoveryQuestion}</span>
+                  </p>
+                )}
+              </PhaseBlock>
+            )}
+
+            {/* L — Live */}
+            {plan.plan?.live && (
+              <PhaseBlock
+                letter="L"
+                label="Live"
+                duration={plan.plan.live.durationMinutes || 25}
+                colorFrom="from-emerald-500"
+                colorTo="to-teal-500"
+              >
+                {plan.plan.live.task && (
+                  <p className="font-medium">{plan.plan.live.task}</p>
+                )}
+                {plan.plan.live.taskRubric?.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-0.5">Success looks like</p>
+                    <ul className="space-y-0.5">
+                      {plan.plan.live.taskRubric.map((r: string, i: number) => (
+                        <li key={i} className="text-xs flex gap-1.5"><span className="text-emerald-600">✓</span>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {plan.plan.live.outputTargets?.length > 0 && (
+                  <div className="mt-1.5">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-0.5">Targets</p>
+                    {plan.plan.live.outputTargets.map((t: string, i: number) => (
+                      <p key={i} className="text-xs">· {t}</p>
+                    ))}
+                  </div>
+                )}
+              </PhaseBlock>
+            )}
+
+            {/* A — Anchor */}
+            {plan.plan?.anchor && (
+              <PhaseBlock
+                letter="A"
+                label="Anchor"
+                duration={plan.plan.anchor.durationMinutes || 10}
+                colorFrom="from-violet-500"
+                colorTo="to-purple-500"
+              >
+                {plan.plan.anchor.takeawayPhrase && (
+                  <p>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Take-home phrase: </span>
+                    <span className="font-semibold italic">"{plan.plan.anchor.takeawayPhrase}"</span>
+                  </p>
+                )}
+                {plan.plan.anchor.vocabForSrs?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground mr-1">SRS deck →</span>
+                    {plan.plan.anchor.vocabForSrs.map((w: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-[10px]">{w}</Badge>
+                    ))}
+                  </div>
+                )}
+              </PhaseBlock>
+            )}
           </div>
+
+          {/* Full vocab + expressions */}
+          {(plan.vocabulary?.length || plan.expressions?.length) && (
+            <div className="pt-2 border-t">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-1">
+                All vocab & expressions
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {(plan.vocabulary || []).map((w, i) => (
+                  <Badge key={`v${i}`} variant="outline" className="text-[10px]">{w}</Badge>
+                ))}
+                {(plan.expressions || []).map((e, i) => (
+                  <Badge key={`e${i}`} variant="outline" className="text-[10px] italic bg-muted/40">"{e}"</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Button
             size="sm"
-            variant="ghost"
-            className="w-full mt-1 h-7 text-[11px]"
+            variant="outline"
+            className="w-full mt-2"
             onClick={() => setEditOpen(true)}
           >
-            <Pencil className="w-3 h-3 mr-1" /> Edit
+            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit this plan
           </Button>
         </div>
       )}
