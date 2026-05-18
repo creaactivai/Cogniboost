@@ -479,6 +479,64 @@ export const vocabSrsCards = pgTable("vocab_srs_cards", {
 //  "Multiple exports with the same name labRegistrations". The new schema
 //  is what's deployed in production.)
 
+// Phase 2.1 — Daily Challenge (Expression Showdown)
+// =================================================
+// Gamified daily mini-quiz: 10 multi-choice questions per day per
+// student. Question type varies by CEFR level:
+//   A1: ¿Cómo se dice…? (basic Spanish→English vocab)
+//   A2: Pick the natural English (everyday phrases)
+//   B1: Same meaning, different words (synonyms + intro to idioms)
+//   B2: Express it like a native (idioms + phrasal verbs)
+//   C1: Register & nuance (formal/casual + cultural sense)
+//
+// Distractors are NOT random — they're real errors hispanohablantes
+// make: false friends, literal translations, wrong register.
+//
+// Wrong answers feed the student's SRS automatically.
+export const dailyChallengeQuestions = pgTable("daily_challenge_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  level: courseLevelEnum("level").notNull(),
+  questionType: text("question_type").notNull(),       // 'translate'|'natural_phrase'|'synonym'|'idiom'|'register'
+  prompt: text("prompt").notNull(),                    // the question text (Spanish or English depending on level)
+  context: text("context"),                            // optional situational context
+  correctAnswer: text("correct_answer").notNull(),
+  distractorA: text("distractor_a").notNull(),
+  distractorB: text("distractor_b").notNull(),
+  distractorC: text("distractor_c").notNull(),
+  explanation: text("explanation").notNull(),          // why correct is correct + why distractors are wrong
+  category: text("category"),                          // 'phrasal_verb'|'idiom'|'slang'|'collocation'|'register'|'basic'
+  sourceModuleId: varchar("source_module_id"),         // optional link to lesson module
+  interestTopicId: varchar("interest_topic_id"),       // optional link to interest topic
+  difficulty: integer("difficulty").notNull().default(3), // 1-5
+  isPublished: boolean("is_published").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Per-student attempt log — tracks correctness + which question types
+// the student struggles with so we can target their weaknesses.
+export const dailyChallengeAttempts = pgTable("daily_challenge_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  questionId: varchar("question_id").notNull().references(() => dailyChallengeQuestions.id),
+  selectedAnswer: text("selected_answer").notNull(),   // which letter (A/B/C/D) they picked
+  isCorrect: boolean("is_correct").notNull(),
+  responseTimeMs: integer("response_time_ms"),
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+});
+
+// Daily streak tracking + total XP
+export const dailyChallengeStreaks = pgTable("daily_challenge_streaks", {
+  studentId: varchar("student_id").primaryKey(),
+  currentStreak: integer("current_streak").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  totalCorrect: integer("total_correct").notNull().default(0),
+  totalAttempts: integer("total_attempts").notNull().default(0),
+  totalXp: integer("total_xp").notNull().default(0),
+  lastPlayedDate: text("last_played_date"),            // YYYY-MM-DD
+  questionsToday: integer("questions_today").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Phase 2.0 — HABLA Method Conversation Lab Lesson Plans
 // =====================================================
 // One row per (level × module × interestTopic × variant 1-4).

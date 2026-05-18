@@ -6168,6 +6168,385 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
     }
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // Phase 2.1 — Daily Challenge / Expression Showdown
+  // ════════════════════════════════════════════════════════════════
+  // Per-level gamified mini-quiz. Question type varies by CEFR level
+  // (A1 basic vocab → C1 register & nuance). Distractors are real
+  // hispanohablante errors. Wrong answers feed the SRS deck.
+  // ════════════════════════════════════════════════════════════════
+
+  async function ensureDailyChallengeTables() {
+    try {
+      const { pool } = await import("./db");
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS daily_challenge_questions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        level course_level NOT NULL,
+        question_type text NOT NULL,
+        prompt text NOT NULL,
+        context text,
+        correct_answer text NOT NULL,
+        distractor_a text NOT NULL,
+        distractor_b text NOT NULL,
+        distractor_c text NOT NULL,
+        explanation text NOT NULL,
+        category text,
+        source_module_id varchar,
+        interest_topic_id varchar,
+        difficulty integer NOT NULL DEFAULT 3,
+        is_published boolean NOT NULL DEFAULT true,
+        created_at timestamp DEFAULT now()
+      )`);
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS daily_challenge_attempts (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id varchar NOT NULL,
+        question_id varchar NOT NULL,
+        selected_answer text NOT NULL,
+        is_correct boolean NOT NULL,
+        response_time_ms integer,
+        attempted_at timestamp DEFAULT now()
+      )`);
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS daily_challenge_streaks (
+        student_id varchar PRIMARY KEY,
+        current_streak integer NOT NULL DEFAULT 0,
+        longest_streak integer NOT NULL DEFAULT 0,
+        total_correct integer NOT NULL DEFAULT 0,
+        total_attempts integer NOT NULL DEFAULT 0,
+        total_xp integer NOT NULL DEFAULT 0,
+        last_played_date text,
+        questions_today integer NOT NULL DEFAULT 0,
+        updated_at timestamp DEFAULT now()
+      )`);
+    } catch (e: any) {
+      console.warn('[daily-challenge] defensive migration:', e?.message);
+    }
+  }
+
+  // GET /api/daily-challenge/today — fetch up to N unanswered questions
+  // at student's level. Adapts the question type to their CEFR level.
+  app.get('/api/daily-challenge/today', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+      const student = await storage.getUser(studentId);
+      const level = student?.placementLevel || 'A1';
+      const limit = Math.min(parseInt(String(req.query.limit || '10'), 10) || 10, 20);
+
+      // Pick questions the student hasn't answered yet (or rotated)
+      const { rows } = await (pool as any).query(
+        `SELECT q.* FROM daily_challenge_questions q
+         WHERE q.level = $1 AND q.is_published = true
+           AND q.id NOT IN (
+             SELECT question_id FROM daily_challenge_attempts WHERE student_id = $2
+           )
+         ORDER BY RANDOM()
+         LIMIT $3`,
+        [level, studentId, limit]
+      );
+
+      // If they've exhausted unseen ones, allow repeats but prefer ones they got wrong
+      let final = rows;
+      if (final.length < limit) {
+        const rem = limit - final.length;
+        const { rows: extras } = await (pool as any).query(
+          `SELECT q.*, COALESCE(SUM(CASE WHEN a.is_correct = false THEN 1 ELSE 0 END), 0) AS wrong_count
+           FROM daily_challenge_questions q
+           LEFT JOIN daily_challenge_attempts a ON a.question_id = q.id AND a.student_id = $1
+           WHERE q.level = $2 AND q.is_published = true
+             AND q.id NOT IN (${final.map((_: any, i: number) => `$${i + 3}`).join(',') || 'NULL'})
+           GROUP BY q.id
+           ORDER BY wrong_count DESC, RANDOM()
+           LIMIT $${final.length + 3}`,
+          [studentId, level, ...final.map((r: any) => r.id), rem]
+        );
+        final = [...final, ...extras];
+      }
+
+      // Shuffle option positions per-question so correct isn't always same letter
+      const formatted = final.map((q: any) => {
+        const opts = [
+          { letter: 'A', text: q.correct_answer, correct: true },
+          { letter: 'B', text: q.distractor_a, correct: false },
+          { letter: 'C', text: q.distractor_b, correct: false },
+          { letter: 'D', text: q.distractor_c, correct: false },
+        ];
+        // Fisher-Yates shuffle
+        for (let i = opts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        // Reassign letters in shuffled order
+        return {
+          id: q.id,
+          level: q.level,
+          questionType: q.question_type,
+          prompt: q.prompt,
+          context: q.context,
+          category: q.category,
+          difficulty: q.difficulty,
+          options: opts.map((o, idx) => ({
+            letter: ['A', 'B', 'C', 'D'][idx],
+            text: o.text,
+            correct: o.correct,
+          })),
+        };
+      });
+
+      res.json({ level, questions: formatted });
+    } catch (e: any) {
+      console.error('[daily-challenge/today]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // POST /api/daily-challenge/answer — submit an answer; updates
+  // streak, XP, and (on wrong) adds the correct expression to SRS.
+  app.post('/api/daily-challenge/answer', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const { questionId, selectedAnswer, responseTimeMs } = req.body || {};
+      if (!questionId || !selectedAnswer) {
+        return res.status(400).json({ error: 'questionId + selectedAnswer required' });
+      }
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+
+      const { rows: qRows } = await (pool as any).query(
+        `SELECT * FROM daily_challenge_questions WHERE id = $1`,
+        [questionId]
+      );
+      const q = qRows[0];
+      if (!q) return res.status(404).json({ error: 'Question not found' });
+
+      const isCorrect = String(selectedAnswer).trim() === String(q.correct_answer).trim();
+      const xpEarned = isCorrect ? 20 : 0;
+
+      // Log attempt
+      await (pool as any).query(
+        `INSERT INTO daily_challenge_attempts (student_id, question_id, selected_answer, is_correct, response_time_ms)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [studentId, questionId, selectedAnswer, isCorrect, responseTimeMs || null]
+      );
+
+      // Update streak + xp
+      const today = new Date().toISOString().slice(0, 10);
+      const { rows: streakRows } = await (pool as any).query(
+        `SELECT * FROM daily_challenge_streaks WHERE student_id = $1`,
+        [studentId]
+      );
+      const s = streakRows[0];
+      if (!s) {
+        await (pool as any).query(
+          `INSERT INTO daily_challenge_streaks
+             (student_id, current_streak, longest_streak, total_correct, total_attempts, total_xp, last_played_date, questions_today)
+           VALUES ($1, 1, 1, $2, 1, $3, $4, 1)`,
+          [studentId, isCorrect ? 1 : 0, xpEarned, today]
+        );
+      } else {
+        const wasYesterday = (() => {
+          if (!s.last_played_date) return false;
+          const last = new Date(s.last_played_date + 'T00:00:00Z');
+          const todayD = new Date(today + 'T00:00:00Z');
+          const diff = Math.round((+todayD - +last) / (24 * 60 * 60 * 1000));
+          return diff === 1;
+        })();
+        const sameDay = s.last_played_date === today;
+        const newStreak = sameDay
+          ? s.current_streak
+          : wasYesterday
+            ? s.current_streak + 1
+            : 1;
+        const newLongest = Math.max(s.longest_streak, newStreak);
+        const newQuestionsToday = sameDay ? s.questions_today + 1 : 1;
+        await (pool as any).query(
+          `UPDATE daily_challenge_streaks SET
+             current_streak = $1, longest_streak = $2,
+             total_correct = total_correct + $3,
+             total_attempts = total_attempts + 1,
+             total_xp = total_xp + $4,
+             last_played_date = $5,
+             questions_today = $6,
+             updated_at = now()
+           WHERE student_id = $7`,
+          [newStreak, newLongest, isCorrect ? 1 : 0, xpEarned, today, newQuestionsToday, studentId]
+        );
+      }
+
+      // If wrong, add the correct expression to the student's SRS deck
+      if (!isCorrect) {
+        try {
+          await ensureVocabSrsTable();
+          await (pool as any).query(
+            `INSERT INTO vocab_srs_cards (student_id, term, is_expression, source_type, level, translation)
+             VALUES ($1, $2, $3, 'daily_challenge', $4, $5)
+             ON CONFLICT (student_id, lower(term)) DO NOTHING`,
+            [studentId, q.correct_answer, q.correct_answer.includes(' '), q.level, q.prompt]
+          );
+        } catch {}
+      }
+
+      res.json({
+        correct: isCorrect,
+        correctAnswer: q.correct_answer,
+        explanation: q.explanation,
+        xpEarned,
+      });
+    } catch (e: any) {
+      console.error('[daily-challenge/answer]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/daily-challenge/stats — student's progress + streak
+  app.get('/api/daily-challenge/stats', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+      const { rows } = await (pool as any).query(
+        `SELECT * FROM daily_challenge_streaks WHERE student_id = $1`,
+        [studentId]
+      );
+      const s = rows[0];
+      if (!s) {
+        return res.json({
+          currentStreak: 0, longestStreak: 0, totalCorrect: 0,
+          totalAttempts: 0, totalXp: 0, questionsToday: 0,
+          accuracyPct: 0,
+        });
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const questionsToday = s.last_played_date === today ? s.questions_today : 0;
+      res.json({
+        currentStreak: s.current_streak,
+        longestStreak: s.longest_streak,
+        totalCorrect: s.total_correct,
+        totalAttempts: s.total_attempts,
+        totalXp: s.total_xp,
+        questionsToday,
+        accuracyPct: s.total_attempts > 0 ? Math.round((s.total_correct / s.total_attempts) * 100) : 0,
+      });
+    } catch (e: any) {
+      console.error('[daily-challenge/stats]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // POST /api/admin/daily-challenge/seed — admin: generate questions for
+  // a level using Claude. Reads expressions from writing/speaking/lab
+  // sources at that level and asks Claude to craft questions with
+  // hispanohablante-typical distractors.
+  app.post('/api/admin/daily-challenge/seed', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const { level, count = 30 } = req.body || {};
+      if (!['A1', 'A2', 'B1', 'B2', 'C1'].includes(level)) {
+        return res.status(400).json({ error: 'valid level required' });
+      }
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+
+      // Determine question type by level
+      const typeByLevel: Record<string, { type: string; brief: string; promptLang: string }> = {
+        A1: { type: 'translate', brief: 'basic Spanish→English vocabulary (verbs, objects, daily phrases)', promptLang: 'Spanish' },
+        A2: { type: 'natural_phrase', brief: 'pick the natural English for everyday situations (greetings, food, directions)', promptLang: 'Spanish' },
+        B1: { type: 'synonym', brief: 'same meaning, different words — synonyms + simple idioms', promptLang: 'English' },
+        B2: { type: 'idiom', brief: 'express it like a native — phrasal verbs, idioms, slang', promptLang: 'English' },
+        C1: { type: 'register', brief: 'register & nuance — formal vs casual, cultural sense', promptLang: 'English' },
+      };
+      const cfg = typeByLevel[level];
+
+      const { getAnthropicClient, ANTHROPIC_MODELS } = await import("./anthropicClient");
+      const client = getAnthropicClient();
+      const msg = await client.messages.create({
+        model: ANTHROPIC_MODELS.grading,
+        max_tokens: 8000,
+        tools: [{
+          name: 'save_questions',
+          description: `Save ${count} Daily Challenge questions for CEFR level ${level}.`,
+          input_schema: {
+            type: 'object',
+            properties: {
+              questions: {
+                type: 'array',
+                minItems: count, maxItems: count,
+                items: {
+                  type: 'object',
+                  properties: {
+                    prompt: { type: 'string', description: `Question text in ${cfg.promptLang}` },
+                    context: { type: 'string', description: 'Optional situational context (max 1 sentence)' },
+                    correctAnswer: { type: 'string' },
+                    distractorA: { type: 'string', description: 'Common hispanohablante error 1' },
+                    distractorB: { type: 'string', description: 'Common hispanohablante error 2' },
+                    distractorC: { type: 'string', description: 'Common hispanohablante error 3' },
+                    explanation: { type: 'string', description: 'Why correct is right + why distractors are wrong (max 2 sentences)' },
+                    category: { type: 'string', enum: ['phrasal_verb', 'idiom', 'slang', 'collocation', 'register', 'basic'] },
+                    difficulty: { type: 'number', minimum: 1, maximum: 5 },
+                  },
+                  required: ['prompt', 'correctAnswer', 'distractorA', 'distractorB', 'distractorC', 'explanation', 'category', 'difficulty'],
+                },
+              },
+            },
+            required: ['questions'],
+          },
+        }],
+        tool_choice: { type: 'tool', name: 'save_questions' },
+        messages: [{
+          role: 'user',
+          content: `You are designing a Daily Challenge mini-quiz for CogniBoost ESL platform.
+
+LEVEL: ${level}
+QUESTION TYPE: ${cfg.brief}
+PROMPT LANGUAGE: ${cfg.promptLang}
+
+Generate ${count} unique questions following the schema. Critical rules:
+- Distractors must be REAL errors hispanohablantes (Latin American Spanish speakers learning English) commonly make: false friends, literal Spanish→English translations, wrong prepositions, wrong word order.
+- Each distractor should sound plausible to a learner but be definitively wrong.
+- ${level === 'A1' || level === 'A2'
+  ? `Prompt in Spanish (e.g. "¿Cómo se dice 'Yo tengo'?"). Options in English.`
+  : `Prompt in English (e.g. "How can you say 'I'm going to study' in other words?"). Options in English.`}
+- Explanations max 2 sentences, friendly tone, no academic jargon.
+- Difficulty 1-5 within the level (1=easy for the level, 5=challenging for the level).
+- Vary categories across the set (phrasal_verbs, idioms, slang, collocations, register).
+- ${level === 'B2' || level === 'C1' ? 'Include true slang and current usage native speakers actually use.' : 'Keep examples relevant to daily life and common situations.'}`,
+        }],
+      });
+
+      const toolUse = msg.content.find((b: any) => b.type === 'tool_use');
+      const questions = (toolUse as any)?.input?.questions || [];
+      if (questions.length === 0) return res.status(500).json({ error: 'Claude returned no questions' });
+
+      let saved = 0;
+      for (const q of questions) {
+        try {
+          await (pool as any).query(
+            `INSERT INTO daily_challenge_questions
+               (level, question_type, prompt, context, correct_answer, distractor_a, distractor_b, distractor_c,
+                explanation, category, difficulty, is_published)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)`,
+            [
+              level, cfg.type, q.prompt, q.context || null,
+              q.correctAnswer, q.distractorA, q.distractorB, q.distractorC,
+              q.explanation, q.category || 'basic', q.difficulty || 3,
+            ]
+          );
+          saved += 1;
+        } catch (insErr: any) {
+          console.warn('[daily-challenge/seed] insert error:', insErr?.message);
+        }
+      }
+      res.json({ generated: saved, requested: questions.length });
+    } catch (e: any) {
+      console.error('[daily-challenge/seed]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // GET /api/admin/lab-plans/all — return ALL plans across all levels.
   // Used by the Library page to render Level → Interest → Module groups
   // in a single shot instead of N+1 queries.

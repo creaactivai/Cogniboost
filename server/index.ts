@@ -617,6 +617,57 @@ async function runStartupMigrations() {
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_lesson_plans_combo_idx ON lab_lesson_plans(level, module_id, interest_topic_id, variant_number)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS lab_lesson_plans_module_idx ON lab_lesson_plans(module_id)`);
     console.log('Startup migrations: Phase 2.0 HABLA lab_lesson_plans table verified');
+
+    // Phase 2.1 — Daily Challenge / Expression Showdown
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_challenge_questions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        level course_level NOT NULL,
+        question_type text NOT NULL,
+        prompt text NOT NULL,
+        context text,
+        correct_answer text NOT NULL,
+        distractor_a text NOT NULL,
+        distractor_b text NOT NULL,
+        distractor_c text NOT NULL,
+        explanation text NOT NULL,
+        category text,
+        source_module_id varchar,
+        interest_topic_id varchar,
+        difficulty integer NOT NULL DEFAULT 3,
+        is_published boolean NOT NULL DEFAULT true,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS daily_q_level_idx ON daily_challenge_questions(level, is_published)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_challenge_attempts (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id varchar NOT NULL,
+        question_id varchar NOT NULL,
+        selected_answer text NOT NULL,
+        is_correct boolean NOT NULL,
+        response_time_ms integer,
+        attempted_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS daily_attempts_student_idx ON daily_challenge_attempts(student_id, attempted_at DESC)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_challenge_streaks (
+        student_id varchar PRIMARY KEY,
+        current_streak integer NOT NULL DEFAULT 0,
+        longest_streak integer NOT NULL DEFAULT 0,
+        total_correct integer NOT NULL DEFAULT 0,
+        total_attempts integer NOT NULL DEFAULT 0,
+        total_xp integer NOT NULL DEFAULT 0,
+        last_played_date text,
+        questions_today integer NOT NULL DEFAULT 0,
+        updated_at timestamp DEFAULT now()
+      )
+    `);
+    console.log('Startup migrations: Phase 2.1 Daily Challenge tables verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }
