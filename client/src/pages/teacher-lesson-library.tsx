@@ -297,10 +297,6 @@ function ModuleHablaCard({
     queryKey: [`/api/admin/lab-plans/by-module/${module.id}`],
   });
 
-  // Hide module entirely if no plans exist for it (don't expose
-  // empty modules to the teacher's daily view).
-  if (!isLoading && plans.length === 0) return null;
-
   const filtered = useMemo(() => {
     let p = plans;
     if (interestFilter !== "all") p = p.filter((x) => x.interestTopicId === interestFilter);
@@ -324,6 +320,10 @@ function ModuleHablaCard({
     map.forEach((arr) => arr.sort((a: LabPlan, b: LabPlan) => a.variantNumber - b.variantNumber));
     return map;
   }, [filtered]);
+
+  // Hide module entirely if no plans exist. MUST be after all hooks
+  // to comply with React's Rules of Hooks.
+  if (!isLoading && plans.length === 0) return null;
 
   return (
     <Card>
