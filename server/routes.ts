@@ -3976,6 +3976,30 @@ Important:
   });
 
   // Admin: Update student status
+  // Admin: update a student's CEFR level fields. Sets placementLevel
+  // + englishLevel together (used by manual classification when the
+  // placement quiz wasn't completed).
+  app.patch("/api/admin/students/:id/level", requireAdmin, async (req: any, res) => {
+    try {
+      const { level } = req.body || {};
+      if (!['A1','A2','B1','B2','C1','C2'].includes(level)) {
+        return res.status(400).json({ error: 'valid level required' });
+      }
+      const { db } = await import("./db");
+      const { users } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [updated] = await db.update(users)
+        .set({ placementLevel: level, englishLevel: level, updatedAt: new Date() })
+        .where(eq(users.id, req.params.id))
+        .returning({ id: users.id, placementLevel: users.placementLevel, englishLevel: users.englishLevel });
+      if (!updated) return res.status(404).json({ error: 'Student not found' });
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[admin/students/level]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   app.patch("/api/admin/students/:id/status", requireAdmin, async (req, res) => {
     try {
       const { status } = req.body;
