@@ -6837,6 +6837,63 @@ CRITICAL RULES:
   */ }
   // ^ end dead-code block
 
+  // POST /api/admin/lab-plans/manual-insert — accept a fully-formed
+  // HABLA plan JSON and upsert it WITHOUT calling Claude. Used when
+  // I (Claude-in-chat) generate plans manually in conversation and
+  // need to save them to DB. Avoids the Anthropic API entirely.
+  app.post('/api/admin/lab-plans/manual-insert', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureLabLessonPlansTable();
+      const { pool } = await import("./db");
+      const { plans } = req.body || {};
+      if (!Array.isArray(plans) || plans.length === 0) {
+        return res.status(400).json({ error: 'plans[] required' });
+      }
+      let saved = 0;
+      const errors: string[] = [];
+      for (const p of plans) {
+        const required = ['level', 'moduleId', 'interestTopicId', 'variantNumber', 'title', 'grammarFocus', 'pedagogicalObjective', 'plan'];
+        const missing = required.filter((k) => !p[k]);
+        if (missing.length) {
+          errors.push(`Missing ${missing.join(',')} in plan ${p.title || '?'}`);
+          continue;
+        }
+        try {
+          await (pool as any).query(
+            `INSERT INTO lab_lesson_plans (
+                level, module_id, interest_topic_id, variant_number, title,
+                grammar_focus, pedagogical_objective, duration_minutes, plan,
+                vocabulary, expressions, preview_blurb, generated_by, is_published
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'manual_chat',$13)
+             ON CONFLICT (level, module_id, interest_topic_id, variant_number)
+             DO UPDATE SET
+                title = EXCLUDED.title, grammar_focus = EXCLUDED.grammar_focus,
+                pedagogical_objective = EXCLUDED.pedagogical_objective,
+                plan = EXCLUDED.plan, vocabulary = EXCLUDED.vocabulary,
+                expressions = EXCLUDED.expressions, preview_blurb = EXCLUDED.preview_blurb,
+                generated_by = 'manual_chat', updated_at = now()`,
+            [
+              p.level, p.moduleId, p.interestTopicId, p.variantNumber,
+              p.title, p.grammarFocus, p.pedagogicalObjective,
+              p.durationMinutes || 60, JSON.stringify(p.plan),
+              p.vocabulary || [], p.expressions || [],
+              p.previewBlurb || null, !!p.isPublished,
+            ]
+          );
+          saved += 1;
+        } catch (insErr: any) {
+          errors.push(`${p.title}: ${insErr?.message}`);
+        }
+      }
+      res.json({ saved, requested: plans.length, errors });
+    } catch (e: any) {
+      console.error('[lab-plans/manual-insert]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // PATCH /api/admin/lab-plans/:id — edit a generated plan
   app.patch('/api/admin/lab-plans/:id', requireAuth, async (req: any, res) => {
     try {
