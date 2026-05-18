@@ -15,18 +15,54 @@
  * - Teacher override panel (visible once status >= 'teacher_reviewed')
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import {
   isGraded,
   isGradingError,
   type Submission,
   type InlineAnnotation,
 } from "@/types/submission";
+
+// Reusable collapsible card. Header always shown, body collapsed by default.
+function CollapsibleSection({
+  title, count, preview, color, defaultOpen = false, children,
+}: {
+  title: string;
+  count?: number;
+  preview?: string;
+  color?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card className="overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full p-4 flex items-start justify-between gap-3 hover:bg-muted/30 transition-colors text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <h2 className={`font-bold text-base ${color || ""}`}>
+            {title}
+            {typeof count === "number" && <span className="ml-1 text-xs text-muted-foreground">({count})</span>}
+          </h2>
+          {!open && preview && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{preview}</p>
+          )}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground" />}
+      </button>
+      {open && <div className="px-4 pb-4 pt-1">{children}</div>}
+    </Card>
+  );
+}
 
 const ISSUE_COLORS: Record<InlineAnnotation["issue_type"], string> = {
   grammar: "bg-red-50 border-red-200 text-red-900",
@@ -136,44 +172,70 @@ export default function SubmissionViewPage() {
       {/* Successful grade */}
       {grade && (
         <>
-          <Card className="p-5">
-            <div className="flex items-end justify-between gap-4 mb-1">
+          {/* Hero card: score + CEFR + one-sentence summary (always visible) */}
+          <Card className="p-5 bg-gradient-to-br from-card to-muted/30">
+            <div className="flex items-end justify-between gap-4 mb-3">
               <div>
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Overall score
                 </div>
-                <div className="text-4xl font-bold tabular-nums">
+                <div className="text-5xl font-bold tabular-nums">
                   {submission.finalScore ?? grade.overall_score}
-                  <span className="text-xl text-slate-400 font-normal"> / 100</span>
+                  <span className="text-2xl text-slate-400 font-normal"> / 100</span>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  This writing demonstrates
+                  Writing demonstrates
                 </div>
-                <div className="text-xl font-bold">{grade.estimated_cefr_for_this_writing}</div>
+                <Badge variant="outline" className="mt-1 text-base font-bold px-2 py-0.5">
+                  {grade.estimated_cefr_for_this_writing}
+                </Badge>
               </div>
             </div>
+
+            {/* Smart 1-line summary built from top strength + top priority */}
+            {(grade.strengths[0] || grade.improvement_priorities[0]) && (
+              <div className="pt-3 border-t flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {grade.strengths[0] && (
+                    <><span className="font-semibold text-emerald-700">Strength:</span> {grade.strengths[0]}</>
+                  )}
+                  {grade.strengths[0] && grade.improvement_priorities[0] && <span className="mx-1.5 text-muted-foreground">·</span>}
+                  {grade.improvement_priorities[0] && (
+                    <><span className="font-semibold text-orange-700">Focus:</span> {grade.improvement_priorities[0]}</>
+                  )}
+                </p>
+              </div>
+            )}
+
             {submission.teacherScore != null && (
               <p className="text-xs text-muted-foreground mt-2">
-                AI graded {grade.overall_score} / 100 · Teacher set final score to{" "}
-                {submission.finalScore}
+                AI graded {grade.overall_score} / 100 · Teacher set final score to {submission.finalScore}
               </p>
             )}
           </Card>
 
-          <Card className="p-5">
-            <h2 className="font-bold text-lg mb-2">Score breakdown</h2>
+          {/* Score breakdown — collapsible */}
+          <CollapsibleSection
+            title="Score breakdown"
+            preview={`5 dimensions · ${grade.dimensions.task_achievement.score + grade.dimensions.coherence_cohesion.score + grade.dimensions.lexical_range.score + grade.dimensions.grammatical_range.score + grade.dimensions.register_tone.score} / 100 total`}
+          >
             <DimensionRow label="Task Achievement" {...grade.dimensions.task_achievement} />
             <DimensionRow label="Coherence & Cohesion" {...grade.dimensions.coherence_cohesion} />
             <DimensionRow label="Lexical Range" {...grade.dimensions.lexical_range} />
             <DimensionRow label="Grammatical Range & Accuracy" {...grade.dimensions.grammatical_range} />
             <DimensionRow label="Register & Tone" {...grade.dimensions.register_tone} />
-          </Card>
+          </CollapsibleSection>
 
           {grade.strengths.length > 0 && (
-            <Card className="p-5">
-              <h2 className="font-bold text-lg mb-2 text-emerald-700">Strengths</h2>
+            <CollapsibleSection
+              title="Strengths"
+              count={grade.strengths.length}
+              preview={grade.strengths[0]}
+              color="text-emerald-700"
+            >
               <ul className="space-y-1.5">
                 {grade.strengths.map((s, i) => (
                   <li key={i} className="text-sm text-slate-800 flex gap-2">
@@ -182,12 +244,17 @@ export default function SubmissionViewPage() {
                   </li>
                 ))}
               </ul>
-            </Card>
+            </CollapsibleSection>
           )}
 
           {grade.improvement_priorities.length > 0 && (
-            <Card className="p-5">
-              <h2 className="font-bold text-lg mb-2 text-orange-700">Top priorities to work on</h2>
+            <CollapsibleSection
+              title="Top priorities to work on"
+              count={grade.improvement_priorities.length}
+              preview={grade.improvement_priorities[0]}
+              color="text-orange-700"
+              defaultOpen
+            >
               <ol className="space-y-2">
                 {grade.improvement_priorities.map((p, i) => (
                   <li key={i} className="text-sm text-slate-800 flex gap-2">
@@ -196,25 +263,21 @@ export default function SubmissionViewPage() {
                   </li>
                 ))}
               </ol>
-            </Card>
+            </CollapsibleSection>
           )}
 
           {grade.inline_annotations.length > 0 && (
-            <Card className="p-5">
-              <h2 className="font-bold text-lg mb-3">Inline corrections ({grade.inline_annotations.length})</h2>
+            <CollapsibleSection
+              title="Inline corrections"
+              count={grade.inline_annotations.length}
+              preview={`First: "${grade.inline_annotations[0].text_segment.slice(0, 60)}${grade.inline_annotations[0].text_segment.length > 60 ? '…' : ''}"`}
+            >
               <div className="space-y-2">
                 {grade.inline_annotations.map((a, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-md border p-3 text-sm ${ISSUE_COLORS[a.issue_type]}`}
-                  >
+                  <div key={i} className={`rounded-md border p-3 text-sm ${ISSUE_COLORS[a.issue_type]}`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-xs capitalize bg-white">
-                        {a.issue_type}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs capitalize bg-white">
-                        {SEVERITY_LABELS[a.severity]}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs capitalize bg-white">{a.issue_type}</Badge>
+                      <Badge variant="outline" className="text-xs capitalize bg-white">{SEVERITY_LABELS[a.severity]}</Badge>
                     </div>
                     <div className="italic">"{a.text_segment}"</div>
                     <div className="mt-1">
@@ -225,51 +288,46 @@ export default function SubmissionViewPage() {
                   </div>
                 ))}
               </div>
-            </Card>
+            </CollapsibleSection>
           )}
 
           {grade.spanish_speaker_patterns_noticed.length > 0 && (
-            <Card className="p-5 bg-amber-50 border-amber-200">
-              <h2 className="font-bold text-lg mb-2 text-amber-900">
-                Spanish-speaker patterns
-              </h2>
-              <p className="text-xs text-amber-800 mb-2">
-                These are language-transfer patterns from Spanish (your L1) into English. Naming
-                them makes them easier to unlearn.
+            <CollapsibleSection
+              title="Spanish-speaker patterns"
+              count={grade.spanish_speaker_patterns_noticed.length}
+              preview={grade.spanish_speaker_patterns_noticed[0]}
+              color="text-amber-700"
+            >
+              <p className="text-xs text-muted-foreground mb-2">
+                These are language-transfer patterns from Spanish into English. Naming them makes them easier to unlearn.
               </p>
               <ul className="space-y-1.5">
                 {grade.spanish_speaker_patterns_noticed.map((p, i) => (
-                  <li key={i} className="text-sm text-amber-900">
-                    {p}
-                  </li>
+                  <li key={i} className="text-sm text-amber-900">{p}</li>
                 ))}
               </ul>
-            </Card>
+            </CollapsibleSection>
           )}
 
-          {(grade.vocabulary_used_correctly.length > 0 ||
-            grade.vocabulary_misused.length > 0) && (
-            <Card className="p-5">
-              <h2 className="font-bold text-lg mb-3">Vocabulary</h2>
+          {(grade.vocabulary_used_correctly.length > 0 || grade.vocabulary_misused.length > 0) && (
+            <CollapsibleSection
+              title="Vocabulary"
+              count={grade.vocabulary_used_correctly.length + grade.vocabulary_misused.length}
+              preview={`${grade.vocabulary_used_correctly.length} used correctly · ${grade.vocabulary_misused.length} need attention`}
+            >
               {grade.vocabulary_used_correctly.length > 0 && (
                 <div className="mb-3">
-                  <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">
-                    Used correctly
-                  </div>
+                  <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">Used correctly</div>
                   <div className="flex flex-wrap gap-1.5">
                     {grade.vocabulary_used_correctly.map((w, i) => (
-                      <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-900 border-emerald-200">
-                        {w}
-                      </Badge>
+                      <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-900 border-emerald-200">{w}</Badge>
                     ))}
                   </div>
                 </div>
               )}
               {grade.vocabulary_misused.length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
-                    Needs attention
-                  </div>
+                  <div className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Needs attention</div>
                   <ul className="space-y-1">
                     {grade.vocabulary_misused.map((v, i) => (
                       <li key={i} className="text-sm">
@@ -280,25 +338,31 @@ export default function SubmissionViewPage() {
                   </ul>
                 </div>
               )}
-            </Card>
+            </CollapsibleSection>
           )}
 
           {submission.teacherFeedback && (
-            <Card className="p-5 bg-blue-50 border-blue-200">
-              <h2 className="font-bold text-lg mb-2 text-blue-900">Teacher feedback</h2>
+            <CollapsibleSection
+              title="Teacher feedback"
+              preview={submission.teacherFeedback.slice(0, 80) + (submission.teacherFeedback.length > 80 ? '…' : '')}
+              color="text-blue-700"
+              defaultOpen
+            >
               <p className="text-sm text-blue-900 whitespace-pre-wrap">{submission.teacherFeedback}</p>
-            </Card>
+            </CollapsibleSection>
           )}
         </>
       )}
 
-      {/* Original writing — collapsed by default once graded to keep focus on feedback */}
-      <Card className="p-5">
-        <h2 className="font-bold text-lg mb-2">Your writing</h2>
+      {/* Original writing — also collapsible at the bottom */}
+      <CollapsibleSection
+        title="Your writing"
+        preview={submission.content.slice(0, 100) + (submission.content.length > 100 ? '…' : '')}
+      >
         <div className="font-serif text-base leading-relaxed whitespace-pre-wrap text-slate-800">
           {submission.content}
         </div>
-      </Card>
+      </CollapsibleSection>
     </div>
   );
 }
