@@ -18,9 +18,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, GraduationCap, Mic, Heart, Brain, Lightbulb, Anchor as AnchorIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { BookOpen, GraduationCap, Mic, Heart, Brain, Lightbulb, Anchor as AnchorIcon, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import type { TeacherLessonRow } from "@/types/lesson-plan";
 import type { CourseModule } from "@shared/schema";
+import { EditHablaPlanDialog } from "@/components/lab/edit-habla-plan-dialog";
 
 const CEFR_LEVELS = ["all", "A1", "A2", "B1", "B2", "C1", "C2"] as const;
 type LevelFilter = (typeof CEFR_LEVELS)[number];
@@ -229,7 +230,7 @@ function HablaPlansBrowser({
       {visibleCourses.length === 0 && (
         <Card className="p-6 text-center">
           <p className="text-sm text-muted-foreground">
-            No courses for this level. Pre-generate HABLA plans from <strong>/admin/labs/plans</strong>.
+            No HABLA plans available for this level yet.
           </p>
         </Card>
       )}
@@ -292,10 +293,13 @@ function ModuleHablaCard({
   search: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { data: plans = [] } = useQuery<LabPlan[]>({
+  const { data: plans = [], isLoading } = useQuery<LabPlan[]>({
     queryKey: [`/api/admin/lab-plans/by-module/${module.id}`],
-    enabled: expanded,
   });
+
+  // Hide module entirely if no plans exist for it (don't expose
+  // empty modules to the teacher's daily view).
+  if (!isLoading && plans.length === 0) return null;
 
   const filtered = useMemo(() => {
     let p = plans;
@@ -345,7 +349,7 @@ function ModuleHablaCard({
         <div className="px-3 pb-3 space-y-2">
           {filtered.length === 0 && (
             <p className="text-xs text-muted-foreground italic px-2 py-3">
-              No HABLA plans yet for this module{interestFilter !== "all" ? " + interest" : ""}. Generate them from <strong>/admin/labs/plans</strong>.
+              No plans available for this module{interestFilter !== "all" ? " in this interest" : ""} yet.
             </p>
           )}
           {Array.from(byInterest.entries()).map(([interestId, plansForInterest]) => {
@@ -374,6 +378,7 @@ function ModuleHablaCard({
 
 function HablaPlanRow({ plan }: { plan: LabPlan }) {
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   return (
     <div className="p-2 rounded border bg-card">
       <button
@@ -407,12 +412,22 @@ function HablaPlanRow({ plan }: { plan: LabPlan }) {
               <Badge key={i} variant="secondary" className="text-[9px]">{w}</Badge>
             ))}
           </div>
-          <Link href={`/admin/labs/plans?focus=${plan.id}`}>
-            <Button size="sm" variant="ghost" className="w-full mt-1 h-7 text-[11px]">
-              Open in plan editor →
-            </Button>
-          </Link>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-full mt-1 h-7 text-[11px]"
+            onClick={() => setEditOpen(true)}
+          >
+            <Pencil className="w-3 h-3 mr-1" /> Edit
+          </Button>
         </div>
+      )}
+      {editOpen && (
+        <EditHablaPlanDialog
+          plan={plan as any}
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+        />
       )}
     </div>
   );
