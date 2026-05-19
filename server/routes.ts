@@ -6464,6 +6464,53 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
   // a level using Claude. Reads expressions from writing/speaking/lab
   // sources at that level and asks Claude to craft questions with
   // hispanohablante-typical distractors.
+  // Manual-insert endpoint for Daily Challenge questions — used when
+  // I (Claude-in-chat) generate questions inline without using the
+  // Anthropic API. Accepts an array of fully-formed questions.
+  app.post('/api/admin/daily-challenge/manual-insert', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+      const { questions } = req.body || {};
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({ error: 'questions[] required' });
+      }
+      let saved = 0;
+      const errors: string[] = [];
+      for (const q of questions) {
+        const required = ['level', 'questionType', 'prompt', 'correctAnswer', 'distractorA', 'distractorB', 'distractorC', 'explanation'];
+        const missing = required.filter((k) => !q[k]);
+        if (missing.length) {
+          errors.push(`Missing ${missing.join(',')} in '${q.prompt || '?'}'`);
+          continue;
+        }
+        try {
+          await (pool as any).query(
+            `INSERT INTO daily_challenge_questions
+              (level, question_type, prompt, context, correct_answer,
+               distractor_a, distractor_b, distractor_c, explanation,
+               category, difficulty, is_published)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+            [
+              q.level, q.questionType, q.prompt, q.context || null,
+              q.correctAnswer, q.distractorA, q.distractorB, q.distractorC,
+              q.explanation, q.category || 'basic', q.difficulty || 2,
+            ]
+          );
+          saved += 1;
+        } catch (insErr: any) {
+          errors.push(`${q.prompt}: ${insErr?.message}`);
+        }
+      }
+      res.json({ saved, requested: questions.length, errors });
+    } catch (e: any) {
+      console.error('[daily-challenge/manual-insert]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   app.post('/api/admin/daily-challenge/seed', requireAuth, async (req: any, res) => {
     try {
       const user = await storage.getUser((req.user as any)?.id);
@@ -8242,17 +8289,24 @@ ${JSON.stringify(items)}`;
       const studentRow = await storage.getUser(userId);
       const isStaff = studentRow?.isAdmin || (req.user as any)?.role === 'teacher';
       if (!isStaff) {
-        const studentLevel = studentRow?.placementLevel;
+        const studentLevel = studentRow?.placementLevel || studentRow?.englishLevel;
         if (!studentLevel) {
           return res.status(403).json({
             error: 'Placement level required',
-            message: 'Necesitas completar tu quiz de nivel antes de reservar un Lab.',
+            message: 'You need to set your CEFR level before booking a Lab.',
           });
         }
-        if (studentLevel !== session.level) {
+        // HYBRID policy: student can book Labs at their level OR
+        // ONE level above (Challenge) OR ONE level below (Refresh).
+        // Higher gaps (e.g. A1 → C1) are blocked to prevent frustration.
+        const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+        const studentIdx = LEVELS.indexOf(studentLevel);
+        const sessionIdx = LEVELS.indexOf(session.level);
+        const diff = sessionIdx - studentIdx;
+        if (studentIdx < 0 || sessionIdx < 0 || Math.abs(diff) > 1) {
           return res.status(403).json({
-            error: 'Level mismatch',
-            message: `Esta sesión es para nivel ${session.level}. Tu nivel actual es ${studentLevel}. Solo puedes reservar Labs de tu nivel.`,
+            error: 'Level out of range',
+            message: `This Lab is at ${session.level}. Your current level is ${studentLevel}. You can book Labs from one level above or below yours (Challenge or Refresh) — but not further.`,
             yourLevel: studentLevel,
             sessionLevel: session.level,
           });
