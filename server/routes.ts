@@ -8384,6 +8384,69 @@ ${JSON.stringify(items)}`;
         studentId: userId,
       }).returning();
       res.status(201).json(reg);
+
+      // Fire-and-forget: send booking emails to teacher + student.
+      // Both emails are async so they don't block the booking response.
+      (async () => {
+        try {
+          const { sendCustomEmail } = await import('./resendClient');
+          const studentName = `${studentRow?.firstName || ''} ${studentRow?.lastName || ''}`.trim() || studentRow?.email || 'A student';
+          const when = new Date(session.scheduledAt!).toLocaleString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago',
+          });
+          // Email to teacher (Coral)
+          await sendCustomEmail(
+            'clozano@cogniboost.com',
+            `📝 ${studentName} booked your ${session.level} Lab · ${when}`,
+            `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
+              <div style="padding:18px 22px;background:linear-gradient(135deg,#06b6d4 0%,#0891b2 100%);color:white;border-radius:10px 10px 0 0;">
+                <h2 style="margin:0;font-size:18px;">📝 New booking</h2>
+              </div>
+              <div style="padding:22px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;background:white;">
+                <p style="margin:0 0 14px;font-size:15px;"><strong>${studentName}</strong> just booked your Conversation Lab.</p>
+                <div style="background:#f9fafb;padding:14px;border-radius:8px;margin:12px 0;">
+                  <p style="margin:0 0 6px;"><strong>Class:</strong> ${session.title}</p>
+                  <p style="margin:0 0 6px;"><strong>Level:</strong> ${session.level}</p>
+                  <p style="margin:0 0 6px;"><strong>When:</strong> ${when} CT</p>
+                  <p style="margin:0;"><strong>Duration:</strong> ${session.durationMinutes} min</p>
+                </div>
+                <a href="https://cogniboost.co/admin/labs" style="display:inline-block;background:#06b6d4;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:8px;">Open admin panel →</a>
+                <p style="font-size:12px;color:#6b7280;margin-top:18px;">CogniBoost · Teacher notifications</p>
+              </div>
+            </div>`,
+          );
+          // Email to student (confirmation)
+          if (studentRow?.email) {
+            await sendCustomEmail(
+              studentRow.email,
+              `✅ Your ${session.level} Conversation Lab is booked — ${when} CT`,
+              `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
+                <div style="padding:20px 24px;background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#06b6d4 100%);color:white;border-radius:12px 12px 0 0;">
+                  <div style="font-size:20px;font-weight:800;">COGNI<span style="color:#06b6d4;">BOOST</span></div>
+                  <div style="font-size:13px;opacity:0.85;margin-top:4px;">Booking confirmed ✓</div>
+                </div>
+                <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;background:white;">
+                  <h1 style="font-size:20px;margin:0 0 12px;">Hi ${studentRow.firstName || 'there'} 👋 — you're in!</h1>
+                  <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Your spot is reserved. See you at the Lab.</p>
+                  <div style="background:#ecfeff;border:2px solid #06b6d4;border-radius:10px;padding:16px;margin:16px 0;">
+                    <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#0e7490;font-weight:700;">Your class</p>
+                    <p style="margin:0 0 4px;font-size:17px;font-weight:700;color:#0c4a6e;">${session.title}</p>
+                    <p style="margin:0;font-size:14px;color:#0c4a6e;">🗓️ ${when} CT · ${session.durationMinutes} min</p>
+                  </div>
+                  <p style="font-size:14px;margin:14px 0;">A few minutes before class, click <strong>JOIN MY CLASS</strong> below. You'll also see a red <strong style="color:#dc2626;">LIVE NOW</strong> banner on your dashboard when class starts.</p>
+                  <div style="text-align:center;margin:18px 0;">
+                    <a href="${session.meetingUrl}" style="display:inline-block;background:#06b6d4;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;">🎙️ JOIN MY CLASS</a>
+                  </div>
+                  <p style="font-size:13px;color:#6b7280;margin-top:18px;">See you soon!<br/><strong style="color:#111827;">Coral Lozano, M.Ed.</strong></p>
+                </div>
+              </div>`,
+            );
+          }
+        } catch (emailErr: any) {
+          console.warn('[lab-bookings POST] email send failed (non-fatal):', emailErr?.message);
+        }
+      })();
     } catch (err: any) {
       console.error('[lab-bookings POST] Error:', err?.message);
       res.status(500).json({ error: 'Failed to book lab', debug: { message: err?.message } });
@@ -8593,6 +8656,41 @@ ${JSON.stringify(items)}`;
       if (reg.studentId !== userId) return res.status(403).json({ error: 'Forbidden' });
       await db.update(labRegistrations).set({ cancelled: true, cancelledAt: new Date() }).where(eq(labRegistrations.id, id));
       res.json({ ok: true });
+
+      // Fire-and-forget: notify teacher (Coral) of the cancellation
+      (async () => {
+        try {
+          const { labSessionsV2 } = await import('@shared/schema');
+          const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, reg.labSessionId));
+          const studentRow = await storage.getUser(userId);
+          if (!session) return;
+          const studentName = `${studentRow?.firstName || ''} ${studentRow?.lastName || ''}`.trim() || studentRow?.email || 'A student';
+          const when = new Date(session.scheduledAt!).toLocaleString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago',
+          });
+          const { sendCustomEmail } = await import('./resendClient');
+          await sendCustomEmail(
+            'clozano@cogniboost.com',
+            `↩️ ${studentName} cancelled their ${session.level} Lab · ${when}`,
+            `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
+              <div style="padding:18px 22px;background:linear-gradient(135deg,#f59e0b 0%,#dc2626 100%);color:white;border-radius:10px 10px 0 0;">
+                <h2 style="margin:0;font-size:18px;">↩️ Booking cancelled</h2>
+              </div>
+              <div style="padding:22px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;background:white;">
+                <p style="margin:0 0 14px;font-size:15px;"><strong>${studentName}</strong> cancelled their spot in:</p>
+                <div style="background:#f9fafb;padding:14px;border-radius:8px;">
+                  <p style="margin:0 0 6px;"><strong>Class:</strong> ${session.title}</p>
+                  <p style="margin:0;"><strong>When:</strong> ${when} CT</p>
+                </div>
+                <p style="font-size:12px;color:#6b7280;margin-top:18px;">CogniBoost · Teacher notifications</p>
+              </div>
+            </div>`,
+          );
+        } catch (emailErr: any) {
+          console.warn('[lab-bookings DELETE] email send failed (non-fatal):', emailErr?.message);
+        }
+      })();
     } catch (err: any) {
       console.error('[lab-bookings DELETE] Error:', err?.message);
       res.status(500).json({ error: 'Failed to cancel booking', debug: { message: err?.message } });

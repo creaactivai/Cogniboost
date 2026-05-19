@@ -892,6 +892,27 @@ app.use((req, res, next) => {
 
         log("Email sequence cron scheduled (every hour)");
       }).catch((e) => console.error("[Email Cron] Failed to load:", e));
+
+      // Conversation Lab reminder cron — runs every 5 minutes, sends a
+      // 1-hour-before email to every student booked in a session
+      // starting in the next 55-65 minutes. Uses a `reminder_sent_at`
+      // column on lab_registrations (added via defensive ALTER below)
+      // so each student only gets ONE reminder per booking.
+      import("./labReminderCron").then(({ runLabReminderCron, ensureReminderColumn }) => {
+        ensureReminderColumn()
+          .then(() => log("Lab reminder column verified"))
+          .catch((e) => console.error("[Lab Reminder] Column setup failed:", e));
+        // First run after 1 min so just-deployed servers don't miss
+        // an imminent class
+        setTimeout(() => {
+          runLabReminderCron().catch((e) => console.error("[Lab Reminder] Startup run error:", e));
+        }, 60 * 1000);
+        // Then every 5 minutes
+        setInterval(() => {
+          runLabReminderCron().catch((e) => console.error("[Lab Reminder] Interval error:", e));
+        }, 5 * 60 * 1000);
+        log("Lab reminder cron scheduled (every 5 min)");
+      }).catch((e) => console.error("[Lab Reminder] Failed to load:", e));
     },
   );
 })();
