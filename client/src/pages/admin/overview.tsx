@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { LiveNowWidget } from "@/components/dashboard/live-now-widget";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -71,6 +72,10 @@ export default function AdminOverview() {
   return (
     <AdminLayout title="Panel General">
       <div className="space-y-6">
+        {/* LIVE NOW widget — shows admin's currently-live Conversation
+            Labs with a JOIN button. Admin sees ALL levels (not filtered). */}
+        <LiveNowWidget />
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map((stat, index) => (
             <Card key={index} className="p-4" data-testid={`card-stat-${index}`}>

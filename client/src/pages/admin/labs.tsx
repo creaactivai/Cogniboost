@@ -34,7 +34,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X as XIcon, Calendar, Clock, Users, Save, Sparkles } from "lucide-react";
+import { Plus, Pencil, X as XIcon, Calendar, Clock, Users, Save, Sparkles, Radio } from "lucide-react";
 import { InterestIcon } from "@/components/lab/interest-icon";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -225,7 +225,51 @@ function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSe
             {s.grammarFocus && <span>· Focus: <strong>{s.grammarFocus}</strong></span>}
           </div>
         </div>
-        <div className="flex gap-1 flex-shrink-0">
+        <div className="flex gap-1 flex-shrink-0 items-center">
+          {/* JOIN button — only shown when meetingUrl exists and session
+              is within its live window (5 min before to end of session). */}
+          {s.meetingUrl && !cancelled && !pastSession && (() => {
+            const start = new Date(s.scheduledAt).getTime();
+            const end = start + s.durationMinutes * 60_000;
+            const now = Date.now();
+            const isLive = start - 5 * 60_000 <= now && end + 10 * 60_000 >= now;
+            const isSoon = !isLive && start - now <= 60 * 60_000 && start > now;
+            if (isLive) {
+              return (
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                  onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
+                >
+                  <Radio className="w-3.5 h-3.5 mr-1" />
+                  JOIN NOW
+                </Button>
+              );
+            }
+            if (isSoon) {
+              return (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
+                  title="Class starts within an hour — you can enter early"
+                >
+                  <Radio className="w-3.5 h-3.5 mr-1" />
+                  Enter early
+                </Button>
+              );
+            }
+            return (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
+                title="Open Jitsi room"
+              >
+                <Radio className="w-3.5 h-3.5" />
+              </Button>
+            );
+          })()}
           {onViewRegs && (
             <Button variant="ghost" size="sm" onClick={onViewRegs} title="Ver registrados">
               <Users className="w-4 h-4" />
