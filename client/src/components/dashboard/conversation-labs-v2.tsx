@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, Users, Sparkles, X, Crown, Lock, BarChart3, Bookmark, CheckCircle2, Radio } from "lucide-react";
 import { InterestIcon } from "@/components/lab/interest-icon";
+import { DailyChallengeWidget } from "@/components/dashboard/daily-challenge-widget";
 import { canAccessLabs, getTierLimits, getStartOfCurrentWeek, getStartOfCurrentMonth, type SubscriptionTier } from "@/lib/tier-access";
 import { Link } from "wouter";
 
@@ -182,6 +183,9 @@ export function ConversationLabsV2() {
           </div>
         </div>
       </div>
+
+      {/* Warm-up entry — quick game before the live class */}
+      <DailyChallengeWidget variant="compact" />
 
       <Tabs defaultValue="browse">
         <TabsList>

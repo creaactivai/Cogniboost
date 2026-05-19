@@ -20,6 +20,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { LiveNowWidget } from "@/components/dashboard/live-now-widget";
+import { DailyChallengeWidget } from "@/components/dashboard/daily-challenge-widget";
 import type { LiveSession, SessionRoom, UserStats, Enrollment, Course } from "@shared/schema";
 
 /**
@@ -272,6 +273,9 @@ export function DashboardOverview() {
     <div className="space-y-6">
       {/* ---------- LIVE NOW WIDGET (top, only when sessions are live) ---------- */}
       <LiveNowWidget />
+
+      {/* ---------- DAILY CHALLENGE compact entry ---------- */}
+      <DailyChallengeWidget variant="compact" />
 
       {/* ---------- HERO CARD ---------- */}
       {/* Brand-aligned: white card, "WELCOME, {NAME}" in display uppercase,

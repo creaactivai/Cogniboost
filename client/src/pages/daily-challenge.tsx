@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Flame, Trophy, Sparkles, Volume2, CheckCircle2, XCircle,
-  Loader2, Zap, ArrowRight,
+  Loader2, Zap, ArrowRight, SkipForward,
 } from "lucide-react";
 
 interface ChallengeOption { letter: string; text: string; correct: boolean; }
@@ -129,6 +129,24 @@ export default function DailyChallengePage() {
       });
       setCurrentIdx(0);
     }
+  };
+
+  // Skip = jump to next question without grading. Doesn't count as wrong,
+  // doesn't break streak. Useful when a question feels too hard or
+  // off-topic.
+  const handleSkip = () => {
+    if (revealed) return; // can't skip after answering
+    setSelectedLetter(null);
+    setRevealed(null);
+    if (currentIdx + 1 < totalQuestions) {
+      setCurrentIdx(currentIdx + 1);
+    } else {
+      // No more — show summary
+      queryClient.invalidateQueries({ queryKey: ["/api/daily-challenge/today"] });
+      toast({ title: "You went through all of today's questions" });
+      setCurrentIdx(0);
+    }
+    toast({ title: "Skipped — no points lost", description: "It won't count against your streak." });
   };
 
   if (isLoading) {
@@ -291,6 +309,25 @@ export default function DailyChallengePage() {
               <>Finish today's challenge 🎉</>
             )}
           </Button>
+        )}
+
+        {/* Skip button — only available BEFORE answering */}
+        {!revealed && (
+          <div className="text-center pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSkip}
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="button-skip-question"
+            >
+              <SkipForward className="w-3.5 h-3.5 mr-1" />
+              Skip — too hard or off-topic
+            </Button>
+            <p className="text-[10px] text-muted-foreground mt-1 italic">
+              Doesn't count against your streak.
+            </p>
+          </div>
         )}
       </Card>
 
