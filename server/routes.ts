@@ -8397,7 +8397,7 @@ ${JSON.stringify(items)}`;
           });
           // Email to teacher (Coral)
           await sendCustomEmail(
-            'clozano@cogniboost.com',
+            'clozano@cognimight.com',
             `📝 ${studentName} booked your ${session.level} Lab · ${when}`,
             `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
               <div style="padding:18px 22px;background:linear-gradient(135deg,#06b6d4 0%,#0891b2 100%);color:white;border-radius:10px 10px 0 0;">
@@ -8671,7 +8671,7 @@ ${JSON.stringify(items)}`;
           });
           const { sendCustomEmail } = await import('./resendClient');
           await sendCustomEmail(
-            'clozano@cogniboost.com',
+            'clozano@cognimight.com',
             `↩️ ${studentName} cancelled their ${session.level} Lab · ${when}`,
             `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
               <div style="padding:18px 22px;background:linear-gradient(135deg,#f59e0b 0%,#dc2626 100%);color:white;border-radius:10px 10px 0 0;">

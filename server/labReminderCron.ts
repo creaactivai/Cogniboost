@@ -78,7 +78,7 @@ export async function runLabReminderCron() {
             durationMinutes: c.duration_minutes,
             meetingUrl: c.meeting_url,
           }),
-          { cc: "clozano@cogniboost.com" },
+          { cc: "clozano@cognimight.com" },
         );
         // Mark reminder as sent (idempotency)
         await (pool as any).query(
