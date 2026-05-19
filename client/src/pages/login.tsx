@@ -48,6 +48,21 @@ export default function LoginPage() {
       }
 
       trackLogin("email");
+
+      // RACE-CONDITION FIX: verify the session cookie actually round-trips
+      // before redirecting. Without this, dashboard.tsx can mount before
+      // the cookie is sent and bounce the user back to /login.
+      let verified = false;
+      for (let i = 0; i < 5; i++) {
+        const check = await fetch("/api/auth/user", { credentials: "include" });
+        if (check.ok) { verified = true; break; }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      if (!verified) {
+        setError("Login succeeded but session didn't establish. Please try again.");
+        return;
+      }
+
       // If there's a pending Stripe purchase, redirect to complete linking
       const pendingStripe = localStorage.getItem("pending_stripe_customer");
       if (pendingStripe) {
