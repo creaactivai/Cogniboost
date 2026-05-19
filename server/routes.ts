@@ -72,6 +72,20 @@ export async function registerRoutes(
   // Register object storage routes
   registerObjectStorageRoutes(app);
 
+  // Auth middleware — declared here at the top of registerRoutes so that
+  // every endpoint below (including the new /api/labs/live-now route at
+  // line ~463) can reference it without hitting a Temporal Dead Zone
+  // ReferenceError. Previously this was declared mid-function at line
+  // ~1430 which caused the server to crash on startup when the LIVE NOW
+  // endpoint was moved earlier in the file.
+  const requireAuth = async (req: any, res: any, next: any) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - Login required" });
+    }
+    next();
+  };
+
   // Health check endpoint for Railway/monitoring
   app.get("/health", (_req, res) => {
     res.status(200).json({
@@ -1426,14 +1440,8 @@ export async function registerRoutes(
 
   // ============== AUTH MIDDLEWARE ==============
 
-  // Auth middleware - check if user is authenticated
-  const requireAuth = async (req: any, res: any, next: any) => {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized - Login required" });
-    }
-    next();
-  };
+  // (Auth middleware moved to top of registerRoutes — see line ~270
+  //  to fix TDZ: routes registered before this point couldn't use it.)
 
   // ============== AI TUTOR CHAT ==============
 
