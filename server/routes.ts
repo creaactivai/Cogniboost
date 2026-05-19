@@ -593,24 +593,9 @@ export async function registerRoutes(
     }
   });
 
-  // Book a lab
-  app.post("/api/lab-bookings", async (req, res) => {
-    try {
-      const userId = (req.user as any)?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      const { labId } = req.body;
-      if (!labId) {
-        return res.status(400).json({ error: "Lab ID is required" });
-      }
-      const booking = await storage.createLabBooking({ userId, labId });
-      res.status(201).json(booking);
-    } catch (error) {
-      console.error("Error creating lab booking:", error);
-      res.status(500).json({ error: "Failed to create lab booking" });
-    }
-  });
+  // (Legacy POST /api/lab-bookings removed — was shadowing the V2 endpoint
+  // at line 8250 that expects { labSessionId } and enforces level + tier
+  // quotas. The frontend always uses labSessionId now.)
 
   // Get user stats (basic stats for all users, detailed stats for premium)
   app.get("/api/user-stats", async (req, res) => {
