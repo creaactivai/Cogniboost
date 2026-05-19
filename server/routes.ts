@@ -460,6 +460,51 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/labs/live-now — sessions currently live for this user's
+  // level. MUST be defined BEFORE /api/labs/:id or Express matches
+  // "live-now" as an :id value.
+  app.get('/api/labs/live-now', requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { pool } = await import("./db");
+      const user = await storage.getUser(userId);
+      const studentLevel = user?.placementLevel || user?.englishLevel;
+      const isAdmin = !!user?.isAdmin;
+
+      const params: any[] = [];
+      let where = `status IN ('scheduled', 'live')
+                    AND scheduled_at - INTERVAL '5 minutes' <= now()
+                    AND scheduled_at + (duration_minutes * INTERVAL '1 minute') + INTERVAL '10 minutes' >= now()`;
+      if (!isAdmin && studentLevel) {
+        params.push(studentLevel);
+        where += ` AND level = $${params.length}`;
+      }
+      const { rows } = await (pool as any).query(
+        `SELECT s.*, it.name as interest_name, it.icon as interest_icon
+         FROM lab_sessions s
+         LEFT JOIN lab_interest_topics it ON it.id = s.interest_topic_id
+         WHERE ${where}
+         ORDER BY scheduled_at ASC`,
+        params
+      );
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        level: r.level,
+        scheduledAt: r.scheduled_at,
+        durationMinutes: r.duration_minutes,
+        meetingUrl: r.meeting_url,
+        interestName: r.interest_name,
+        interestIcon: r.interest_icon,
+        startsInMs: new Date(r.scheduled_at).getTime() - Date.now(),
+      })));
+    } catch (e: any) {
+      console.error('[labs/live-now]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // Get lab by ID
   app.get("/api/labs/:id", async (req, res) => {
     try {
@@ -6618,55 +6663,7 @@ Generate ${count} unique questions following the schema. Critical rules:
     }
   });
 
-  // GET /api/labs/live-now — sessions currently live for this user's
-  // level (plus admin override to see all). Used by the dashboard
-  // "LIVE NOW" widget so students see and can join active classes.
-  // A session is "live" if status='scheduled' OR 'live' AND
-  // scheduledAt <= now AND scheduledAt + duration >= now.
-  app.get('/api/labs/live-now', requireAuth, async (req: any, res) => {
-    try {
-      const userId = (req.user as any)?.id;
-      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-      const { pool } = await import("./db");
-      const user = await storage.getUser(userId);
-      const studentLevel = user?.placementLevel || user?.englishLevel;
-      const isAdmin = !!user?.isAdmin;
-
-      // Live window: from session start to start + duration_minutes
-      // We add 5min grace at start (let students join early) and
-      // 10min grace at end (let stragglers join in case teacher runs late).
-      const params: any[] = [];
-      let where = `status IN ('scheduled', 'live')
-                    AND scheduled_at - INTERVAL '5 minutes' <= now()
-                    AND scheduled_at + (duration_minutes * INTERVAL '1 minute') + INTERVAL '10 minutes' >= now()`;
-      if (!isAdmin && studentLevel) {
-        params.push(studentLevel);
-        where += ` AND level = $${params.length}`;
-      }
-      const { rows } = await (pool as any).query(
-        `SELECT s.*, it.name as interest_name, it.icon as interest_icon
-         FROM lab_sessions s
-         LEFT JOIN lab_interest_topics it ON it.id = s.interest_topic_id
-         WHERE ${where}
-         ORDER BY scheduled_at ASC`,
-        params
-      );
-      res.json(rows.map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        level: r.level,
-        scheduledAt: r.scheduled_at,
-        durationMinutes: r.duration_minutes,
-        meetingUrl: r.meeting_url,
-        interestName: r.interest_name,
-        interestIcon: r.interest_icon,
-        startsInMs: new Date(r.scheduled_at).getTime() - Date.now(),
-      })));
-    } catch (e: any) {
-      console.error('[labs/live-now]', e);
-      res.status(500).json({ error: e?.message || 'Failed' });
-    }
-  });
+  // (live-now moved to top of file before /api/labs/:id route — see line ~463)
 
   // GET /api/admin/lab-plans/all — return ALL plans across all levels.
   // Used by the Library page to render Level → Interest → Module groups
