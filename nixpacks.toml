@@ -11,4 +11,15 @@ cmds = ['npm ci --include=dev']
 cmds = ['npm run build']
 
 [start]
-cmd = 'npm run db:push && node dist/index.cjs'
+# IMPORTANT: do NOT run `drizzle-kit push` at startup. Drizzle prompts
+# interactively when it can't disambiguate a schema change (e.g. table
+# rename vs create-new), and Railway has no TTY so it hangs forever and
+# the server never starts → "Application failed to respond" + 502 for
+# all users.
+#
+# All new tables ship with defensive `CREATE TABLE IF NOT EXISTS` calls
+# in server/index.ts startup migrations AND in their first-write
+# endpoints (e.g. ensureVocabSrsTable, ensureDailyChallengeTables).
+# Schema column changes require an explicit SQL migration file, not
+# drizzle's interactive push.
+cmd = 'node dist/index.cjs'
