@@ -189,24 +189,23 @@ export default function VocabularyPage() {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const prefetchInFlightRef = useRef<Set<string>>(new Set());
 
-  // Prefetch a term's audio in the background WITHOUT playing it.
-  // Result is stashed in audioCacheRef so the next playAudio() call is
-  // instant. Idempotent — won't double-fetch the same term.
+  // Prefetch a term's audio in the background using an <Audio> element.
+  // The browser follows the 302 → GCS redirect natively (fetch+blob breaks
+  // on the cross-origin redirect because the GCS bucket isn't CORS-allowed
+  // for cogniboost.co). We just warm the URL — first play is then instant.
   const prefetchAudio = async (term: string) => {
     if (!term || !term.trim()) return;
     const key = term.toLowerCase();
     if (audioCacheRef.current.has(key) || prefetchInFlightRef.current.has(key)) return;
     prefetchInFlightRef.current.add(key);
     try {
-      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, {
-        credentials: "include",
-      });
-      if (r.ok) {
-        const blob = await r.blob();
-        audioCacheRef.current.set(key, URL.createObjectURL(blob));
-      }
+      const url = `/api/vocab/audio?term=${encodeURIComponent(term)}`;
+      const a = new Audio(url);
+      a.preload = "auto";
+      // Just store the URL — the browser caches the actual audio bytes.
+      audioCacheRef.current.set(key, url);
     } catch {
-      /* ignore — playAudio() will fall back gracefully */
+      /* ignore */
     } finally {
       prefetchInFlightRef.current.delete(key);
     }
@@ -241,33 +240,18 @@ export default function VocabularyPage() {
       currentAudioRef.current = null;
     }
 
-    // Cached blob URL? Instant replay path.
-    const cachedUrl = audioCacheRef.current.get(term.toLowerCase());
-    if (cachedUrl) {
-      const audio = new Audio(cachedUrl);
-      currentAudioRef.current = audio;
-      audio.play().catch((err) => console.warn("Replay failed:", err));
-      return;
-    }
-
-    // First time hearing this term — fetch from server
+    // Use <Audio src> directly — the browser follows the 302 → GCS redirect
+    // without CORS issues (fetch+blob breaks because GCS isn't CORS-allowed
+    // for cogniboost.co). Cache key is just the URL string.
+    const url = `/api/vocab/audio?term=${encodeURIComponent(term)}`;
+    audioCacheRef.current.set(term.toLowerCase(), url);
     try {
-      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(term)}`, {
-        credentials: "include",
-      });
-      if (r.ok) {
-        const blob = await r.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        audioCacheRef.current.set(term.toLowerCase(), blobUrl);
-        const audio = new Audio(blobUrl);
-        currentAudioRef.current = audio;
-        await audio.play();
-        return;
-      }
-      // 503 = TTS not configured  ·  502 = ElevenLabs upstream error
-      console.warn(`Server TTS unavailable (${r.status}), using browser voice`);
+      const audio = new Audio(url);
+      currentAudioRef.current = audio;
+      await audio.play();
+      return;
     } catch (err) {
-      console.warn("Server TTS fetch failed, using browser voice:", err);
+      console.warn("Server TTS playback failed, using browser voice:", err);
     }
     // Fallback: browser SpeechSynthesis (works offline, free, decent quality)
     if (typeof window !== "undefined" && "speechSynthesis" in window) {

@@ -7582,7 +7582,9 @@ ${JSON.stringify(items)}`;
       console.log(`[vocab/enrich] requesting Claude for ${items.length} terms`);
       const msg = await client.messages.create({
         model,
-        max_tokens: 4000,
+        // 8000 tokens is enough for the full 60-item response (~150 chars/item).
+        // Previous 4000 caused truncation → JSON parse failures visible to users.
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       });
       const text = extractTextContent(msg);
@@ -7595,11 +7597,13 @@ ${JSON.stringify(items)}`;
         if (arrayMatch) {
           try { parsed = JSON.parse(arrayMatch[0]); } catch {
             console.error('[vocab/enrich] Claude returned unparseable text:', text.slice(0, 500));
-            return res.status(500).json({ error: 'Could not parse enrichment response', sample: text.slice(0, 200) });
+            // Don't show a scary error to the user — just return 0 enriched so
+            // they can try again. The next call will retry with fresh Claude output.
+            return res.json({ enriched: 0, remaining: bareCards.length, retry: true });
           }
         } else {
           console.error('[vocab/enrich] No JSON array in response:', text.slice(0, 500));
-          return res.status(500).json({ error: 'No JSON array in response', sample: text.slice(0, 200) });
+          return res.json({ enriched: 0, remaining: bareCards.length, retry: true });
         }
       }
       console.log(`[vocab/enrich] Claude returned ${parsed.length} items`);

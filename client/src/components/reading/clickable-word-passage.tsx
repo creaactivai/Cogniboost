@@ -106,28 +106,24 @@ function WordToken({ word, level, moduleId }: { word: string; level?: string; mo
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const playWord = async () => {
-    const cached = audioCacheRef.current.get(word.toLowerCase());
-    if (cached) {
-      new Audio(cached).play().catch(() => {});
-      return;
-    }
+    // Use <Audio src> directly — the browser follows the 302 → GCS redirect
+    // natively (fetch+blob breaks on cross-origin redirect because the GCS
+    // bucket isn't CORS-allowed for cogniboost.co).
+    const url = `/api/vocab/audio?term=${encodeURIComponent(word)}`;
+    audioCacheRef.current.set(word.toLowerCase(), url);
     try {
-      const r = await fetch(`/api/vocab/audio?term=${encodeURIComponent(word)}`, { credentials: "include" });
-      if (r.ok) {
-        const blob = await r.blob();
-        const url = URL.createObjectURL(blob);
-        audioCacheRef.current.set(word.toLowerCase(), url);
-        new Audio(url).play().catch(() => {});
-        return;
+      const audio = new Audio(url);
+      await audio.play();
+      return;
+    } catch {
+      // Fallback: browser SpeechSynthesis if Coral's voice fails
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(word);
+        u.lang = "en-US";
+        u.rate = 0.9;
+        window.speechSynthesis.speak(u);
       }
-    } catch {}
-    // Fallback: browser SpeechSynthesis
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(word);
-      u.lang = "en-US";
-      u.rate = 0.9;
-      window.speechSynthesis.speak(u);
     }
   };
 

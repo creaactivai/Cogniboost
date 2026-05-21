@@ -95,14 +95,15 @@ export default function DailyChallengePage() {
     onSuccess: (data) => {
       setRevealed(data);
       queryClient.invalidateQueries({ queryKey: ["/api/daily-challenge/stats"] });
-      // Audio of correct answer in Coral's voice
+      // Audio of correct answer in Coral's voice.
+      // Use <Audio src> directly so the browser can follow the 302 → GCS
+      // redirect natively (fetch+blob breaks on the cross-origin redirect
+      // because the GCS bucket isn't configured for cogniboost.co CORS).
       if (currentQ?.options) {
         const correct = currentQ.options.find((o) => o.correct);
         if (correct) {
-          fetch(`/api/vocab/audio?term=${encodeURIComponent(correct.text)}`, { credentials: "include" })
-            .then((r) => r.blob())
-            .then((b) => new Audio(URL.createObjectURL(b)).play())
-            .catch(() => { /* silent fallback to browser voice elsewhere */ });
+          const audio = new Audio(`/api/vocab/audio?term=${encodeURIComponent(correct.text)}`);
+          audio.play().catch(() => { /* silent if autoplay blocked */ });
         }
       }
     },
@@ -290,10 +291,9 @@ export default function DailyChallengePage() {
               variant="ghost"
               className="mt-2 h-8"
               onClick={() => {
-                fetch(`/api/vocab/audio?term=${encodeURIComponent(revealed.correctAnswer)}`, { credentials: "include" })
-                  .then((r) => r.blob())
-                  .then((b) => new Audio(URL.createObjectURL(b)).play())
-                  .catch(() => {});
+                // <Audio src> follows the 302 → GCS redirect without CORS issues
+                const audio = new Audio(`/api/vocab/audio?term=${encodeURIComponent(revealed.correctAnswer)}`);
+                audio.play().catch(() => {});
               }}
             >
               <Volume2 className="w-4 h-4 mr-1.5" /> Hear it
