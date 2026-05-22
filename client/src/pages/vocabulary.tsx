@@ -126,6 +126,10 @@ export default function VocabularyPage() {
     onError: (e: any) => toast({ title: "Couldn't save review", description: e?.message, variant: "destructive" }),
   });
 
+  // Auto-retry the enrich call when Claude hiccups (parsing failure on the
+  // server returns enriched=0 with retry=true). Up to 2 silent retries so
+  // students don't see a scary destructive toast.
+  const enrichRetryCountRef = useRef(0);
   const enrich = useMutation({
     mutationFn: async () => {
       const r = await apiRequest("POST", "/api/vocab/enrich", {});
@@ -137,26 +141,30 @@ export default function VocabularyPage() {
       console.log("[vocab/enrich] result:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/vocab/queue"] });
       if (data?.enriched > 0) {
+        enrichRetryCountRef.current = 0;
         toast({ title: `Translated ${data.enriched} word${data.enriched === 1 ? "" : "s"} ✓` });
       } else if (data?.remaining === 0) {
-        toast({ title: "All cards already have translations" });
+        enrichRetryCountRef.current = 0;
+        // Don't toast — silent success when nothing to do.
+      } else if (data?.retry && enrichRetryCountRef.current < 2) {
+        // Server signaled "Claude hiccupped" — try again silently.
+        enrichRetryCountRef.current += 1;
+        setTimeout(() => enrich.mutate(), 1500);
       } else {
-        toast({
-          title: "No translations added",
-          description: data?.sample
-            ? `Claude returned unexpected text: ${data.sample.slice(0, 100)}…`
-            : "Try again — Claude may have hiccupped.",
-          variant: "destructive",
-        });
+        // Out of retries — keep the empty state quiet, just log.
+        console.warn("[vocab/enrich] gave up after retries", data);
+        enrichRetryCountRef.current = 0;
       }
     },
     onError: (err: any) => {
       console.error("[vocab/enrich] error:", err);
-      toast({
-        title: "Couldn't fetch translations",
-        description: err?.message || "Check Anthropic API key on Railway",
-        variant: "destructive",
-      });
+      // Silent retry once on network/server errors too.
+      if (enrichRetryCountRef.current < 2) {
+        enrichRetryCountRef.current += 1;
+        setTimeout(() => enrich.mutate(), 2000);
+        return;
+      }
+      enrichRetryCountRef.current = 0;
     },
   });
 
