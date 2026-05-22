@@ -5448,6 +5448,171 @@ Important:
     }
   });
 
+  // ─── Progress Timeline (longitudinal CEFR progression) ─────────────────
+  // Returns the student's writing + speaking submissions over time so the
+  // dashboard can plot a real progress chart (replaces sample-data radar).
+  // Each entry exposes: score, CEFR estimate, per-dimension scores, and
+  // the final (teacher-reviewed if available, else AI) score.
+  //
+  // Query params:
+  //   ?skill=writing | speaking | all   (default: all)
+  //   ?limit=N                          (default: 50, max: 200)
+  //
+  // Optional :studentId in the URL allows admins/teachers to view another
+  // student's trajectory; students can only view their own.
+  const progressTimelineHandler = async (req: any, res: any) => {
+    try {
+      const callerId = (req.user as any)?.id;
+      if (!callerId) return res.status(401).json({ error: "Unauthorized" });
+
+      // If :studentId is in the path, this is the teacher-view variant.
+      // Otherwise it's the self-view (defaults to caller).
+      const targetStudentId = req.params.studentId || callerId;
+
+      if (targetStudentId !== callerId) {
+        const caller = await storage.getUser(callerId);
+        if (!caller?.isAdmin) {
+          return res.status(403).json({ error: "Forbidden — teacher access required" });
+        }
+      }
+
+      // Validate skill filter
+      const skillParam = (req.query.skill as string) || "all";
+      const allowedSkills = ["writing", "speaking", "all"];
+      if (!allowedSkills.includes(skillParam)) {
+        return res.status(400).json({ error: `Invalid skill — must be one of ${allowedSkills.join(", ")}` });
+      }
+
+      // Validate limit
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, and, or, asc, inArray } = await import("drizzle-orm");
+
+      // Map UI-friendly skill → schema assignment_type values
+      const assignmentTypes: string[] = [];
+      if (skillParam === "writing" || skillParam === "all") {
+        assignmentTypes.push("writing", "project");
+      }
+      if (skillParam === "speaking" || skillParam === "all") {
+        assignmentTypes.push("speaking_recording");
+      }
+
+      const rows = await db
+        .select({
+          id: submissions.id,
+          submittedAt: submissions.submittedAt,
+          assignmentType: submissions.assignmentType,
+          aiGrade: submissions.aiGrade,
+          aiScore: submissions.aiScore,
+          teacherScore: submissions.teacherScore,
+          finalScore: submissions.finalScore,
+          status: submissions.status,
+          moduleId: submissions.moduleId,
+          lessonId: submissions.lessonId,
+        })
+        .from(submissions)
+        .where(and(
+          eq(submissions.studentId, targetStudentId),
+          inArray(submissions.assignmentType, assignmentTypes as any),
+        ))
+        .orderBy(asc(submissions.submittedAt))
+        .limit(limit);
+
+      // Project the rows into the timeline shape, extracting CEFR estimate
+      // and dimensions out of the jsonb aiGrade blob. We're tolerant of
+      // missing fields — early submissions might predate the v2 rubric.
+      const timeline = rows
+        .filter(r => r.aiGrade) // skip ungraded
+        .map((r) => {
+          const grade: any = r.aiGrade || {};
+          // Writing uses estimated_cefr_for_this_writing; speaking uses
+          // estimated_cefr_for_this_speaking. Fall back to level_assessment.
+          const estimatedCefr =
+            grade.estimated_cefr_for_this_writing ||
+            grade.estimated_cefr_for_this_speaking ||
+            grade.level_assessment ||
+            null;
+
+          const score =
+            r.finalScore != null
+              ? Number(r.finalScore)
+              : r.teacherScore != null
+              ? Number(r.teacherScore)
+              : r.aiScore != null
+              ? Number(r.aiScore)
+              : grade.overall_score ?? null;
+
+          // Normalize skill label for the frontend
+          const skill =
+            r.assignmentType === "speaking_recording"
+              ? "speaking"
+              : "writing"; // covers both "writing" and "project"
+
+          return {
+            submissionId: r.id,
+            date: r.submittedAt,
+            skill,
+            assignmentType: r.assignmentType,
+            score,
+            estimatedCefr,
+            dimensions: grade.dimensions || null,
+            wordsPerMinute: grade.words_per_minute ?? null, // speaking only
+            status: r.status,
+            teacherReviewed: r.teacherScore != null,
+            moduleId: r.moduleId,
+            lessonId: r.lessonId,
+          };
+        });
+
+      // Summary stats — give the frontend headline numbers at no extra cost.
+      const summary = (() => {
+        if (timeline.length === 0) {
+          return {
+            totalSubmissions: 0,
+            firstSubmissionScore: null,
+            latestSubmissionScore: null,
+            scoreDelta: null,
+            firstCefr: null,
+            latestCefr: null,
+            cefrMoved: false,
+          };
+        }
+        const first = timeline[0];
+        const latest = timeline[timeline.length - 1];
+        const firstScore = first.score;
+        const latestScore = latest.score;
+        return {
+          totalSubmissions: timeline.length,
+          firstSubmissionScore: firstScore,
+          latestSubmissionScore: latestScore,
+          scoreDelta:
+            firstScore != null && latestScore != null
+              ? Math.round((latestScore - firstScore) * 10) / 10
+              : null,
+          firstCefr: first.estimatedCefr,
+          latestCefr: latest.estimatedCefr,
+          cefrMoved:
+            !!first.estimatedCefr &&
+            !!latest.estimatedCefr &&
+            first.estimatedCefr !== latest.estimatedCefr,
+        };
+      })();
+
+      res.json({ timeline, summary });
+    } catch (error) {
+      console.error("Error building progress timeline:", error);
+      res.status(500).json({ error: "Failed to build progress timeline" });
+    }
+  };
+
+  // Self-view — student sees their own trajectory
+  app.get("/api/student/progress-timeline", progressTimelineHandler);
+  // Teacher view — admin/teacher sees another student's trajectory
+  app.get("/api/student/:studentId/progress-timeline", progressTimelineHandler);
+
   // Teacher-facing grading queue — submissions awaiting review.
   app.get("/api/submissions/queue", async (req, res) => {
     try {
