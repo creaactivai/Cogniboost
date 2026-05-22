@@ -27,8 +27,14 @@ import { ANTHROPIC_MODELS, extractTextContent, getAnthropicClient, parseJsonFrom
 import type { CefrLevel } from './writingPrompt';
 
 /**
- * Expected words-per-minute by CEFR level — used to evaluate Fluency.
+ * Words-per-minute MINIMUM-EXPECTATION band by CEFR level — used to evaluate Fluency.
  * Source: ACTFL Oral Proficiency Guidelines, calibrated for L2 Spanish→English.
+ *
+ * IMPORTANT (May 2026): The `min`/`max` here is the MINIMUM acceptable band, NOT a target window.
+ * - WPM ≥ min  → meets the fluency criterion for this level.
+ * - WPM > max  → STRENGTH (student is speaking at a higher level's pace); do NOT penalise.
+ * - WPM < min  → hesitation/difficulty; legitimate penalty.
+ * The grader prompt enforces "above-band is a win, not a problem" — see anti-pattern #3.
  */
 export const SPEAKING_WPM_TARGETS: Record<CefrLevel, { min: number; max: number }> = {
   A1: { min: 50,  max: 80 },
@@ -292,12 +298,18 @@ Speaking is graded INDIRECTLY from a Whisper transcript plus speech timing data 
 You follow the institutional anti-patterns at all times:
 1. Do NOT penalise the same error twice across different dimensions. A missing connector is Fluency, NOT also Grammar.
 2. Do NOT apply the rubric of a higher level. A B1 student is NOT penalised for the absence of C1 features.
-3. Do NOT let overall communicative effort override an analytic dimension.
-4. Score each dimension independently — do not anchor.
-5. Limit inline_notes to AT MOST 6 — pick the most pedagogically valuable, not the most numerous.
-6. Provide AT LEAST 2 specific strengths and EXACTLY 3 actionable improvement priorities.
-7. Quote exact verbatim transcript text in inline_notes so the student can locate the moment in their recording.
-8. Module Application is the heart of Task Achievement at CogniBoost: check whether the student USED the target vocabulary, grammar, and expressions defined for this Speaking Project. List used and missing items in the structured fields.
+3. CELEBRATE speaking ABOVE the target level — never tell a student to "speak more slowly", "use simpler structures", or "stick to A1/A2 vocabulary." This applies to ALL dimensions:
+   - FLUENCY: WPM ABOVE the target band is a STRENGTH, not a problem. The WPM band is a MINIMUM expectation, not a ceiling. A student speaking at native pace (120+ WPM) at A1 has surpassed the fluency criterion — score Distinguished (18-20), never penalise. Only WPM BELOW the band indicates hesitation/difficulty. Subject repetition or self-correction at high WPM is NORMAL natural speech, not a fluency defect.
+   - GRAMMAR: Above-level structures used correctly (e.g. an A1 using present perfect, modals, complex sentences) → Distinguished (18-20), list in strengths.
+   - VOCAB: Above-level lexis used correctly (e.g. an A1 using "entrepreneur", "based in", phrasal verbs) → Distinguished (18-20), list in strengths.
+   - PRONUNCIATION: Native-like or near-native articulation at lower levels → Distinguished (18-20).
+   If the speaking consistently demonstrates above-level performance, set estimated_cefr_for_this_speaking to the higher level and add a strength like: "You are speaking above your target level — consider asking your teacher about moving up." Above-level use must NEVER appear as an improvement priority or inline note. If above-level structures are present but used incorrectly, frame as "great that you tried X, here's how it works" — never as "don't use it yet".
+4. Do NOT let overall communicative effort override an analytic dimension.
+5. Score each dimension independently — do not anchor.
+6. Limit inline_notes to AT MOST 6 — pick the most pedagogically valuable, not the most numerous.
+7. Provide AT LEAST 2 specific strengths and EXACTLY 3 actionable improvement priorities.
+8. Quote exact verbatim transcript text in inline_notes so the student can locate the moment in their recording.
+9. Module Application is the heart of Task Achievement at CogniBoost: check whether the student USED the target vocabulary, grammar, and expressions defined for this Speaking Project. List used and missing items in the structured fields.
 
 Pass threshold for institutional record: composite 70/100 (Proficient or above). Sub-70 returns feedback for re-recording, not failure.`;
 
@@ -327,6 +339,7 @@ STUDENT CONTEXT:
 - Native language: Spanish
 - Target duration: ${targetDurationSeconds}s   (actual: ${actualDurationSeconds}s)
 - Expected WPM band: ${wpmBand.min}-${wpmBand.max}   (actual: ${actualWPM} WPM, ${actualWordCount} words)
+- IMPORTANT: the WPM band is a MINIMUM fluency expectation, not a ceiling. WPM AT or ABOVE the band's lower bound (≥${wpmBand.min}) meets/exceeds the fluency criterion. WPM ABOVE ${wpmBand.max} is a STRENGTH (the student speaks at a higher level's pace) — do NOT penalise. Only WPM BELOW ${wpmBand.min} indicates hesitation/difficulty.
 ${whisperConfidence !== undefined ? `- Whisper transcription confidence: ${whisperConfidence.toFixed(2)} (lower → likely pronunciation issues)` : ''}
 
 SPEAKING PROMPT WAS:
@@ -387,6 +400,11 @@ OUTPUT REQUIRED (JSON, no additional text):
 SCORING REMINDERS:
 - overall_score MUST equal the sum of the five dimension scores (max 100).
 - Apply the anti-patterns from the system prompt: no double-penalty, no higher-level rubric, no holistic override.
+- ABOVE-LEVEL SPEAKING IS A WIN, NOT A PROBLEM. If the student speaks ABOVE ${targetLevel} on any dimension, score Distinguished (18-20) on that dimension, list it in strengths, and consider raising estimated_cefr_for_this_speaking. Specifically:
+  • WPM above ${wpmBand.max} → Distinguished Fluency. NEVER write feedback like "WPM is above target", "speaking faster than typical pace", "may mask pausing", or anything implying they should slow down. The target band is a MINIMUM bar, not a ceiling.
+  • Above-level grammar/vocab used accurately → Distinguished on that dimension; add a strength like "You used [structure/word] correctly — that is already at [higher level] level".
+  • Near-native pronunciation at lower levels → Distinguished Pronunciation.
+  NEVER tell a student to "speak more slowly", "use simpler structures", "stick to ${targetLevel} vocabulary", or "stay at their level". NEVER make above-level use an improvement_priority. If above-level use is INCORRECT, frame as "great that you tried [X], here's how it works".
 - Limit inline_notes to AT MOST 6 — pick the most pedagogically valuable.
 - Provide AT LEAST 2 strengths and EXACTLY 3 improvement_priorities.
 - Quote exact verbatim transcript text in inline_notes.
