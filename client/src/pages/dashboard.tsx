@@ -12,6 +12,7 @@ import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
 import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
+import { WelcomeWalkthrough } from "@/components/dashboard/welcome-walkthrough";
 import WritingAssignmentPage from "@/pages/writing-assignment";
 import MyWritingsPage from "@/pages/my-writings";
 import FinalExamsPage from "@/pages/final-exams";
@@ -204,6 +205,9 @@ export default function Dashboard() {
 
           {/* Email verification banner */}
           <EmailVerificationBanner />
+
+          {/* First-visit welcome walkthrough — only for non-admin students who completed profile onboarding */}
+          {!user?.isAdmin && user?.onboardingCompleted && <WelcomeWalkthrough />}
 
           {/* Main content */}
           <main className="flex-1 p-6 overflow-auto">
