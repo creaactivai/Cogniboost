@@ -52,6 +52,13 @@ export const ANTHROPIC_MODELS = {
   get grading(): string {
     return process.env.ANTHROPIC_MODEL_GRADING ?? 'claude-sonnet-4-6';
   },
+  /** Fast grading: speaking (already constrained by Whisper transcript +
+   *  speech-timing data, doesn't need Sonnet's depth). Haiku is 3-5x
+   *  faster and matches the simpler rubric work this task does. Override
+   *  with ANTHROPIC_MODEL_SPEAKING=claude-sonnet-4-6 to roll back. */
+  get speaking(): string {
+    return process.env.ANTHROPIC_MODEL_SPEAKING ?? 'claude-haiku-4-5-20251001';
+  },
   /** Content generation: lesson packs, reading passages, Lab Packs. */
   get content(): string {
     return process.env.ANTHROPIC_MODEL_CONTENT ?? 'claude-opus-4-7';

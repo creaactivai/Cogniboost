@@ -416,7 +416,10 @@ export async function gradeSpeaking(input: GradeSpeakingInput): Promise<{
   // structured-output task that does not benefit from extended thinking,
   // so we just disable it.
   const stream = client.messages.stream({
-    model: ANTHROPIC_MODELS.grading,
+    // Speaking grading uses Haiku — 3-5x faster than Sonnet and the rubric
+    // work (5 dimensions from a transcript + timing data) doesn't need the
+    // deeper reasoning Sonnet provides. Rolls back via env var.
+    model: ANTHROPIC_MODELS.speaking,
     max_tokens: 8192,
     system: [
       {
