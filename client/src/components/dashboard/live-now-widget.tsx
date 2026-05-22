@@ -10,10 +10,11 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Users, ExternalLink } from "lucide-react";
+import { Radio, Users } from "lucide-react";
 
 interface LiveSession {
   id: string;
@@ -28,6 +29,7 @@ interface LiveSession {
 }
 
 export function LiveNowWidget() {
+  const [, setLocation] = useLocation();
   const { data: sessions = [] } = useQuery<LiveSession[]>({
     queryKey: ["/api/labs/live-now"],
     refetchInterval: 30_000, // poll every 30s
@@ -54,45 +56,50 @@ export function LiveNowWidget() {
               {/* Pulse strip */}
               <div className="w-1.5 bg-red-500 animate-pulse" />
 
-              <div className="flex-1 p-4 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="relative flex items-center justify-center w-10 h-10 flex-shrink-0">
+              {/* Mobile: stack title above JOIN button (full-width).
+                  Desktop (sm+): title and button side-by-side as before. */}
+              <div className="flex-1 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                  <div className="relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 mt-0.5 sm:mt-0">
                     <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40" />
                     <div className="relative w-3 h-3 rounded-full bg-red-500" />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-black tracking-widest text-red-600 uppercase">
-                        {status === "starting_soon" ? `Starting in ${startsInMin} min` : "LIVE NOW"}
+                        {status === "starting_soon" ? `Starts in ${startsInMin} min` : "LIVE NOW"}
                       </span>
-                      <Badge variant="outline" className="text-[10px]">{s.level}</Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{s.level}</Badge>
                       {s.interestName && (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                           {s.interestIcon || "🎯"} {s.interestName}
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm font-semibold leading-tight mt-0.5 truncate">{s.title}</p>
+                    {/* No truncate — let title wrap onto 2 lines on small screens. */}
+                    <p className="text-sm font-semibold leading-tight mt-1 break-words">{s.title}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                      <Users className="w-3 h-3" />
-                      {s.durationMinutes} min · {new Date(s.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      <Users className="w-3 h-3 flex-shrink-0" />
+                      <span>{s.durationMinutes} min · {new Date(s.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
                     </p>
                   </div>
                 </div>
 
                 <Button
                   size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
+                  className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto sm:flex-shrink-0"
                   onClick={() => {
-                    if (s.meetingUrl) window.open(s.meetingUrl, "_blank", "noopener,noreferrer");
+                    // Stay on the platform — embed Jitsi via /dashboard/labs/:id/room
+                    // (uses LiveVideoPanel iframe with the right hash params already
+                    // applied for mobile-friendly join). No more new-tab popup.
+                    if (s.meetingUrl) setLocation(`/dashboard/labs/${s.id}/room`);
                   }}
                   disabled={!s.meetingUrl}
                   data-testid={`button-join-${s.id}`}
                 >
                   <Radio className="w-4 h-4 mr-1.5" />
                   {status === "starting_soon" ? "Get Ready" : "JOIN NOW"}
-                  <ExternalLink className="w-3 h-3 ml-1.5 opacity-70" />
                 </Button>
               </div>
             </div>
