@@ -9136,7 +9136,7 @@ ${JSON.stringify(items)}`;
           quizScore: finalExamAttempts.quizScore,
           writingScore: finalExamAttempts.writingScore,
           speakingScore: finalExamAttempts.speakingScore,
-          totalScore: finalExamAttempts.totalScore,
+          totalScore: finalExamAttempts.finalScore,
           isPassed: finalExamAttempts.passed,
           writingSubmissionId: finalExamAttempts.writingSubmissionId,
           speakingSubmissionId: finalExamAttempts.speakingSubmissionId,
