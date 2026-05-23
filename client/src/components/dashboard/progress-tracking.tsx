@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { ProgressTrajectory } from "./progress-trajectory";
 import {
   TrendingUp,
   Clock,
@@ -233,6 +234,15 @@ export function ProgressTracking() {
           </div>
         )}
       </Card>
+
+      {/* Writing + Speaking trajectory (real data from /api/student/progress-timeline) */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <TrendingUp className="w-6 h-6 text-primary" />
+          <h2 className="text-xl font-display uppercase">Writing &amp; Speaking Progress</h2>
+        </div>
+        <ProgressTrajectory />
+      </div>
 
       {/* GPA and Course Scores Section */}
       {scoresLoading ? (
