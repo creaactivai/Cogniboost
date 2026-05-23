@@ -9066,14 +9066,89 @@ ${JSON.stringify(items)}`;
       const userId = (req.user as any)?.id;
       const { db } = await import("./db");
       const { finalExamAttempts } = await import("@shared/schema");
-      const { eq, and } = await import("drizzle-orm");
+      const { eq } = await import("drizzle-orm");
+      // Fetch the row WITHOUT ownership filter first, then enforce access:
+      // owner OR admin/teacher. Previously this filtered by userId in the
+      // WHERE clause, which made it impossible for admins to view any
+      // student's attempt — they always got 404 (Coral hit this trying to
+      // review Nadellys's exam, May 23).
       const [row] = await db
         .select()
         .from(finalExamAttempts)
-        .where(and(eq(finalExamAttempts.id, req.params.id), eq(finalExamAttempts.userId, userId)))
+        .where(eq(finalExamAttempts.id, req.params.id))
         .limit(1);
       if (!row) return res.status(404).json({ error: "Not found" });
+
+      const isOwner = row.userId === userId;
+      let isAdmin = false;
+      if (!isOwner) {
+        const caller = await storage.getUser(userId);
+        isAdmin = !!caller?.isAdmin;
+      }
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
       res.json(row);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Admin/teacher: list a specific student's exam attempts.
+  // Usage:  GET /api/admin/final-exam-attempts?studentId=<uuid>
+  //     or  GET /api/admin/final-exam-attempts?studentEmail=<email>
+  app.get("/api/admin/final-exam-attempts", requireAuth, async (req: any, res) => {
+    try {
+      const callerId = (req.user as any)?.id;
+      const caller = await storage.getUser(callerId);
+      if (!caller?.isAdmin) {
+        return res.status(403).json({ error: "Forbidden — teacher access required" });
+      }
+
+      const { studentId, studentEmail } = req.query as { studentId?: string; studentEmail?: string };
+      if (!studentId && !studentEmail) {
+        return res.status(400).json({ error: "Provide studentId or studentEmail" });
+      }
+
+      const { db } = await import("./db");
+      const { finalExamAttempts, users, finalExams } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+
+      // Resolve student
+      let targetUserId = studentId || "";
+      if (!targetUserId && studentEmail) {
+        const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, studentEmail)).limit(1);
+        if (!u) return res.status(404).json({ error: `No student found with email ${studentEmail}` });
+        targetUserId = u.id;
+      }
+
+      // Pull attempts + join the exam title/level so the admin UI doesn't
+      // need a follow-up call per attempt.
+      const rows = await db
+        .select({
+          id: finalExamAttempts.id,
+          userId: finalExamAttempts.userId,
+          examId: finalExamAttempts.examId,
+          status: finalExamAttempts.status,
+          startedAt: finalExamAttempts.startedAt,
+          completedAt: finalExamAttempts.completedAt,
+          quizScore: finalExamAttempts.quizScore,
+          writingScore: finalExamAttempts.writingScore,
+          speakingScore: finalExamAttempts.speakingScore,
+          totalScore: finalExamAttempts.totalScore,
+          isPassed: finalExamAttempts.passed,
+          writingSubmissionId: finalExamAttempts.writingSubmissionId,
+          speakingSubmissionId: finalExamAttempts.speakingSubmissionId,
+          examLevel: finalExams.level,
+          examTitle: finalExams.title,
+        })
+        .from(finalExamAttempts)
+        .leftJoin(finalExams, eq(finalExamAttempts.examId, finalExams.id))
+        .where(eq(finalExamAttempts.userId, targetUserId))
+        .orderBy(desc(finalExamAttempts.startedAt));
+
+      res.json({ studentId: targetUserId, attempts: rows });
     } catch (e: any) {
       res.status(500).json({ error: e?.message || "Failed" });
     }
