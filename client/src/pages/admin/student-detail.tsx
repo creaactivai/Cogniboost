@@ -14,7 +14,191 @@ import {
   GraduationCap,
   Award,
   Eye,
+  FileText,
+  Mic,
+  ClipboardCheck,
+  AlertCircle,
 } from "lucide-react";
+
+interface ExamAttempt {
+  id: string;
+  examId: string;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  quizScore: string | null;
+  writingScore: string | null;
+  speakingScore: string | null;
+  totalScore: string | null;
+  isPassed: boolean | null;
+  writingSubmissionId: string | null;
+  speakingSubmissionId: string | null;
+  examLevel: string | null;
+  examTitle: string | null;
+}
+
+function ExamAttemptsSection({ studentId }: { studentId: string }) {
+  const { data, isLoading } = useQuery<{ attempts: ExamAttempt[] }>({
+    queryKey: [`/api/admin/final-exam-attempts?studentId=${studentId}`],
+    enabled: !!studentId,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Award className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            Final Exams
+          </h2>
+        </div>
+        <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          Cargando intentos de examen...
+        </p>
+      </Card>
+    );
+  }
+
+  const attempts = data?.attempts || [];
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Award className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            Final Exams ({attempts.length})
+          </h2>
+        </div>
+      </div>
+
+      {attempts.length === 0 ? (
+        <p className="text-sm text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          Esta estudiante no ha intentado ningún examen final todavía.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {attempts.map((attempt) => {
+            const total = attempt.totalScore != null ? parseFloat(attempt.totalScore) : null;
+            const quiz = attempt.quizScore != null ? parseFloat(attempt.quizScore) : null;
+            const writing = attempt.writingScore != null ? parseFloat(attempt.writingScore) : null;
+            const speaking = attempt.speakingScore != null ? parseFloat(attempt.speakingScore) : null;
+            const startedFmt = attempt.startedAt
+              ? new Date(attempt.startedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+              : 'N/A';
+            const completedFmt = attempt.completedAt
+              ? new Date(attempt.completedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+              : null;
+
+            return (
+              <div key={attempt.id} className="border border-border p-4" data-testid={`exam-attempt-${attempt.id}`}>
+                {/* Header: level + title + status badge */}
+                <div className="flex items-start justify-between mb-3 gap-4 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className="font-mono text-xs" variant="outline">
+                        {attempt.examLevel || '—'}
+                      </Badge>
+                      <span className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        {attempt.examTitle || 'Exam'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Iniciado: {startedFmt}
+                      {completedFmt && ` · Terminado: ${completedFmt}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {attempt.isPassed === true && (
+                      <Badge style={{ backgroundColor: '#10B981' }} className="font-mono text-xs">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Aprobado
+                      </Badge>
+                    )}
+                    {attempt.isPassed === false && (
+                      <Badge variant="destructive" className="font-mono text-xs">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        No aprobado
+                      </Badge>
+                    )}
+                    {attempt.isPassed === null && (
+                      <Badge variant="secondary" className="font-mono text-xs">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        {attempt.status || 'En progreso'}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Scores grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div className="bg-muted/30 p-2">
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Total
+                    </p>
+                    <p className="font-bold text-lg" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      {total != null ? `${Math.round(total)}/100` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 p-2">
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Quiz
+                    </p>
+                    <p className="font-bold text-lg" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      {quiz != null ? `${Math.round(quiz)}/100` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 p-2">
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Writing
+                    </p>
+                    <p className="font-bold text-lg" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      {writing != null ? `${Math.round(writing)}/100` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 p-2">
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      Speaking
+                    </p>
+                    <p className="font-bold text-lg" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                      {speaking != null ? `${Math.round(speaking)}/100` : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  {attempt.writingSubmissionId && (
+                    <Link href={`/dashboard/submissions/${attempt.writingSubmissionId}`}>
+                      <Button variant="outline" size="sm" data-testid={`view-writing-${attempt.id}`}>
+                        <FileText className="w-3 h-3 mr-1" />
+                        Ver respuesta de Writing
+                      </Button>
+                    </Link>
+                  )}
+                  {attempt.speakingSubmissionId && (
+                    <Link href={`/dashboard/speaking-submissions/${attempt.speakingSubmissionId}`}>
+                      <Button variant="outline" size="sm" data-testid={`view-speaking-${attempt.id}`}>
+                        <Mic className="w-3 h-3 mr-1" />
+                        Ver respuesta de Speaking
+                      </Button>
+                    </Link>
+                  )}
+                  <Link href={`/dashboard/exam/${attempt.examLevel}/result/${attempt.id}`}>
+                    <Button variant="outline" size="sm" data-testid={`view-result-${attempt.id}`}>
+                      <ClipboardCheck className="w-3 h-3 mr-1" />
+                      Ver resultado completo
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 interface StudentProgress {
   student: {
@@ -357,6 +541,9 @@ export default function AdminStudentDetail() {
             </div>
           )}
         </Card>
+
+        {/* Final Exam Attempts — added 2026-05-23 so Coral can review students' exam responses */}
+        {studentId && <ExamAttemptsSection studentId={studentId} />}
       </div>
     </AdminLayout>
   );
