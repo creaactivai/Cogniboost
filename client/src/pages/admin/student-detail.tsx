@@ -18,7 +18,9 @@ import {
   Mic,
   ClipboardCheck,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
+import { ProgressTrajectory } from "@/components/dashboard/progress-trajectory";
 
 interface ExamAttempt {
   id: string;
@@ -541,6 +543,20 @@ export default function AdminStudentDetail() {
             </div>
           )}
         </Card>
+
+        {/* Writing + Speaking trajectory chart — same component the student
+            sees on /dashboard/progress, but fetching THIS student's data */}
+        {studentId && (
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                Writing & Speaking Trajectory
+              </h2>
+            </div>
+            <ProgressTrajectory studentId={studentId} />
+          </Card>
+        )}
 
         {/* Final Exam Attempts — added 2026-05-23 so Coral can review students' exam responses */}
         {studentId && <ExamAttemptsSection studentId={studentId} />}

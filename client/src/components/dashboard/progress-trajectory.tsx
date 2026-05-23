@@ -86,12 +86,22 @@ function MinSubmissionsCallout({ count, es }: { count: number; es: boolean }) {
   );
 }
 
-export function ProgressTrajectory() {
+interface ProgressTrajectoryProps {
+  /** When provided (teacher view), fetches that student's timeline.
+   *  When omitted (student self-view), fetches the caller's own. */
+  studentId?: string;
+}
+
+export function ProgressTrajectory({ studentId }: ProgressTrajectoryProps = {}) {
   const { locale } = useTranslation();
   const es = locale === "es";
 
+  const url = studentId
+    ? `/api/student/${studentId}/progress-timeline`
+    : "/api/student/progress-timeline";
+
   const { data, isLoading, error } = useQuery<TimelineResponse>({
-    queryKey: ["/api/student/progress-timeline"],
+    queryKey: [url],
   });
 
   if (isLoading) {
