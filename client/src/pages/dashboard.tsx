@@ -132,8 +132,18 @@ export default function Dashboard() {
 
     // Teacher review surfaces live under /dashboard/teacher and ARE meant
     // for admin/teacher use. Don't bounce admins away from them.
+    // We also let admins land on student-facing SUBMISSION and EXAM RESULT
+    // pages so they can review a student's actual work from the admin
+    // student-detail page (Coral, May 23 — was getting bounced to /admin
+    // when clicking "Ver respuesta" on Nadellys's exam).
     const path = typeof window !== 'undefined' ? window.location.pathname : '';
-    const isTeacherSurface = path.startsWith('/dashboard/teacher');
+    const isTeacherSurface =
+      path.startsWith('/dashboard/teacher') ||
+      path.startsWith('/dashboard/submissions/') ||
+      path.startsWith('/dashboard/speaking-submissions/') ||
+      path.startsWith('/dashboard/reading-submissions/') ||
+      path.startsWith('/dashboard/writing-project-submissions/') ||
+      /^\/dashboard\/exam\/[^/]+\/result\//.test(path);
 
     // Redirect admins to admin panel (unless they're in preview mode for
     // courses or on a teacher-only surface)
