@@ -5613,6 +5613,186 @@ Important:
   // Teacher view — admin/teacher sees another student's trajectory
   app.get("/api/student/:studentId/progress-timeline", progressTimelineHandler);
 
+  // ─── Action Plan (recurring improvement priorities) ────────────────────
+  // Aggregates the `improvement_priorities` arrays from a student's graded
+  // writing + speaking submissions. The grader emits exactly 3 actionable
+  // priorities per submission; we cluster near-duplicates and surface the
+  // most recurring focus areas as a personalised "Work Plan".
+  //
+  // Clustering is intentionally simple for Phase 1: normalise → token-set
+  // Jaccard similarity ≥ 0.5 → merge. No new tables. Pure aggregation over
+  // existing aiGrade jsonb data.
+  //
+  // Query params:
+  //   ?limit=N     (submissions to scan, default 30, max 100)
+  //   ?top=N       (clusters to return, default 5, max 10)
+  //
+  // Optional :studentId in path lets admins view another student's plan.
+  const actionPlanHandler = async (req: any, res: any) => {
+    try {
+      const callerId = (req.user as any)?.id;
+      if (!callerId) return res.status(401).json({ error: "Unauthorized" });
+
+      const targetStudentId = req.params.studentId || callerId;
+      if (targetStudentId !== callerId) {
+        const caller = await storage.getUser(callerId);
+        if (!caller?.isAdmin) {
+          return res.status(403).json({ error: "Forbidden — teacher access required" });
+        }
+      }
+
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const submissionLimit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 30;
+      const rawTop = parseInt(req.query.top as string, 10);
+      const topN = Number.isFinite(rawTop) ? Math.min(Math.max(rawTop, 1), 10) : 5;
+
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, and, inArray, desc } = await import("drizzle-orm");
+
+      const rows = await db
+        .select({
+          id: submissions.id,
+          submittedAt: submissions.submittedAt,
+          assignmentType: submissions.assignmentType,
+          aiGrade: submissions.aiGrade,
+        })
+        .from(submissions)
+        .where(and(
+          eq(submissions.studentId, targetStudentId),
+          inArray(submissions.assignmentType, ["writing", "project", "speaking_recording"] as any),
+        ))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(submissionLimit);
+
+      type Occurrence = {
+        text: string;
+        submissionId: string;
+        date: Date | null;
+        source: "writing" | "speaking";
+      };
+
+      // 1. Flatten priorities out of every graded submission
+      const occurrences: Occurrence[] = [];
+      for (const r of rows) {
+        const grade: any = r.aiGrade || {};
+        const priorities: unknown = grade.improvement_priorities;
+        if (!Array.isArray(priorities)) continue;
+        const source: "writing" | "speaking" =
+          r.assignmentType === "speaking_recording" ? "speaking" : "writing";
+        for (const p of priorities) {
+          if (typeof p === "string" && p.trim().length > 0) {
+            occurrences.push({
+              text: p.trim(),
+              submissionId: r.id,
+              date: r.submittedAt,
+              source,
+            });
+          }
+        }
+      }
+
+      // 2. Build a normalised token set per occurrence for Jaccard clustering
+      const STOPWORDS = new Set([
+        "the","a","an","of","to","in","on","at","for","with","and","or","but",
+        "is","are","was","were","be","been","being","have","has","had","do",
+        "does","did","will","would","should","could","may","might","this","that",
+        "these","those","your","you","it","its","as","by","from","up","out",
+        "into","than","then","more","most","some","such","no","not","only","own",
+        "same","so","very","s","t","can","just","also","practice","try","use",
+        "using","focus","work","working","make","sure","review","study","learn",
+      ]);
+      const tokenize = (text: string): Set<string> => {
+        const cleaned = text.toLowerCase().replace(/[^a-záéíóúñü\s]/g, " ");
+        const words = cleaned.split(/\s+/).filter(w => w.length >= 3 && !STOPWORDS.has(w));
+        return new Set(words);
+      };
+      const jaccard = (a: Set<string>, b: Set<string>): number => {
+        if (a.size === 0 && b.size === 0) return 0;
+        let inter = 0;
+        for (const x of a) if (b.has(x)) inter++;
+        const union = a.size + b.size - inter;
+        return union === 0 ? 0 : inter / union;
+      };
+
+      // 3. Greedy clustering — each occurrence joins the first cluster whose
+      //    centroid passes the similarity threshold; otherwise starts its own.
+      type Cluster = {
+        representativeText: string;
+        tokens: Set<string>;
+        occurrences: Occurrence[];
+      };
+      const SIM_THRESHOLD = 0.5;
+      const clusters: Cluster[] = [];
+      for (const occ of occurrences) {
+        const tokens = tokenize(occ.text);
+        if (tokens.size === 0) continue;
+        let matched = false;
+        for (const c of clusters) {
+          if (jaccard(tokens, c.tokens) >= SIM_THRESHOLD) {
+            c.occurrences.push(occ);
+            // expand cluster token set (helps loose families converge)
+            for (const t of tokens) c.tokens.add(t);
+            // prefer the longest representative — usually more specific
+            if (occ.text.length > c.representativeText.length) {
+              c.representativeText = occ.text;
+            }
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          clusters.push({
+            representativeText: occ.text,
+            tokens,
+            occurrences: [occ],
+          });
+        }
+      }
+
+      // 4. Project clusters into the response shape, ranked by count then recency
+      const projected = clusters.map((c) => {
+        const dates = c.occurrences
+          .map(o => o.date ? new Date(o.date).getTime() : 0)
+          .filter(t => t > 0);
+        const lastSeen = dates.length ? new Date(Math.max(...dates)) : null;
+        const firstSeen = dates.length ? new Date(Math.min(...dates)) : null;
+        const sources = new Set(c.occurrences.map(o => o.source));
+        return {
+          focus: c.representativeText,
+          occurrences: c.occurrences.length,
+          lastSeenAt: lastSeen,
+          firstSeenAt: firstSeen,
+          sourceMix: sources.size === 2 ? "both" : Array.from(sources)[0] || "writing",
+          submissionIds: Array.from(new Set(c.occurrences.map(o => o.submissionId))),
+        };
+      })
+      .sort((a, b) => {
+        if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+        const ad = a.lastSeenAt ? a.lastSeenAt.getTime() : 0;
+        const bd = b.lastSeenAt ? b.lastSeenAt.getTime() : 0;
+        return bd - ad;
+      })
+      .slice(0, topN);
+
+      res.json({
+        plan: projected,
+        meta: {
+          submissionsAnalyzed: rows.length,
+          gradedSubmissionsWithPriorities: occurrences.length / 3, // rough
+          totalPriorityOccurrences: occurrences.length,
+          clusterCount: clusters.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error building action plan:", error);
+      res.status(500).json({ error: "Failed to build action plan" });
+    }
+  };
+
+  app.get("/api/student/action-plan", actionPlanHandler);
+  app.get("/api/student/:studentId/action-plan", actionPlanHandler);
+
   // Teacher-facing grading queue — submissions awaiting review.
   app.get("/api/submissions/queue", async (req, res) => {
     try {

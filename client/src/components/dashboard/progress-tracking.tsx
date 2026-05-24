@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { ProgressTrajectory } from "./progress-trajectory";
+import { ActionPlan } from "./action-plan";
 import {
   TrendingUp,
   Clock,
@@ -243,6 +244,9 @@ export function ProgressTracking() {
         </div>
         <ProgressTrajectory />
       </div>
+
+      {/* Action Plan — recurring focus areas extracted from feedback */}
+      <ActionPlan />
 
       {/* GPA and Course Scores Section */}
       {scoresLoading ? (

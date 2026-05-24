@@ -21,6 +21,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ProgressTrajectory } from "@/components/dashboard/progress-trajectory";
+import { ActionPlan } from "@/components/dashboard/action-plan";
 
 interface ExamAttempt {
   id: string;
@@ -557,6 +558,9 @@ export default function AdminStudentDetail() {
             <ProgressTrajectory studentId={studentId} />
           </Card>
         )}
+
+        {/* Action Plan — student's recurring focus areas (Phase 1 Action Plan System) */}
+        {studentId && <ActionPlan studentId={studentId} />}
 
         {/* Final Exam Attempts — added 2026-05-23 so Coral can review students' exam responses */}
         {studentId && <ExamAttemptsSection studentId={studentId} />}
