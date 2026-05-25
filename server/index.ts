@@ -668,6 +668,27 @@ async function runStartupMigrations() {
       )
     `);
     console.log('Startup migrations: Phase 2.1 Daily Challenge tables verified');
+
+    // Announcements log — every admin announcement send is recorded so the
+    // /admin/announcements page can show history + duplicate past sends.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        subject text NOT NULL,
+        html_body text NOT NULL,
+        audience_type text NOT NULL,
+        audience_config jsonb,
+        template text,
+        recipient_count integer NOT NULL DEFAULT 0,
+        sent_count integer NOT NULL DEFAULT 0,
+        failed_count integer NOT NULL DEFAULT 0,
+        failure_details jsonb,
+        sent_by_user_id varchar NOT NULL,
+        sent_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_announcements_sent_at ON announcements (sent_at DESC)`);
+    console.log('Startup migrations: announcements table verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

@@ -979,7 +979,34 @@ export const certificates = pgTable("certificates", {
 export const insertFinalExamSchema = createInsertSchema(finalExams).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFinalExamQuestionSchema = createInsertSchema(finalExamQuestions).omit({ id: true, createdAt: true });
 export const insertFinalExamAttemptSchema = createInsertSchema(finalExamAttempts).omit({ id: true, startedAt: true });
+// ── Admin announcements (class-change, holiday, general comms) ────────────
+// Every send through /api/admin/announcements is logged here so Coral can
+// see history, see who got what, duplicate previous announcements, and
+// track sent/failed counts. The body is stored as HTML (the rendered
+// template with placeholders intact — {{firstName}} is replaced per
+// recipient at send time).
+export const announcements = pgTable("announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subject: text("subject").notNull(),
+  htmlBody: text("html_body").notNull(),
+  // 'today' | 'this_week' | 'all_active' | 'by_level' | 'by_lab' | 'custom'
+  audienceType: text("audience_type").notNull(),
+  // structured filter data, e.g. {"levels":["A1","A2"]} or {"labId":"..."}
+  audienceConfig: jsonb("audience_config"),
+  // optional template tag for grouping/analytics: 'memorial_day', 'snow_day', etc.
+  template: text("template"),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  failureDetails: jsonb("failure_details"),     // array of { email, error }
+  sentByUserId: varchar("sent_by_user_id").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
 export const insertCertificateSchema = createInsertSchema(certificates).omit({ id: true, issuedAt: true });
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({ id: true, sentAt: true });
+export type Announcement = typeof announcements.$inferSelect;
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 
 export type FinalExam = typeof finalExams.$inferSelect;
 export type InsertFinalExam = z.infer<typeof insertFinalExamSchema>;

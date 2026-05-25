@@ -8245,12 +8245,13 @@ ${JSON.stringify(items)}`;
       const caller = await storage.getUser((req.user as any)?.id);
       if (!caller?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
 
-      const { subject, htmlBody, audience = 'today', dryRun = true } = req.body;
+      const { subject, htmlBody, audience = 'today', audienceConfig, template, dryRun = true } = req.body;
       if (!subject || !htmlBody) {
         return res.status(400).json({ error: 'subject and htmlBody are required' });
       }
-      if (!['today', 'this_week', 'all_active'].includes(audience)) {
-        return res.status(400).json({ error: 'audience must be today | this_week | all_active' });
+      const ALLOWED_AUDIENCES = ['today', 'this_week', 'all_active', 'by_level', 'by_lab'];
+      if (!ALLOWED_AUDIENCES.includes(audience)) {
+        return res.status(400).json({ error: `audience must be one of ${ALLOWED_AUDIENCES.join(' | ')}` });
       }
 
       const { db } = await import('./db');
@@ -8328,12 +8329,8 @@ ${JSON.stringify(items)}`;
             });
           }
         }
-      } else {
-        // all_active — every active student with an email. We intentionally
-        // do NOT require emailVerified=true (many students were imported
-        // manually and never verified), and we do NOT filter by tier
-        // (everyone on the platform deserves the holiday notice).
-        // We DO exclude admins/teachers and soft-deleted users.
+      } else if (audience === 'all_active') {
+        // every active non-admin non-deleted student with an email
         const allRows = await db
           .select({
             userId: users.id,
@@ -8346,15 +8343,69 @@ ${JSON.stringify(items)}`;
           .from(users)
           .where(eq(users.status, 'active' as any));
         for (const r of allRows) {
-          if (!r.email) continue;            // no email → can't send
-          if (r.isAdmin) continue;            // skip yourself + other admins
-          if (r.deletedAt) continue;          // skip soft-deleted accounts
+          if (!r.email || r.isAdmin || r.deletedAt) continue;
           recipientMap.set(r.userId, {
             userId: r.userId,
             email: r.email,
             firstName: r.firstName,
             source: `active_${r.subscriptionTier || 'free'}`,
           });
+        }
+      } else if (audience === 'by_level') {
+        // audienceConfig: { levels: ['A1', 'A2', ...] }
+        const levels: string[] = Array.isArray(audienceConfig?.levels) ? audienceConfig.levels : [];
+        if (levels.length === 0) {
+          return res.status(400).json({ error: 'by_level requires audienceConfig.levels = ["A1", "A2", ...]' });
+        }
+        const rows = await db
+          .select({
+            userId: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            currentLevel: users.currentLevel,
+            placementLevel: users.placementLevel,
+            isAdmin: users.isAdmin,
+            deletedAt: users.deletedAt,
+          })
+          .from(users)
+          .where(eq(users.status, 'active' as any));
+        for (const r of rows) {
+          if (!r.email || r.isAdmin || r.deletedAt) continue;
+          const userLevel = r.currentLevel || r.placementLevel;
+          if (!userLevel || !levels.includes(userLevel)) continue;
+          recipientMap.set(r.userId, {
+            userId: r.userId,
+            email: r.email,
+            firstName: r.firstName,
+            source: `level_${userLevel}`,
+          });
+        }
+      } else if (audience === 'by_lab') {
+        // audienceConfig: { labId: '...' } — students registered for a specific lab
+        const labId: string | undefined = audienceConfig?.labId;
+        if (!labId) {
+          return res.status(400).json({ error: 'by_lab requires audienceConfig.labId' });
+        }
+        // Try new system first (labRegistrations → labSessionsV2)
+        const { labRegistrations } = await import('@shared/schema');
+        const newSysRows = await db
+          .select({
+            userId: labRegistrations.userId,
+            email: users.email,
+            firstName: users.firstName,
+          })
+          .from(labRegistrations)
+          .innerJoin(users, eq(labRegistrations.userId, users.id))
+          .where(eq(labRegistrations.labSessionId, labId));
+        for (const r of newSysRows) {
+          if (r.email) {
+            recipientMap.set(r.userId, {
+              userId: r.userId,
+              email: r.email,
+              firstName: r.firstName,
+              source: `lab_${labId.slice(0, 8)}`,
+            });
+          }
         }
       }
 
@@ -8391,6 +8442,26 @@ ${JSON.stringify(items)}`;
         }
       }
       console.log(`[announce-class-change] audience=${audience} sent=${sent} failed=${failed}`);
+
+      // Log the send to the announcements history table so it shows in /admin/announcements > Historial
+      try {
+        const { announcements } = await import('@shared/schema');
+        await db.insert(announcements).values({
+          subject,
+          htmlBody,
+          audienceType: audience,
+          audienceConfig: audienceConfig || null,
+          template: template || null,
+          recipientCount: recipients.length,
+          sentCount: sent,
+          failedCount: failed,
+          failureDetails: failures.length > 0 ? failures : null,
+          sentByUserId: callerId,
+        });
+      } catch (logErr) {
+        console.error('[announce-class-change] history log failed (non-fatal):', logErr);
+      }
+
       res.json({
         dryRun: false,
         audience,
@@ -8401,6 +8472,66 @@ ${JSON.stringify(items)}`;
       });
     } catch (err: any) {
       console.error('[announce-class-change] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/admin/announcements — paginated history of past sends.
+  // Returns most-recent-first. ?limit=N (default 50, max 200).
+  app.get('/api/admin/announcements', requireAuth, async (req: any, res) => {
+    try {
+      const caller = await storage.getUser((req.user as any)?.id);
+      if (!caller?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+      const { db } = await import('./db');
+      const { announcements } = await import('@shared/schema');
+      const { desc } = await import('drizzle-orm');
+
+      const rows = await db
+        .select()
+        .from(announcements)
+        .orderBy(desc(announcements.sentAt))
+        .limit(limit);
+
+      res.json({ announcements: rows, count: rows.length });
+    } catch (err: any) {
+      console.error('[GET /admin/announcements] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/admin/labs/list-for-announcement — minimal list of upcoming labs
+  // for the audience picker dropdown. Returns id, title, level, scheduledAt,
+  // registrationCount.
+  app.get('/api/admin/labs/list-for-announcement', requireAuth, async (req: any, res) => {
+    try {
+      const caller = await storage.getUser((req.user as any)?.id);
+      if (!caller?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+      const { db } = await import('./db');
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const { gte, desc, sql } = await import('drizzle-orm');
+
+      const now = new Date();
+      const upcoming = await db
+        .select({
+          id: labSessionsV2.id,
+          title: labSessionsV2.title,
+          level: labSessionsV2.level,
+          scheduledAt: labSessionsV2.scheduledAt,
+          registrationCount: sql<number>`(SELECT COUNT(*) FROM ${labRegistrations} WHERE ${labRegistrations.labSessionId} = ${labSessionsV2.id})`.as('registration_count'),
+        })
+        .from(labSessionsV2)
+        .where(gte(labSessionsV2.scheduledAt, now))
+        .orderBy(labSessionsV2.scheduledAt)
+        .limit(50);
+
+      res.json({ labs: upcoming });
+    } catch (err: any) {
+      console.error('[GET /admin/labs/list-for-announcement] Error:', err?.message);
       res.status(500).json({ error: err?.message || 'Failed' });
     }
   });
