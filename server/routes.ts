@@ -8329,29 +8329,32 @@ ${JSON.stringify(items)}`;
           }
         }
       } else {
-        // all_active — every verified, active, paying student
+        // all_active — every active student with an email. We intentionally
+        // do NOT require emailVerified=true (many students were imported
+        // manually and never verified), and we do NOT filter by tier
+        // (everyone on the platform deserves the holiday notice).
+        // We DO exclude admins/teachers and soft-deleted users.
         const allRows = await db
           .select({
             userId: users.id,
             email: users.email,
             firstName: users.firstName,
             subscriptionTier: users.subscriptionTier,
+            isAdmin: users.isAdmin,
+            deletedAt: users.deletedAt,
           })
           .from(users)
-          .where(and(
-            eq(users.status, 'active' as any),
-            eq(users.emailVerified, true),
-          ));
+          .where(eq(users.status, 'active' as any));
         for (const r of allRows) {
-          // Skip free-tier and admins for class-cancellation announcements
-          if (r.email && r.subscriptionTier && r.subscriptionTier !== 'free') {
-            recipientMap.set(r.userId, {
-              userId: r.userId,
-              email: r.email,
-              firstName: r.firstName,
-              source: 'all_active_paid',
-            });
-          }
+          if (!r.email) continue;            // no email → can't send
+          if (r.isAdmin) continue;            // skip yourself + other admins
+          if (r.deletedAt) continue;          // skip soft-deleted accounts
+          recipientMap.set(r.userId, {
+            userId: r.userId,
+            email: r.email,
+            firstName: r.firstName,
+            source: `active_${r.subscriptionTier || 'free'}`,
+          });
         }
       }
 
