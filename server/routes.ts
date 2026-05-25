@@ -8230,6 +8230,178 @@ ${JSON.stringify(items)}`;
     }
   });
 
+  // ─── Holiday / class-cancellation announcement ─────────────────────────
+  // POST /api/admin/announce-class-change
+  // Body: {
+  //   subject: string,
+  //   htmlBody: string,            // supports {{firstName}} placeholder
+  //   audience: "today"|"this_week"|"all_active",
+  //   dryRun?: boolean             // default true — preview recipients only
+  // }
+  // Returns { recipients: [{email, firstName, source}], sent, failed, dryRun }.
+  // Sends ONE personalised email per recipient (never multi-TO — privacy).
+  app.post('/api/admin/announce-class-change', requireAuth, async (req: any, res) => {
+    try {
+      const caller = await storage.getUser((req.user as any)?.id);
+      if (!caller?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+      const { subject, htmlBody, audience = 'today', dryRun = true } = req.body;
+      if (!subject || !htmlBody) {
+        return res.status(400).json({ error: 'subject and htmlBody are required' });
+      }
+      if (!['today', 'this_week', 'all_active'].includes(audience)) {
+        return res.status(400).json({ error: 'audience must be today | this_week | all_active' });
+      }
+
+      const { db } = await import('./db');
+      const { users } = await import('@shared/models/auth');
+      const { liveSessions, sessionRooms, roomBookings, conversationLabs, labBookings } = await import('@shared/schema');
+      const { and, eq, gte, lte, inArray, isNull } = await import('drizzle-orm');
+
+      // Compute date window in the server's local time (Railway is UTC, but
+      // for "today" we want the day boundaries of the operator's date).
+      const now = new Date();
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999);
+      const endOfWeek = new Date(startOfToday);
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+      type Recipient = { userId: string; email: string; firstName: string | null; source: string };
+      const recipientMap = new Map<string, Recipient>();
+
+      if (audience === 'today' || audience === 'this_week') {
+        const windowEnd = audience === 'today' ? endOfToday : endOfWeek;
+
+        // NEW system: roomBookings → sessionRooms → liveSessions
+        const newSysRows = await db
+          .select({
+            userId: roomBookings.userId,
+            email: users.email,
+            firstName: users.firstName,
+            scheduledAt: liveSessions.scheduledAt,
+          })
+          .from(roomBookings)
+          .innerJoin(sessionRooms, eq(roomBookings.roomId, sessionRooms.id))
+          .innerJoin(liveSessions, eq(sessionRooms.sessionId, liveSessions.id))
+          .innerJoin(users, eq(roomBookings.userId, users.id))
+          .where(and(
+            isNull(roomBookings.cancelledAt),
+            gte(liveSessions.scheduledAt, startOfToday),
+            lte(liveSessions.scheduledAt, windowEnd),
+          ));
+        for (const r of newSysRows) {
+          if (r.email) {
+            recipientMap.set(r.userId, {
+              userId: r.userId,
+              email: r.email,
+              firstName: r.firstName,
+              source: 'live_session',
+            });
+          }
+        }
+
+        // LEGACY system: labBookings → conversationLabs
+        const legacyRows = await db
+          .select({
+            userId: labBookings.userId,
+            email: users.email,
+            firstName: users.firstName,
+            scheduledAt: conversationLabs.scheduledAt,
+          })
+          .from(labBookings)
+          .innerJoin(conversationLabs, eq(labBookings.labId, conversationLabs.id))
+          .innerJoin(users, eq(labBookings.userId, users.id))
+          .where(and(
+            isNull(labBookings.cancelledAt),
+            gte(conversationLabs.scheduledAt, startOfToday),
+            lte(conversationLabs.scheduledAt, windowEnd),
+          ));
+        for (const r of legacyRows) {
+          if (r.email && !recipientMap.has(r.userId)) {
+            recipientMap.set(r.userId, {
+              userId: r.userId,
+              email: r.email,
+              firstName: r.firstName,
+              source: 'conversation_lab',
+            });
+          }
+        }
+      } else {
+        // all_active — every verified, active, paying student
+        const allRows = await db
+          .select({
+            userId: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            subscriptionTier: users.subscriptionTier,
+          })
+          .from(users)
+          .where(and(
+            eq(users.status, 'active' as any),
+            eq(users.emailVerified, true),
+          ));
+        for (const r of allRows) {
+          // Skip free-tier and admins for class-cancellation announcements
+          if (r.email && r.subscriptionTier && r.subscriptionTier !== 'free') {
+            recipientMap.set(r.userId, {
+              userId: r.userId,
+              email: r.email,
+              firstName: r.firstName,
+              source: 'all_active_paid',
+            });
+          }
+        }
+      }
+
+      const recipients = Array.from(recipientMap.values());
+
+      // Dry-run: show Coral exactly who would receive it before any send
+      if (dryRun) {
+        return res.json({
+          dryRun: true,
+          recipients,
+          recipientCount: recipients.length,
+          audience,
+          sent: 0,
+          failed: 0,
+          window: { from: startOfToday, to: audience === 'today' ? endOfToday : endOfWeek },
+        });
+      }
+
+      // Real send — loop and personalise per recipient (never multi-TO)
+      const { sendCustomEmail } = await import('./resendClient');
+      let sent = 0;
+      let failed = 0;
+      const failures: Array<{ email: string; error: string }> = [];
+      for (const r of recipients) {
+        const name = r.firstName || (r.email.includes('@') ? r.email.split('@')[0] : 'estudiante');
+        const personalised = htmlBody.replace(/\{\{firstName\}\}/g, name);
+        const result = await sendCustomEmail(r.email, subject, personalised, {
+          replyTo: 'clozano@cognimight.com',
+        });
+        if ((result as any)?.success) sent++;
+        else {
+          failed++;
+          failures.push({ email: r.email, error: String((result as any)?.error?.message || 'unknown') });
+        }
+      }
+      console.log(`[announce-class-change] audience=${audience} sent=${sent} failed=${failed}`);
+      res.json({
+        dryRun: false,
+        audience,
+        recipientCount: recipients.length,
+        sent,
+        failed,
+        failures: failures.slice(0, 10),
+      });
+    } catch (err: any) {
+      console.error('[announce-class-change] Error:', err?.message);
+      res.status(500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
   // Send a custom email — used for admin announcements (e.g., level-cohort
   // exam invitations, mid-cohort communications). Body: { to, subject,
   // html, cc?, replyTo? }. `to` may be a single email or an array.

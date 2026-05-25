@@ -93,6 +93,11 @@ const menuItems = [
     icon: Mail,
   },
   {
+    title: "Anuncios (Cancelar clase)",
+    url: "/admin/announcements",
+    icon: Mail,
+  },
+  {
     title: "Leads",
     url: "/admin/leads",
     icon: Target,
