@@ -8864,6 +8864,47 @@ ${JSON.stringify(items)}`;
     }
   });
 
+  // GET single lab session by ID. Needed for the lab-room page so it can
+  // resolve a session that's CURRENTLY LIVE but not in the user's
+  // "upcoming" feed (which is upcoming-only by date) and not in their
+  // bookings (student hadn't pre-booked). Without this, students hitting
+  // LIVE NOW for an unbooked live session got "session doesn't exist".
+  // Also lets admins/teachers enter any session by ID.
+  app.get('/api/lab-sessions/:id', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import('./db');
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const rows = await db
+        .select()
+        .from(labSessionsV2)
+        .where(eq(labSessionsV2.id, req.params.id))
+        .limit(1);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Lab session not found' });
+      }
+      const row = rows[0] as any;
+      // Normalize to the same shape /api/lab-sessions/upcoming returns
+      res.json({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        level: row.level,
+        scheduledAt: row.scheduledAt,
+        durationMinutes: row.durationMinutes,
+        interestTopicId: row.interestTopicId,
+        meetingUrl: row.meetingUrl,
+        grammarFocus: row.grammarFocus,
+        vocabulary: row.vocabulary,
+        expressions: row.expressions,
+        status: row.status,
+      });
+    } catch (err: any) {
+      console.error('[GET /lab-sessions/:id] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch lab session' });
+    }
+  });
+
   // Get current user's upcoming registrations.
   app.get('/api/lab-bookings/mine', requireAuth, async (req: any, res) => {
     try {

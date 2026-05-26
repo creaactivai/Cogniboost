@@ -76,12 +76,19 @@ export default function LabRoomPage() {
     queryKey: ["/api/lab-interest-topics"],
   });
 
-  // Look up the session: first in my bookings (definitely registered), then in
-  // upcoming (so user can book + join in one go via the CTA).
+  // Look up the session: first in my bookings, then in upcoming. If neither
+  // matches (e.g. session is LIVE NOW and student never pre-booked, or admin
+  // is entering as teacher), fall back to fetching the single session by ID.
   const sessionFromBooking = myBookings.find((s) => s.id === sessionId);
   const sessionFromUpcoming = upcoming.find((s) => s.id === sessionId);
-  const session = sessionFromBooking ?? sessionFromUpcoming;
+  const haveSessionFromList = !!(sessionFromBooking ?? sessionFromUpcoming);
+  const { data: sessionDirect } = useQuery<LabSession>({
+    queryKey: [`/api/lab-sessions/${sessionId}`],
+    enabled: !!sessionId && !haveSessionFromList && !bookingsLoading,
+  });
+  const session = sessionFromBooking ?? sessionFromUpcoming ?? sessionDirect;
   const isRegistered = !!sessionFromBooking;
+  const isAdmin = !!(user as any)?.isAdmin;
 
   const interestById = new Map(interests.map((i) => [i.id, i]));
   const interest = session ? interestById.get(session.interestTopicId) : undefined;
@@ -164,14 +171,17 @@ export default function LabRoomPage() {
         </div>
       </div>
 
-      {isOver ? (
+      {isOver && !isAdmin ? (
         <Card className="p-8 text-center space-y-2">
           <AlertCircle className="w-10 h-10 mx-auto text-muted-foreground" />
           <h2 className="text-lg font-bold">This session has ended</h2>
           <p className="text-sm text-muted-foreground">Find the next available Lab.</p>
           <Button onClick={() => navigate("/dashboard/labs")}>View available Labs</Button>
         </Card>
-      ) : !isRegistered ? (
+      ) : !isRegistered && !isAdmin && !isLive ? (
+        // Only block on registration when class hasn't started yet. If LIVE,
+        // let anyone join (no friction for a class in progress). Admins
+        // always bypass the registration check (teacher access).
         <Card className="p-6 text-center space-y-3">
           <h2 className="text-lg font-bold">You're not registered for this Lab yet</h2>
           <p className="text-sm text-muted-foreground">

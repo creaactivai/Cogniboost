@@ -143,7 +143,11 @@ export default function Dashboard() {
       path.startsWith('/dashboard/speaking-submissions/') ||
       path.startsWith('/dashboard/reading-submissions/') ||
       path.startsWith('/dashboard/writing-project-submissions/') ||
-      /^\/dashboard\/exam\/[^/]+\/result\//.test(path);
+      /^\/dashboard\/exam\/[^/]+\/result\//.test(path) ||
+      // Lab rooms — admins/teachers join their own classes from the
+      // dashboard widget. The lab-room route already auth-gates by
+      // registration internally; we just need to not bounce them out.
+      /^\/dashboard\/labs\/[^/]+\/room/.test(path);
 
     // Redirect admins to admin panel (unless they're in preview mode for
     // courses or on a teacher-only surface)
