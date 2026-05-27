@@ -5808,9 +5808,29 @@ Important:
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-      const { db } = await import("./db");
+      const { db, pool } = await import("./db");
       const { dailyMissions, submissions, dailyChallengeAttempts, labRegistrations, labSessionsV2 } = await import("@shared/schema");
       const { eq, and, gte, desc, sql } = await import("drizzle-orm");
+
+      // Self-healing: ensure the daily_missions table exists. The startup
+      // migration normally creates it, but Railway hot-reloads sometimes
+      // skip startup migrations, so we do it here too. Idempotent + cheap.
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS daily_missions (
+          id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id varchar NOT NULL,
+          mission_date text NOT NULL,
+          activities jsonb NOT NULL,
+          total_minutes integer NOT NULL DEFAULT 30,
+          title text NOT NULL,
+          rationale text,
+          status text NOT NULL DEFAULT 'not_started',
+          started_at timestamp,
+          completed_at timestamp,
+          created_at timestamp NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_missions_user_date ON daily_missions (user_id, mission_date)`);
 
       // Compute "today" in the server's local time. YYYY-MM-DD.
       const now = new Date();
