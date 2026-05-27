@@ -19,9 +19,10 @@
  * accrues).
  */
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Target, ArrowRight } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
 interface CanDoStatement {
   en: string;
@@ -136,106 +137,95 @@ const LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"];
 interface CanDoStatementsProps {
   /** Student's current CEFR level (A1 | A2 | B1 | B2 | C1 | C2). */
   currentLevel: string;
-  /** Optional: hide the "next level preview" if you only want current. */
-  hideNextLevel?: boolean;
 }
 
-export function CanDoStatements({ currentLevel, hideNextLevel = false }: CanDoStatementsProps) {
+export function CanDoStatements({ currentLevel }: CanDoStatementsProps) {
   const safeLevel = LEVEL_ORDER.includes(currentLevel) ? currentLevel : "A1";
   const currentData = CAN_DO_BY_LEVEL[safeLevel];
-  const currentIdx = LEVEL_ORDER.indexOf(safeLevel);
-  const nextLevel = currentIdx < LEVEL_ORDER.length - 1 ? LEVEL_ORDER[currentIdx + 1] : null;
-  const nextData = nextLevel ? CAN_DO_BY_LEVEL[nextLevel] : null;
+  // A1 students get bilingual support (English bold + Spanish italic).
+  // A2+ students get English-only — immersion is the goal.
+  const showSpanish = safeLevel === "A1";
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="space-y-6" data-testid="can-do-statements">
-      {/* Current Level — what you CAN do */}
-      <Card className="p-6 border-border rounded-2xl">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-display uppercase tracking-tight mb-1">
-              Lo que ya puedo hacer
-            </h2>
-            <p className="text-sm font-mono text-muted-foreground">
-              What I can already do · <Badge variant="outline" className="ml-1 font-mono text-xs">{safeLevel} · {currentData.labelEs}</Badge>
-            </p>
-          </div>
-        </div>
-
-        {/* Global scale headline */}
-        <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-lg mb-4">
-          <p className="text-sm font-semibold text-foreground leading-relaxed mb-1">
-            {currentData.globalScale.es}
-          </p>
-          <p className="text-xs italic text-muted-foreground leading-relaxed">
-            {currentData.globalScale.en}
-          </p>
-        </div>
-
-        {/* Specific statements */}
-        <ul className="space-y-3">
-          {currentData.statements.map((stmt, idx) => (
-            <li
-              key={idx}
-              className="flex gap-3 items-start"
-              data-testid={`cando-statement-current-${idx}`}
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-1 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground leading-snug">{stmt.es}</p>
-                <p className="text-xs italic text-muted-foreground leading-snug mt-0.5">{stmt.en}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      {/* Next Level — what's coming */}
-      {!hideNextLevel && nextData && (
-        <Card className="p-6 border-border rounded-2xl bg-gradient-to-br from-primary/[0.03] to-accent/[0.03]">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Target className="w-5 h-5 text-primary" />
+    <div data-testid="can-do-statements">
+      {/* Current Level — collapsible */}
+      <Card className="border-border rounded-2xl overflow-hidden">
+        {/* Always-visible header (collapsible trigger) */}
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full text-left p-5 hover:bg-muted/30 transition-colors"
+          aria-expanded={expanded}
+          data-testid="button-cando-toggle"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-display uppercase tracking-tight mb-1">
-                Lo siguiente: {nextData.labelEs}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-display uppercase tracking-tight mb-1">
+                What I can already do
               </h2>
-              <p className="text-sm font-mono text-muted-foreground">
-                What's next · <Badge className="ml-1 font-mono text-xs">{nextLevel}</Badge>
+              <p className="text-sm text-muted-foreground leading-snug">
+                {currentData.globalScale.en}
               </p>
+              <div className="flex items-center gap-2 mt-2.5">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {safeLevel} · {currentData.label}
+                </Badge>
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {currentData.statements.length} abilities
+                </Badge>
+              </div>
+            </div>
+            <div className="flex-shrink-0 mt-1">
+              {expanded ? (
+                <ChevronUp className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              )}
             </div>
           </div>
+        </button>
 
-          <div className="p-4 bg-primary/5 border border-primary/15 rounded-lg mb-4">
-            <p className="text-sm font-semibold text-foreground leading-relaxed mb-1">
-              {nextData.globalScale.es}
-            </p>
-            <p className="text-xs italic text-muted-foreground leading-relaxed">
-              {nextData.globalScale.en}
-            </p>
+        {/* Expandable detail */}
+        {expanded && (
+          <div className="px-5 pb-5 pt-0 border-t border-border">
+            {/* A1 only: Spanish translation of global scale headline */}
+            {showSpanish && (
+              <div className="p-3 mt-4 mb-4 bg-emerald-50/50 border border-emerald-100 rounded-lg">
+                <p className="text-xs italic text-emerald-900 leading-relaxed">
+                  {currentData.globalScale.es}
+                </p>
+              </div>
+            )}
+
+            <ul className={`space-y-2.5 ${showSpanish ? "" : "mt-4"}`}>
+              {currentData.statements.map((stmt, idx) => (
+                <li
+                  key={idx}
+                  className="flex gap-3 items-start"
+                  data-testid={`cando-statement-${idx}`}
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-foreground leading-snug">
+                      {stmt.en}
+                    </p>
+                    {/* A1 only: Spanish in italic UNDER the English bold */}
+                    {showSpanish && (
+                      <p className="text-xs italic text-muted-foreground leading-snug mt-0.5">
+                        {stmt.es}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-
-          <ul className="space-y-3">
-            {nextData.statements.map((stmt, idx) => (
-              <li
-                key={idx}
-                className="flex gap-3 items-start"
-                data-testid={`cando-statement-next-${idx}`}
-              >
-                <ArrowRight className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground leading-snug">{stmt.es}</p>
-                  <p className="text-xs italic text-muted-foreground leading-snug mt-0.5">{stmt.en}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 }
