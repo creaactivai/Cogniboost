@@ -15,6 +15,7 @@ import { AiTutorChat } from "@/components/dashboard/ai-tutor-chat";
 import { WelcomeWalkthrough } from "@/components/dashboard/welcome-walkthrough";
 import WritingAssignmentPage from "@/pages/writing-assignment";
 import MyWritingsPage from "@/pages/my-writings";
+import MyPlanPage from "@/pages/my-plan";
 import FinalExamsPage from "@/pages/final-exams";
 import ExamTakePage from "@/pages/exam-take";
 import ExamResultPage from "@/pages/exam-result";
@@ -246,6 +247,7 @@ export default function Dashboard() {
               <Route path="/dashboard/exam/:level" component={ExamTakePage} />
               {/* Phase 1 — AI-graded writing (Master Plan v2.0 §4) */}
               <Route path="/dashboard/my-writings" component={MyWritingsPage} />
+              <Route path="/dashboard/my-plan" component={MyPlanPage} />
               <Route path="/dashboard/writing/new" component={WritingAssignmentPage} />
               <Route path="/dashboard/submissions/:id" component={SubmissionViewPage} />
               <Route path="/dashboard/speaking/:moduleId" component={SpeakingAssignmentPage} />

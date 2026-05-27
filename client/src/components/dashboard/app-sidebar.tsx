@@ -26,6 +26,7 @@ import {
   Award,
   Brain,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -49,6 +50,11 @@ const LEVEL_LABEL: Record<string, string> = {
 const ACTIVE_NAV_CLASSES =
   "relative data-[active=true]:bg-sidebar-accent/15 data-[active=true]:text-sidebar-foreground data-[active=true]:font-semibold data-[active=true]:before:content-[''] data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-1 data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-accent";
 
+// Sidebar simplified May 27, 2026 (Coral feedback): removed "My Writings"
+// (redundant with Courses + Progress trajectory chart) and "Mastery Exam"
+// (lives inside each Course at the end + eligibility banner will surface
+// it when student is close to qualifying). Added "My Plan" (Phase 1.3
+// ESL Roadmap) as the strategy zone.
 const menuItems = [
   {
     title: "Home",
@@ -56,14 +62,14 @@ const menuItems = [
     icon: Home,
   },
   {
+    title: "My Plan",
+    url: "/dashboard/my-plan",
+    icon: Target,
+  },
+  {
     title: "My Courses",
     url: "/dashboard/courses",
     icon: BookOpen,
-  },
-  {
-    title: "My Writings",
-    url: "/dashboard/my-writings",
-    icon: PenLine,
   },
   {
     title: "Conversation Labs",
@@ -79,11 +85,6 @@ const menuItems = [
     title: "Daily Challenge",
     url: "/dashboard/daily-challenge",
     icon: Sparkles,
-  },
-  {
-    title: "Mastery Exam",
-    url: "/dashboard/exams",
-    icon: Award,
   },
   {
     title: "My Progress",

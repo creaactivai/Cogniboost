@@ -6091,6 +6091,255 @@ Important:
     }
   });
 
+  // ─── My Plan / Work Plan (Phase 1.3 ESL Roadmap) ─────────────────────
+  // GET /api/student/my-plan
+  //   Returns the student's active 21-day Work Plan. If none exists OR
+  //   the previous one expired (>21d) OR all tactics in the previous were
+  //   marked tried, generates a fresh plan via Claude based on the
+  //   student's actual submission data.
+  // POST /api/student/my-plan/:planId/tactics/:tacticId/tried
+  //   Marks a tactic as tried. When all are marked, status flips to
+  //   'completed' and the next GET will generate a new plan.
+  app.get("/api/student/my-plan", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { db, pool } = await import("./db");
+      const { workPlans, submissions } = await import("@shared/schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+
+      // Self-heal: ensure table exists (Railway hot-reload safety)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS work_plans (
+          id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id varchar NOT NULL,
+          tactics jsonb NOT NULL,
+          cycle_start timestamp NOT NULL DEFAULT now(),
+          cycle_end timestamp NOT NULL,
+          submissions_analyzed integer NOT NULL DEFAULT 0,
+          status text NOT NULL DEFAULT 'active',
+          created_at timestamp NOT NULL DEFAULT now()
+        )
+      `);
+
+      const now = new Date();
+
+      // 1. Look up active plan
+      const active = await db
+        .select()
+        .from(workPlans)
+        .where(and(eq(workPlans.userId, userId), eq(workPlans.status, "active")))
+        .orderBy(desc(workPlans.createdAt))
+        .limit(1);
+
+      if (active.length > 0) {
+        const plan = active[0] as any;
+        const cycleEnd = new Date(plan.cycleEnd);
+        const tactics = Array.isArray(plan.tactics) ? plan.tactics : [];
+        const allTried = tactics.length > 0 && tactics.every((t: any) => t.status === "tried");
+        const expired = cycleEnd < now;
+
+        // If still valid AND not all tried, return as-is
+        if (!expired && !allTried) {
+          return res.json({ plan });
+        }
+
+        // Otherwise mark as superseded and fall through to generate new
+        await db
+          .update(workPlans)
+          .set({ status: allTried ? "completed" : "expired" })
+          .where(eq(workPlans.id, plan.id));
+      }
+
+      // 2. Generate a fresh plan via Claude
+      const user = await storage.getUser(userId);
+      const level = (user as any)?.currentLevel || (user as any)?.placementLevel || "A1";
+
+      const recentSubs = await db
+        .select({
+          id: submissions.id,
+          assignmentType: submissions.assignmentType,
+          aiGrade: submissions.aiGrade,
+          submittedAt: submissions.submittedAt,
+        })
+        .from(submissions)
+        .where(eq(submissions.studentId, userId))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(20);
+
+      // Aggregate signals for Claude: errors, scores, WPM
+      const allPriorities: string[] = [];
+      const inlineErrors: Array<{ issue_type: string; text_segment: string; explanation: string }> = [];
+      const wpms: number[] = [];
+      let avgWriting = 0, avgSpeaking = 0;
+      let nWriting = 0, nSpeaking = 0;
+      for (const s of recentSubs) {
+        const grade: any = s.aiGrade || {};
+        if (Array.isArray(grade.improvement_priorities)) {
+          allPriorities.push(...grade.improvement_priorities.slice(0, 2));
+        }
+        if (Array.isArray(grade.inline_notes)) {
+          for (const note of grade.inline_notes.slice(0, 5)) {
+            inlineErrors.push({
+              issue_type: note.issue_type || "general",
+              text_segment: (note.text_segment || "").slice(0, 60),
+              explanation: (note.explanation || "").slice(0, 100),
+            });
+          }
+        }
+        if (typeof grade.words_per_minute === "number") wpms.push(grade.words_per_minute);
+        if (typeof grade.overall_score === "number") {
+          if (s.assignmentType === "speaking_recording") { avgSpeaking += grade.overall_score; nSpeaking++; }
+          else if (s.assignmentType === "writing" || s.assignmentType === "writing_project") { avgWriting += grade.overall_score; nWriting++; }
+        }
+      }
+      avgWriting = nWriting > 0 ? Math.round(avgWriting / nWriting) : 0;
+      avgSpeaking = nSpeaking > 0 ? Math.round(avgSpeaking / nSpeaking) : 0;
+      const avgWPM = wpms.length > 0 ? Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length) : 0;
+
+      // Compose Claude prompt
+      const { getAnthropicClient, ANTHROPIC_MODELS, extractTextContent, parseJsonFromResponse } = await import("./anthropicClient");
+      const client = getAnthropicClient();
+
+      const userContext = `Student level: ${level}
+Submissions analyzed: ${recentSubs.length}
+Average writing score: ${avgWriting > 0 ? avgWriting + "/100" : "no data"}
+Average speaking score: ${avgSpeaking > 0 ? avgSpeaking + "/100" : "no data"}
+Average WPM (speaking pace): ${avgWPM > 0 ? avgWPM : "no data"}
+
+RECURRING IMPROVEMENT AREAS (from recent AI feedback):
+${allPriorities.slice(0, 12).map(p => `  • ${p}`).join("\n") || "  (none — student is new)"}
+
+SPECIFIC INLINE ERRORS DETECTED:
+${inlineErrors.slice(0, 10).map(e => `  [${e.issue_type}] "${e.text_segment}" — ${e.explanation}`).join("\n") || "  (none)"}`;
+
+      const systemPrompt = `You are an expert ESL coach for Spanish-speaking adult learners.
+Your job: generate a 21-day personalized Work Plan with 3-4 ACTIONABLE tactics.
+
+CRITICAL RULES:
+1. Tactics must be CONCRETE actions, never vague advice.
+   ❌ "Practice past simple"
+   ✅ "When you notice yourself about to say 'I goed', stop and ask 'is this regular or irregular?' before speaking"
+
+2. Each tactic should:
+   - Address a SPECIFIC pattern visible in the student's data
+   - Suggest a specific frequency / time commitment
+   - Include WHY it helps with a citation to real data (WPM, error count, etc.)
+
+3. Mix tactic TYPES:
+   - At least 1 "quick habit swap" (instant fix for a specific error)
+   - At least 1 skill-building habit (daily practice)
+   - At least 1 resource-discovery tactic (movies, podcasts, etc.)
+
+4. Tone: warm, expert, like a coach who genuinely sees the student.
+
+5. For A1 students, include short Spanish translation in why.
+6. For A2+ students, English only.
+
+OUTPUT FORMAT (strict JSON, no markdown):
+{
+  "tactics": [
+    {
+      "id": "tactic-1",
+      "action": "Replace 'I want' with 'I'd like' in this week's speaking",
+      "highlights": ["I want", "I'd like"],
+      "meta": ["Quick habit swap", "Register"],
+      "durationLabel": "Quick habit swap",
+      "why": "You used 'I want' 11 times in your last 5 speakings — sounds direct/blunt to natives. 'I'd like' is the polite default.",
+      "validationHint": "Count occurrences of 'I'd like' in next speakings",
+      "status": "pending"
+    }
+  ]
+}`;
+
+      const message = await client.messages.create({
+        model: ANTHROPIC_MODELS.grading,
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{
+          role: "user",
+          content: `Generate a Work Plan for this student.\n\n${userContext}\n\nReturn 3-4 tactics in JSON.`,
+        }],
+      });
+
+      const text = extractTextContent(message);
+      const parsed = parseJsonFromResponse<{ tactics: any[] }>(text);
+      const tactics = Array.isArray(parsed?.tactics) ? parsed.tactics : [];
+
+      // 3. Persist
+      const cycleStart = new Date();
+      const cycleEnd = new Date(cycleStart.getTime() + 21 * 24 * 60 * 60 * 1000);
+      const [inserted] = await db
+        .insert(workPlans)
+        .values({
+          userId,
+          tactics: tactics as any,
+          cycleStart,
+          cycleEnd,
+          submissionsAnalyzed: recentSubs.length,
+          status: "active",
+        })
+        .returning();
+
+      res.json({ plan: inserted });
+    } catch (err: any) {
+      console.error("[my-plan GET] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed to load plan" });
+    }
+  });
+
+  app.post("/api/student/my-plan/:planId/tactics/:tacticId/tried", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { db } = await import("./db");
+      const { workPlans } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const existing = await db
+        .select()
+        .from(workPlans)
+        .where(and(eq(workPlans.id, req.params.planId), eq(workPlans.userId, userId)))
+        .limit(1);
+      if (existing.length === 0) return res.status(404).json({ error: "Plan not found" });
+
+      const plan = existing[0] as any;
+      const tactics = Array.isArray(plan.tactics) ? [...plan.tactics] : [];
+      const idx = tactics.findIndex((t: any) => t.id === req.params.tacticId);
+      if (idx === -1) return res.status(404).json({ error: "Tactic not found" });
+
+      // Mark as tried. Validation logic is intentionally minimal for MVP:
+      // we acknowledge the student's report. Future: cross-reference real
+      // submission data to compute "It worked!" with actual metrics.
+      tactics[idx] = {
+        ...tactics[idx],
+        status: "tried",
+        triedAt: new Date().toISOString(),
+        validation: tactics[idx].validation || {
+          summary: "Marked as tried — keep going!",
+        },
+      };
+
+      const allTried = tactics.every((t: any) => t.status === "tried");
+
+      const [updated] = await db
+        .update(workPlans)
+        .set({
+          tactics: tactics as any,
+          status: allTried ? "completed" : "active",
+        })
+        .where(eq(workPlans.id, plan.id))
+        .returning();
+
+      res.json({ plan: updated });
+    } catch (err: any) {
+      console.error("[my-plan tried POST] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
   // Teacher-facing grading queue — submissions awaiting review.
   app.get("/api/submissions/queue", async (req, res) => {
     try {

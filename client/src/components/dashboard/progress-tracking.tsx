@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { ProgressTrajectory } from "./progress-trajectory";
-import { ActionPlan } from "./action-plan";
 import { CanDoStatements } from "./can-do-statements";
 import {
   TrendingUp,
@@ -251,8 +250,10 @@ export function ProgressTracking() {
         <ProgressTrajectory />
       </div>
 
-      {/* Action Plan — recurring focus areas extracted from feedback */}
-      <ActionPlan />
+      {/* Action Plan removed May 27, 2026 — replaced by the dedicated My Plan
+          page at /dashboard/my-plan (Phase 1.3 ESL Roadmap). The new page
+          generates real actionable tactics via Claude instead of just listing
+          recurring errors. */}
 
       {/* GPA and Course Scores Section */}
       {scoresLoading ? (
