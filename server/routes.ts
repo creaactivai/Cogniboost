@@ -5793,6 +5793,284 @@ Important:
   app.get("/api/student/action-plan", actionPlanHandler);
   app.get("/api/student/:studentId/action-plan", actionPlanHandler);
 
+  // ─── Today's Mission (Phase 1.0 ESL Roadmap) ─────────────────────────
+  // GET /api/student/today-mission
+  // Returns the student's curated 30-min mission for today. If one already
+  // exists for today, returns it as-is (don't re-curate mid-day). If not,
+  // generates a fresh one based on:
+  //   - Action Plan (top recurring focus areas)
+  //   - Daily Challenge state (already done today?)
+  //   - Upcoming lab in next 48h (prep for it)
+  //   - Days since last writing/speaking submission
+  // and persists it to daily_missions.
+  app.get("/api/student/today-mission", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { db } = await import("./db");
+      const { dailyMissions, submissions, dailyChallengeAttempts, labRegistrations, labSessionsV2 } = await import("@shared/schema");
+      const { eq, and, gte, desc, sql } = await import("drizzle-orm");
+
+      // Compute "today" in the server's local time. YYYY-MM-DD.
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const today = `${yyyy}-${mm}-${dd}`;
+
+      // 1. If a mission already exists for today, return it
+      const existing = await db
+        .select()
+        .from(dailyMissions)
+        .where(and(eq(dailyMissions.userId, userId), eq(dailyMissions.missionDate, today)))
+        .limit(1);
+      if (existing.length > 0) {
+        return res.json({ mission: existing[0] });
+      }
+
+      // 2. Curate a new mission. Gather context:
+      const user = await storage.getUser(userId);
+      const level = (user as any)?.currentLevel || (user as any)?.placementLevel || "A1";
+
+      // a. Has the student done today's Daily Challenge?
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      const dcToday = await db
+        .select({ id: dailyChallengeAttempts.id })
+        .from(dailyChallengeAttempts)
+        .where(and(
+          eq(dailyChallengeAttempts.studentId, userId),
+          gte(dailyChallengeAttempts.attemptedAt, startOfToday),
+        ))
+        .limit(1);
+      const dailyChallengeDone = dcToday.length > 0;
+
+      // b. Top action plan focus area (reuse the action-plan handler logic, light version)
+      const recentSubs = await db
+        .select({ aiGrade: submissions.aiGrade, assignmentType: submissions.assignmentType })
+        .from(submissions)
+        .where(eq(submissions.studentId, userId))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(20);
+      const priorities: string[] = [];
+      for (const s of recentSubs) {
+        const grade: any = s.aiGrade || {};
+        if (Array.isArray(grade.improvement_priorities)) {
+          priorities.push(...grade.improvement_priorities.slice(0, 1));
+        }
+      }
+      const topFocus = priorities[0] || null;
+
+      // c. Days since last writing/speaking submission
+      const lastSub = recentSubs[0];
+      const daysSinceLastSub = lastSub
+        ? Math.floor((now.getTime() - new Date((lastSub as any).submittedAt || now).getTime()) / 86_400_000)
+        : 999;
+
+      // d. Upcoming lab in next 48h
+      const in48h = new Date(now.getTime() + 48 * 3600 * 1000);
+      const upcomingLab = await db
+        .select({
+          id: labSessionsV2.id,
+          title: labSessionsV2.title,
+          scheduledAt: labSessionsV2.scheduledAt,
+        })
+        .from(labRegistrations)
+        .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
+        .where(and(
+          eq(labRegistrations.userId, userId),
+          gte(labSessionsV2.scheduledAt, now),
+          sql`${labSessionsV2.scheduledAt} <= ${in48h}`,
+        ))
+        .orderBy(labSessionsV2.scheduledAt)
+        .limit(1);
+      const nextLab = upcomingLab[0] || null;
+
+      // 3. Compose the mission (30 min total, varied formats)
+      type Activity = {
+        id: string;
+        type: "daily_challenge" | "listening" | "speaking" | "writing" | "reading" | "vocab" | "scenario" | "coral_memo";
+        title: string;
+        subtitle: string;
+        durationMinutes: number;
+        route: string;
+        iconKey: string;
+        completed: boolean;
+      };
+
+      const activities: Activity[] = [];
+      let remainingMin = 30;
+
+      // Activity 1: Daily Challenge warm-up if not done (5 min)
+      if (!dailyChallengeDone) {
+        activities.push({
+          id: "dc-warmup",
+          type: "daily_challenge",
+          title: "Daily Challenge warm-up",
+          subtitle: `10 questions at your ${level} level`,
+          durationMinutes: 5,
+          route: "/dashboard/daily-challenge",
+          iconKey: "zap",
+          completed: false,
+        });
+        remainingMin -= 5;
+      }
+
+      // Activity 2: Speaking or Writing project if 3+ days since last
+      if (daysSinceLastSub >= 3) {
+        activities.push({
+          id: "speaking-project",
+          type: "speaking",
+          title: "Speaking practice",
+          subtitle: `Record a ${level} speaking project`,
+          durationMinutes: 15,
+          route: "/dashboard/courses",
+          iconKey: "mic",
+          completed: false,
+        });
+        remainingMin -= 15;
+      } else {
+        // Recent activity — give them a listening exercise (placeholder route until Phase 2 lands)
+        activities.push({
+          id: "listening-ex",
+          type: "listening",
+          title: "Listening practice",
+          subtitle: "Comprehension exercise with native speakers",
+          durationMinutes: 10,
+          route: "/dashboard/courses",
+          iconKey: "headphones",
+          completed: false,
+        });
+        remainingMin -= 10;
+      }
+
+      // Activity 3: Vocabulary SRS (always — keeps cards fresh)
+      if (remainingMin >= 8) {
+        activities.push({
+          id: "vocab-review",
+          type: "vocab",
+          title: "Review vocabulary",
+          subtitle: topFocus ? `Focus area: ${topFocus.slice(0, 60)}...` : "8 cards from your SRS deck",
+          durationMinutes: 8,
+          route: "/dashboard/vocabulary",
+          iconKey: "book",
+          completed: false,
+        });
+        remainingMin -= 8;
+      }
+
+      // Activity 4: Lab prep if class in next 48h
+      if (nextLab && remainingMin >= 5) {
+        activities.push({
+          id: "lab-prep",
+          type: "vocab",
+          title: `Prep for "${nextLab.title}"`,
+          subtitle: "Vocabulary preview for your live class",
+          durationMinutes: 5,
+          route: `/dashboard/labs/${nextLab.id}/room`,
+          iconKey: "video",
+          completed: false,
+        });
+        remainingMin -= 5;
+      } else if (remainingMin >= 5) {
+        // Otherwise, light reading
+        activities.push({
+          id: "reading-light",
+          type: "reading",
+          title: "Quick reading",
+          subtitle: "Short passage with comprehension questions",
+          durationMinutes: Math.min(remainingMin, 7),
+          route: "/dashboard/courses",
+          iconKey: "book-open",
+          completed: false,
+        });
+      }
+
+      // Compose title + rationale
+      let title = "Today's mission";
+      let rationale: string | null = null;
+      if (nextLab) {
+        const labDay = new Date(nextLab.scheduledAt);
+        const dayName = labDay.toLocaleDateString("en-US", { weekday: "long" });
+        title = `Prep for ${dayName}'s class`;
+        rationale = `Your Conversation Lab "${nextLab.title}" is coming up — these activities get you ready.`;
+      } else if (topFocus) {
+        title = `Work on your focus area`;
+        rationale = `Based on your recent feedback: ${topFocus.slice(0, 100)}...`;
+      } else if (daysSinceLastSub >= 5) {
+        title = `Get back in the rhythm`;
+        rationale = `It's been a few days — let's restart with these activities.`;
+      } else {
+        title = `Today's 30-min mission`;
+        rationale = `A varied mix to keep your English moving forward.`;
+      }
+
+      const totalMin = activities.reduce((s, a) => s + a.durationMinutes, 0);
+
+      // 4. Persist
+      const [inserted] = await db
+        .insert(dailyMissions)
+        .values({
+          userId,
+          missionDate: today,
+          title,
+          rationale,
+          activities: activities as any,
+          totalMinutes: totalMin,
+          status: "not_started",
+        })
+        .returning();
+
+      res.json({ mission: inserted });
+    } catch (err: any) {
+      console.error("[today-mission] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed to load today's mission" });
+    }
+  });
+
+  // POST /api/student/mission/:id/start — mark in_progress + record start time
+  app.post("/api/student/mission/:id/start", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { db } = await import("./db");
+      const { dailyMissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [updated] = await db
+        .update(dailyMissions)
+        .set({ status: "in_progress", startedAt: new Date() })
+        .where(and(eq(dailyMissions.id, req.params.id), eq(dailyMissions.userId, userId)))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Mission not found" });
+      res.json({ mission: updated });
+    } catch (err: any) {
+      console.error("[mission/start] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
+  // POST /api/student/mission/:id/complete — mark completed + record end time
+  app.post("/api/student/mission/:id/complete", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { db } = await import("./db");
+      const { dailyMissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [updated] = await db
+        .update(dailyMissions)
+        .set({ status: "completed", completedAt: new Date() })
+        .where(and(eq(dailyMissions.id, req.params.id), eq(dailyMissions.userId, userId)))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Mission not found" });
+      res.json({ mission: updated });
+    } catch (err: any) {
+      console.error("[mission/complete] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
   // Teacher-facing grading queue — submissions awaiting review.
   app.get("/api/submissions/queue", async (req, res) => {
     try {

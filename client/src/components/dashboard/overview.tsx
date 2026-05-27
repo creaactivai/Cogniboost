@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { LiveNowWidget } from "@/components/dashboard/live-now-widget";
 import { DailyChallengeWidget } from "@/components/dashboard/daily-challenge-widget";
+import { MissionCard } from "@/components/dashboard/mission-card";
 import type { LiveSession, SessionRoom, UserStats, Enrollment, Course } from "@shared/schema";
 
 /**
@@ -313,6 +314,11 @@ export function DashboardOverview() {
           </div>
         </div>
       </Card>
+
+      {/* ---------- TODAY'S MISSION (Phase 1.0 ESL Roadmap) ----------
+          Curated 30-min mission. Auto-hides when LiveNowWidget has
+          an active class (live class takes priority). */}
+      <MissionCard />
 
       {/* ---------- STAT GRID (2x2 on mobile, 4 cols on lg) ---------- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

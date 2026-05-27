@@ -689,6 +689,27 @@ async function runStartupMigrations() {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_announcements_sent_at ON announcements (sent_at DESC)`);
     console.log('Startup migrations: announcements table verified');
+
+    // Daily Missions — Phase 1.0 ESL Roadmap. One curated 30-min mission
+    // per student per day, composed of activities pulled from across the
+    // platform. Curator endpoint creates the row on first dashboard view.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_missions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL,
+        mission_date text NOT NULL,
+        activities jsonb NOT NULL,
+        total_minutes integer NOT NULL DEFAULT 30,
+        title text NOT NULL,
+        rationale text,
+        status text NOT NULL DEFAULT 'not_started',
+        started_at timestamp,
+        completed_at timestamp,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_missions_user_date ON daily_missions (user_id, mission_date)`);
+    console.log('Startup migrations: daily_missions table verified');
   } catch (err) {
     console.error('Startup migration error (non-fatal):', err);
   }

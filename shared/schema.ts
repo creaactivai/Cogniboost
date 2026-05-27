@@ -1008,6 +1008,33 @@ export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
 export type Announcement = typeof announcements.$inferSelect;
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 
+// ── Daily Missions (Phase 1.0 ESL Roadmap) ────────────────────────────────
+// One curated "30-min mission" per student per day. Composed of 3-5 varied
+// activities pulled from across the platform (Daily Challenge + a recommended
+// writing/speaking/listening + collocations review + Coral memo etc.). The
+// curator endpoint generates this on-demand the first time the student opens
+// the dashboard that day. status='completed' when student finishes all
+// activities; 'in_progress' if they started but didn't finish.
+export const dailyMissions = pgTable("daily_missions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  missionDate: text("mission_date").notNull(), // YYYY-MM-DD in user's locale
+  // Array of {id, type, title, subtitle, durationMinutes, route, iconKey, completed}
+  activities: jsonb("activities").notNull(),
+  totalMinutes: integer("total_minutes").notNull().default(30),
+  title: text("title").notNull(),
+  // Optional reason / personalization narrative — "Practice 'I'd like' for Thursday's class"
+  rationale: text("rationale"),
+  status: text("status").notNull().default("not_started"), // not_started | in_progress | completed
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDailyMissionSchema = createInsertSchema(dailyMissions).omit({ id: true, createdAt: true });
+export type DailyMission = typeof dailyMissions.$inferSelect;
+export type InsertDailyMission = z.infer<typeof insertDailyMissionSchema>;
+
 export type FinalExam = typeof finalExams.$inferSelect;
 export type InsertFinalExam = z.infer<typeof insertFinalExamSchema>;
 export type FinalExamQuestion = typeof finalExamQuestions.$inferSelect;
