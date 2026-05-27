@@ -2580,6 +2580,102 @@ Return a JSON array with this exact format:
     }
   });
 
+  // Admin: edit a user's level / tier / onboarding state.
+  // Use case 1: manually fix tier when Stripe webhook fails.
+  // Use case 2: change a student's level after teacher's oral assessment.
+  // Use case 3: promote a test account to all-access for QA.
+  //
+  // Body accepts ANY subset of: { currentLevel, subscriptionTier,
+  // onboardingCompleted, englishLevel, placementLevel }.
+  app.patch("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("@shared/models/auth");
+      const { eq } = await import("drizzle-orm");
+
+      const allowedLevels = ["A1", "A2", "B1", "B2", "C1", "C2"];
+      const allowedTiers = ["free", "flex", "basic", "premium"];
+      const updates: any = {};
+
+      if (req.body.currentLevel !== undefined) {
+        if (!allowedLevels.includes(req.body.currentLevel)) {
+          return res.status(400).json({ error: `currentLevel must be one of ${allowedLevels.join(", ")}` });
+        }
+        updates.currentLevel = req.body.currentLevel;
+      }
+      if (req.body.placementLevel !== undefined) {
+        if (!allowedLevels.includes(req.body.placementLevel)) {
+          return res.status(400).json({ error: `placementLevel must be one of ${allowedLevels.join(", ")}` });
+        }
+        updates.placementLevel = req.body.placementLevel;
+      }
+      if (req.body.englishLevel !== undefined) {
+        if (!allowedLevels.includes(req.body.englishLevel)) {
+          return res.status(400).json({ error: `englishLevel must be one of ${allowedLevels.join(", ")}` });
+        }
+        updates.englishLevel = req.body.englishLevel;
+      }
+      if (req.body.subscriptionTier !== undefined) {
+        if (!allowedTiers.includes(req.body.subscriptionTier)) {
+          return res.status(400).json({ error: `subscriptionTier must be one of ${allowedTiers.join(", ")}` });
+        }
+        updates.subscriptionTier = req.body.subscriptionTier;
+      }
+      if (req.body.onboardingCompleted !== undefined) {
+        updates.onboardingCompleted = !!req.body.onboardingCompleted;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set(updates)
+        .where(eq(users.id, req.params.userId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: "User not found" });
+
+      console.log(`[admin/users PATCH] ${(req.user as any)?.email} updated ${req.params.userId}: ${JSON.stringify(updates)}`);
+      res.json({ user: updated });
+    } catch (err: any) {
+      console.error("[admin/users PATCH] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed to update user" });
+    }
+  });
+
+  // Admin: promote a user to test mode = max-level + premium + onboarded.
+  // Convenience endpoint for QA / Coral's test account.
+  app.post("/api/admin/users/:userId/promote-test-mode", requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("@shared/models/auth");
+      const { eq } = await import("drizzle-orm");
+
+      const [updated] = await db
+        .update(users)
+        .set({
+          currentLevel: "C1",
+          placementLevel: "C1",
+          englishLevel: "C1",
+          subscriptionTier: "premium",
+          onboardingCompleted: true,
+          emailVerified: true,
+        })
+        .where(eq(users.id, req.params.userId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: "User not found" });
+
+      console.log(`[admin/users promote-test-mode] ${(req.user as any)?.email} promoted ${req.params.userId}`);
+      res.json({ user: updated });
+    } catch (err: any) {
+      console.error("[admin/promote-test-mode] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
   // Admin: Update conversation lab
   app.patch("/api/admin/labs/:id", requireAdmin, async (req, res) => {
     try {

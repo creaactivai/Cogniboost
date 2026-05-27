@@ -1,10 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   BookOpen,
@@ -19,6 +29,8 @@ import {
   ClipboardCheck,
   AlertCircle,
   TrendingUp,
+  Beaker,
+  Rocket,
 } from "lucide-react";
 import { ProgressTrajectory } from "@/components/dashboard/progress-trajectory";
 import { ActionPlan } from "@/components/dashboard/action-plan";
@@ -38,6 +50,144 @@ interface ExamAttempt {
   speakingSubmissionId: string | null;
   examLevel: string | null;
   examTitle: string | null;
+}
+
+// Quick-edit admin controls for a student's level, subscription tier, and
+// onboarding flag. Includes a "Promote to Test Mode" preset that sets
+// C1 + Premium + onboarded — useful for QA and Coral's test account so she
+// can navigate all levels without taking the placement quiz.
+function TestModeControls({
+  studentId,
+  currentLevel,
+  subscriptionTier,
+}: {
+  studentId: string;
+  currentLevel: string;
+  subscriptionTier: string;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [level, setLevel] = useState(currentLevel);
+  const [tier, setTier] = useState(subscriptionTier);
+
+  const patchMutation = useMutation({
+    mutationFn: async (updates: Record<string, any>) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${studentId}`, updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/students", studentId] });
+      qc.invalidateQueries(); // refresh everything
+      toast({ title: "Updated", description: "Student record saved." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const promoteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/users/${studentId}/promote-test-mode`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries();
+      toast({
+        title: "🚀 Promoted to Test Mode",
+        description: "Level=C1 · Tier=Premium · Onboarded — all content unlocked.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const dirty = level !== currentLevel || tier !== subscriptionTier;
+
+  return (
+    <Card className="p-5 border-amber-200 bg-amber-50/30">
+      <div className="flex items-center gap-2 mb-3">
+        <Beaker className="w-4 h-4 text-amber-700" />
+        <h3 className="text-sm font-bold uppercase tracking-wider text-amber-900">
+          Test Mode Controls
+        </h3>
+      </div>
+      <p className="text-xs text-amber-800/70 mb-4">
+        Edit student level + subscription tier + onboarding state. Use for QA, fixing failed Stripe webhooks, or post-assessment level reassignment.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <label className="text-xs font-semibold text-amber-900 mb-1.5 block">
+            Current Level
+          </label>
+          <Select value={level} onValueChange={setLevel}>
+            <SelectTrigger className="bg-white" data-testid="select-test-level">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="A1">A1 — Beginner</SelectItem>
+              <SelectItem value="A2">A2 — Elementary</SelectItem>
+              <SelectItem value="B1">B1 — Intermediate</SelectItem>
+              <SelectItem value="B2">B2 — Upper Intermediate</SelectItem>
+              <SelectItem value="C1">C1 — Advanced</SelectItem>
+              <SelectItem value="C2">C2 — Mastery</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-amber-900 mb-1.5 block">
+            Subscription Tier
+          </label>
+          <Select value={tier} onValueChange={setTier}>
+            <SelectTrigger className="bg-white" data-testid="select-test-tier">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free">Free</SelectItem>
+              <SelectItem value="flex">Flex ($14.99)</SelectItem>
+              <SelectItem value="basic">Basic ($49.99)</SelectItem>
+              <SelectItem value="premium">Premium ($99.99)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-end">
+          <Button
+            onClick={() =>
+              patchMutation.mutate({
+                currentLevel: level,
+                placementLevel: level,
+                englishLevel: level,
+                subscriptionTier: tier,
+              })
+            }
+            disabled={!dirty || patchMutation.isPending}
+            className="w-full"
+            data-testid="button-save-test-edits"
+          >
+            {patchMutation.isPending ? "Saving…" : dirty ? "Save Changes" : "No changes"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-amber-200 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-xs text-amber-800/80">
+          Quick preset: promote to <strong>C1 + Premium + Onboarded</strong> for full-access QA
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => promoteMutation.mutate()}
+          disabled={promoteMutation.isPending}
+          className="border-amber-300 bg-white hover:bg-amber-50 text-amber-900"
+          data-testid="button-promote-test-mode"
+        >
+          <Rocket className="w-3 h-3 mr-1.5" />
+          {promoteMutation.isPending ? "Promoting…" : "Promote to Test Mode"}
+        </Button>
+      </div>
+    </Card>
+  );
 }
 
 function ExamAttemptsSection({ studentId }: { studentId: string }) {
@@ -211,6 +361,7 @@ interface StudentProgress {
     lastName: string | null;
     status: string;
     englishLevel: string | null;
+    currentLevel: string | null;
     createdAt: string | null;
     subscriptionTier: string | null;
   };
@@ -340,6 +491,13 @@ export default function AdminStudentDetail() {
             </Badge>
           )}
         </div>
+
+        {/* Test Mode Controls — edit level/tier/onboarding on the fly */}
+        <TestModeControls
+          studentId={studentId!}
+          currentLevel={student.currentLevel || student.englishLevel || "A1"}
+          subscriptionTier={student.subscriptionTier || "free"}
+        />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
