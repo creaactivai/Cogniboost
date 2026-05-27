@@ -2645,6 +2645,31 @@ Return a JSON array with this exact format:
     }
   });
 
+  // Admin: reset a user's active Work Plan (My Plan). Marks the active
+  // plan as 'superseded' so next GET regenerates a fresh plan based on
+  // the user's CURRENT level + data. Useful after changing the user's
+  // level via Test Mode Controls — the old A1 plan is no longer relevant
+  // when the user is now C1.
+  app.post("/api/admin/users/:userId/reset-my-plan", requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { workPlans } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const result = await db
+        .update(workPlans)
+        .set({ status: "superseded" })
+        .where(and(eq(workPlans.userId, req.params.userId), eq(workPlans.status, "active")))
+        .returning();
+
+      console.log(`[admin/reset-my-plan] ${(req.user as any)?.email} reset ${result.length} active plan(s) for ${req.params.userId}`);
+      res.json({ reset: result.length });
+    } catch (err: any) {
+      console.error("[admin/reset-my-plan] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
   // Admin: promote a user to test mode = max-level + premium + onboarded.
   // Convenience endpoint for QA / Coral's test account.
   app.post("/api/admin/users/:userId/promote-test-mode", requireAdmin, async (req, res) => {
@@ -5942,7 +5967,66 @@ Important:
         .where(and(eq(dailyMissions.userId, userId), eq(dailyMissions.missionDate, today)))
         .limit(1);
       if (existing.length > 0) {
-        return res.json({ mission: existing[0] });
+        // Auto-detect completion for activities the student already did
+        // today (Daily Challenge, submissions, etc.). This is what fixes
+        // the bug where student does Daily Challenge but Mission Card
+        // counter stays at "0 of 4 tried".
+        const mission = existing[0] as any;
+        const activities: any[] = Array.isArray(mission.activities) ? mission.activities : [];
+        let updated = false;
+
+        // Daily challenge auto-completion
+        const dcCheckStart = new Date(now);
+        dcCheckStart.setHours(0, 0, 0, 0);
+        const dcDone = await db
+          .select({ id: dailyChallengeAttempts.id })
+          .from(dailyChallengeAttempts)
+          .where(and(
+            eq(dailyChallengeAttempts.studentId, userId),
+            gte(dailyChallengeAttempts.attemptedAt, dcCheckStart),
+          ))
+          .limit(1);
+        if (dcDone.length > 0) {
+          const i = activities.findIndex((a: any) => a.type === "daily_challenge" && !a.completed);
+          if (i !== -1) { activities[i] = { ...activities[i], completed: true, completedAt: new Date().toISOString() }; updated = true; }
+        }
+
+        // Speaking / Writing / Reading submissions today
+        const recentSubs = await db
+          .select({ assignmentType: submissions.assignmentType, submittedAt: submissions.submittedAt })
+          .from(submissions)
+          .where(and(eq(submissions.studentId, userId), gte(submissions.submittedAt, dcCheckStart)))
+          .limit(10);
+        for (const sub of recentSubs) {
+          const t = sub.assignmentType;
+          const subType = t === "speaking_recording" ? "speaking"
+            : (t === "writing" || t === "project") ? "writing"
+            : t === "reading_quiz" ? "reading"
+            : t === "listening_quiz" ? "listening"
+            : null;
+          if (!subType) continue;
+          const i = activities.findIndex((a: any) => a.type === subType && !a.completed);
+          if (i !== -1) { activities[i] = { ...activities[i], completed: true, completedAt: new Date().toISOString() }; updated = true; }
+        }
+
+        if (updated) {
+          const allDone = activities.every((a: any) => a.completed);
+          const anyDone = activities.some((a: any) => a.completed);
+          const newStatus = allDone ? "completed" : (anyDone && mission.status === "not_started" ? "in_progress" : mission.status);
+          const [refreshed] = await db
+            .update(dailyMissions)
+            .set({
+              activities: activities as any,
+              status: newStatus,
+              completedAt: allDone && !mission.completedAt ? new Date() : mission.completedAt,
+              startedAt: anyDone && !mission.startedAt ? new Date() : mission.startedAt,
+            })
+            .where(eq(dailyMissions.id, mission.id))
+            .returning();
+          return res.json({ mission: refreshed });
+        }
+
+        return res.json({ mission });
       }
 
       // 2. Curate a new mission. Gather context:
@@ -6183,6 +6267,54 @@ Important:
       res.json({ mission: updated });
     } catch (err: any) {
       console.error("[mission/complete] Error:", err?.message);
+      res.status(500).json({ error: err?.message || "Failed" });
+    }
+  });
+
+  // POST /api/student/mission/:id/activities/:activityId/done
+  // Marks a single activity inside a mission as completed. Updates the
+  // activities JSONB array, status="in_progress" if first activity done,
+  // status="completed" if all activities done.
+  app.post("/api/student/mission/:id/activities/:activityId/done", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { db } = await import("./db");
+      const { dailyMissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const existing = await db
+        .select()
+        .from(dailyMissions)
+        .where(and(eq(dailyMissions.id, req.params.id), eq(dailyMissions.userId, userId)))
+        .limit(1);
+      if (existing.length === 0) return res.status(404).json({ error: "Mission not found" });
+
+      const mission = existing[0] as any;
+      const activities = Array.isArray(mission.activities) ? [...mission.activities] : [];
+      const idx = activities.findIndex((a: any) => a.id === req.params.activityId);
+      if (idx === -1) return res.status(404).json({ error: "Activity not found in mission" });
+
+      activities[idx] = { ...activities[idx], completed: true, completedAt: new Date().toISOString() };
+      const allDone = activities.every((a: any) => a.completed);
+      const anyDone = activities.some((a: any) => a.completed);
+
+      const updates: any = { activities };
+      if (allDone) {
+        updates.status = "completed";
+        updates.completedAt = new Date();
+      } else if (anyDone && mission.status === "not_started") {
+        updates.status = "in_progress";
+        updates.startedAt = new Date();
+      }
+
+      const [updated] = await db
+        .update(dailyMissions)
+        .set(updates)
+        .where(eq(dailyMissions.id, mission.id))
+        .returning();
+      res.json({ mission: updated });
+    } catch (err: any) {
+      console.error("[mission/activity/done] Error:", err?.message);
       res.status(500).json({ error: err?.message || "Failed" });
     }
   });

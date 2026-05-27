@@ -102,6 +102,25 @@ export function MissionCard() {
 
   const { data, isLoading, error } = useQuery<MissionResponse>({
     queryKey: ["/api/student/today-mission"],
+    // Refetch when student returns to the tab — picks up activity
+    // completions detected server-side (e.g., they did Daily Challenge
+    // in another tab, came back here, mission now shows "1 of 4 done")
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000, // also poll every 60s as fallback
+  });
+
+  const markDoneMutation = useMutation({
+    mutationFn: async ({ missionId, activityId }: { missionId: string; activityId: string }) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/student/mission/${missionId}/activities/${activityId}/done`,
+        {},
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/student/today-mission"] });
+    },
   });
 
   // Respect live classes — if a class is happening RIGHT NOW, hide the
@@ -227,32 +246,55 @@ export function MissionCard() {
         {/* Activities list */}
         <div className="space-y-2.5 mb-5">
           {mission.activities.map((activity, idx) => (
-            <button
+            <div
               key={activity.id}
-              type="button"
-              onClick={() => handleActivityClick(activity)}
-              className="w-full flex items-center gap-3 p-3 sm:p-3.5 bg-white border border-border rounded-xl hover:border-primary/40 hover:shadow-sm transition-all text-left group"
+              className="flex items-center gap-3 p-3 sm:p-3.5 bg-white border border-border rounded-xl hover:border-primary/40 hover:shadow-sm transition-all"
               data-testid={`mission-activity-${idx}`}
             >
-              <ActivityIcon iconKey={activity.iconKey} completed={activity.completed} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
-                  Step {idx + 1}
-                </p>
-                <p className={`text-sm font-semibold leading-snug ${activity.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                  {activity.title}
-                </p>
-                {activity.subtitle && (
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {activity.subtitle}
+              <button
+                type="button"
+                onClick={() => handleActivityClick(activity)}
+                className="flex items-center gap-3 flex-1 text-left min-w-0"
+              >
+                <ActivityIcon iconKey={activity.iconKey} completed={activity.completed} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+                    Step {idx + 1}
                   </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 text-xs font-bold text-primary flex-shrink-0">
-                <Clock className="w-3 h-3" />
-                {activity.durationMinutes}m
-              </div>
-            </button>
+                  <p className={`text-sm font-semibold leading-snug ${activity.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {activity.title}
+                  </p>
+                  {activity.subtitle && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {activity.subtitle}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs font-bold text-primary flex-shrink-0">
+                  <Clock className="w-3 h-3" />
+                  {activity.durationMinutes}m
+                </div>
+              </button>
+              {/* "I did this" manual mark — only if not completed.
+                  Auto-detection covers Daily Challenge + submissions,
+                  but this button is a fallback for activities where
+                  auto-detect isn't possible (vocab, reading random link, etc.) */}
+              {!activity.completed && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markDoneMutation.mutate({ missionId: mission.id, activityId: activity.id });
+                  }}
+                  disabled={markDoneMutation.isPending}
+                  className="text-xs px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors font-semibold flex-shrink-0"
+                  data-testid={`button-mark-done-${idx}`}
+                  title="Mark this activity as done"
+                >
+                  Done?
+                </button>
+              )}
+            </div>
           ))}
         </div>
 

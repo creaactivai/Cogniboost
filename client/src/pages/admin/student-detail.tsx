@@ -102,6 +102,23 @@ function TestModeControls({
     },
   });
 
+  const resetPlanMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/users/${studentId}/reset-my-plan`, {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      qc.invalidateQueries();
+      toast({
+        title: "🔁 My Plan reset",
+        description: `${data.reset} active plan(s) superseded. Next visit will generate fresh.`,
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
   const dirty = level !== currentLevel || tier !== subscriptionTier;
 
   return (
@@ -170,21 +187,38 @@ function TestModeControls({
         </div>
       </div>
 
-      <div className="pt-3 border-t border-amber-200 flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-xs text-amber-800/80">
-          Quick preset: promote to <strong>C1 + Premium + Onboarded</strong> for full-access QA
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => promoteMutation.mutate()}
-          disabled={promoteMutation.isPending}
-          className="border-amber-300 bg-white hover:bg-amber-50 text-amber-900"
-          data-testid="button-promote-test-mode"
-        >
-          <Rocket className="w-3 h-3 mr-1.5" />
-          {promoteMutation.isPending ? "Promoting…" : "Promote to Test Mode"}
-        </Button>
+      <div className="pt-3 border-t border-amber-200 space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-amber-800/80">
+            Quick preset: promote to <strong>C1 + Premium + Onboarded</strong> for full-access QA
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => promoteMutation.mutate()}
+            disabled={promoteMutation.isPending}
+            className="border-amber-300 bg-white hover:bg-amber-50 text-amber-900"
+            data-testid="button-promote-test-mode"
+          >
+            <Rocket className="w-3 h-3 mr-1.5" />
+            {promoteMutation.isPending ? "Promoting…" : "Promote to Test Mode"}
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-amber-800/80">
+            After changing level, reset their <strong>My Plan</strong> so Claude regenerates fresh tactics
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => resetPlanMutation.mutate()}
+            disabled={resetPlanMutation.isPending}
+            className="border-amber-300 bg-white hover:bg-amber-50 text-amber-900"
+            data-testid="button-reset-my-plan"
+          >
+            🔁 {resetPlanMutation.isPending ? "Resetting…" : "Reset My Plan"}
+          </Button>
+        </div>
       </div>
     </Card>
   );

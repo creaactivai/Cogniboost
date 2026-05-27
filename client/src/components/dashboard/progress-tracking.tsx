@@ -129,6 +129,11 @@ export function ProgressTracking() {
     queryKey: ["/api/subscription"],
   });
 
+  // Fetch real Daily Challenge streak (replaces hardcoded "0 days")
+  const { data: dcStats } = useQuery<{ currentStreak: number; longestStreak: number }>({
+    queryKey: ["/api/daily-challenge/stats"],
+  });
+
   const isFreeUser = !subscription?.tier || subscription.tier === 'free';
 
   // Use real data from API — level comes from user-stats (which already resolves placementLevel → currentLevel)
@@ -229,7 +234,14 @@ export function ProgressTracking() {
                   <Flame className="w-4 h-4 text-accent" />
                   <span className="text-xs font-mono text-muted-foreground">Streak</span>
                 </div>
-                <p className="text-2xl font-display">0 days</p>
+                <p className="text-2xl font-display">
+                  {(dcStats?.currentStreak ?? 0)} {(dcStats?.currentStreak ?? 0) === 1 ? "day" : "days"}
+                </p>
+                {(dcStats?.longestStreak ?? 0) > 0 && (
+                  <p className="text-xs font-mono text-muted-foreground mt-1">
+                    Best: {dcStats?.longestStreak} days
+                  </p>
+                )}
               </Card>
             </div>
           </div>
