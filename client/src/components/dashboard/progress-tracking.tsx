@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { ProgressTrajectory } from "./progress-trajectory";
 import { ActionPlan } from "./action-plan";
+import { CanDoStatements } from "./can-do-statements";
 import {
   TrendingUp,
   Clock,
@@ -235,6 +236,11 @@ export function ProgressTracking() {
           </div>
         )}
       </Card>
+
+      {/* I CAN... CEFR statements — Phase 1.1 ESL Roadmap.
+          Makes the abstract level (A1/A2/B1...) feel concrete with bilingual
+          can-do statements. Self-efficacy + motivation toward next level. */}
+      <CanDoStatements currentLevel={currentLevel} />
 
       {/* Writing + Speaking trajectory (real data from /api/student/progress-timeline) */}
       <div>
