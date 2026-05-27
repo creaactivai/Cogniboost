@@ -5810,7 +5810,7 @@ Important:
 
       const { db, pool } = await import("./db");
       const { dailyMissions, submissions, dailyChallengeAttempts, labRegistrations, labSessionsV2 } = await import("@shared/schema");
-      const { eq, and, gte, desc, sql } = await import("drizzle-orm");
+      const { eq, and, gte, lte, desc } = await import("drizzle-orm");
 
       // Self-healing: ensure the daily_missions table exists. The startup
       // migration normally creates it, but Railway hot-reloads sometimes
@@ -5899,9 +5899,9 @@ Important:
         .from(labRegistrations)
         .innerJoin(labSessionsV2, eq(labRegistrations.labSessionId, labSessionsV2.id))
         .where(and(
-          eq(labRegistrations.userId, userId),
+          eq(labRegistrations.studentId, userId),
           gte(labSessionsV2.scheduledAt, now),
-          sql`${labSessionsV2.scheduledAt} <= ${in48h}`,
+          lte(labSessionsV2.scheduledAt, in48h),
         ))
         .orderBy(labSessionsV2.scheduledAt)
         .limit(1);
