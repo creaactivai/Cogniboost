@@ -9,6 +9,7 @@
  * optional `studentId` prop (mirrors ProgressTrajectory).
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,8 @@ import {
   Mic,
   Sparkles,
   Calendar,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
@@ -90,100 +93,130 @@ export function ActionPlan({ studentId }: ActionPlanProps = {}) {
   }
 
   const plan = data?.plan ?? [];
+  const [expanded, setExpanded] = useState(false);
+  const headerTitle = studentId
+    ? (es ? "Plan de Trabajo del Estudiante" : "Student Work Plan")
+    : (es ? "Tu Plan de Trabajo" : "Your Work Plan");
 
   return (
-    <Card className="p-6 border-border" data-testid="card-action-plan">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
+    <Card className="border-border rounded-2xl overflow-hidden" data-testid="card-action-plan">
+      {/* Always-visible header (collapsible trigger) */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left p-5 hover:bg-muted/30 transition-colors"
+        aria-expanded={expanded}
+        data-testid="button-action-plan-toggle"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Target className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-display uppercase">
-              {studentId
-                ? (es ? "Plan de Trabajo del Estudiante" : "Student Work Plan")
-                : (es ? "Tu Plan de Trabajo" : "Your Work Plan")}
-            </h2>
           </div>
-          <p className="text-sm font-mono text-muted-foreground">
-            {es
-              ? "Los consejos que más se han repetido en tus correcciones"
-              : "The advice that has appeared most often in your feedback"}
-          </p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-display uppercase tracking-tight mb-1">
+              {headerTitle}
+            </h2>
+            <p className="text-sm text-muted-foreground leading-snug">
+              {es
+                ? "Los consejos que más se han repetido en tus correcciones"
+                : "The advice that has appeared most often in your feedback"}
+            </p>
+            <div className="flex items-center gap-2 mt-2.5">
+              <Badge variant="outline" className="font-mono text-xs">
+                {plan.length === 0
+                  ? (es ? "Aún sin datos" : "No data yet")
+                  : (es ? `${plan.length} áreas` : `${plan.length} focus areas`)}
+              </Badge>
+              {data?.meta && plan.length > 0 && (
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {es
+                    ? `${data.meta.submissionsAnalyzed} tareas revisadas`
+                    : `${data.meta.submissionsAnalyzed} tasks reviewed`}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex-shrink-0 mt-1">
+            {expanded ? (
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            )}
+          </div>
         </div>
-        {data?.meta && plan.length > 0 && (
-          <Badge variant="outline" className="font-mono text-xs">
-            {es
-              ? `${data.meta.submissionsAnalyzed} tareas revisadas`
-              : `${data.meta.submissionsAnalyzed} tasks reviewed`}
-          </Badge>
-        )}
-      </div>
+      </button>
 
-      {plan.length === 0 ? (
-        <div className="py-8 text-center">
-          <Sparkles className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-sm font-mono text-muted-foreground">
-            {es
-              ? "Completa algunas tareas escritas o habladas y tu plan personalizado aparecerá aquí."
-              : "Complete a few writing or speaking tasks and your personalized plan will appear here."}
-          </p>
+      {/* Expandable detail */}
+      {expanded && (
+        <div className="px-5 pb-5 pt-0 border-t border-border">
+          {plan.length === 0 ? (
+            <div className="py-8 text-center">
+              <Sparkles className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
+              <p className="text-sm font-mono text-muted-foreground">
+                {es
+                  ? "Completa algunas tareas escritas o habladas y tu plan personalizado aparecerá aquí."
+                  : "Complete a few writing or speaking tasks and your personalized plan will appear here."}
+              </p>
+            </div>
+          ) : (
+            <ol className="space-y-3 mt-4">
+              {plan.map((item, idx) => {
+                const isHighFrequency = item.occurrences >= 3;
+                return (
+                  <li
+                    key={`${item.focus}-${idx}`}
+                    className="flex gap-3 p-3 border border-border rounded-lg bg-background hover-elevate"
+                    data-testid={`focus-item-${idx}`}
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-display text-primary">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm leading-snug mb-2">{item.focus}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant={isHighFrequency ? "default" : "secondary"}
+                          className="font-mono text-xs"
+                          data-testid={`focus-occurrences-${idx}`}
+                        >
+                          {es
+                            ? `Visto ${item.occurrences}×`
+                            : `Seen ${item.occurrences}×`}
+                        </Badge>
+                        {item.sourceMix === "writing" && (
+                          <Badge variant="outline" className="font-mono text-xs gap-1">
+                            <PenTool className="w-3 h-3" />
+                            {es ? "Escritura" : "Writing"}
+                          </Badge>
+                        )}
+                        {item.sourceMix === "speaking" && (
+                          <Badge variant="outline" className="font-mono text-xs gap-1">
+                            <Mic className="w-3 h-3" />
+                            {es ? "Habla" : "Speaking"}
+                          </Badge>
+                        )}
+                        {item.sourceMix === "both" && (
+                          <Badge variant="outline" className="font-mono text-xs gap-1">
+                            <PenTool className="w-3 h-3" />
+                            <Mic className="w-3 h-3" />
+                            {es ? "Ambas" : "Both"}
+                          </Badge>
+                        )}
+                        {item.lastSeenAt && (
+                          <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {es ? "última: " : "last: "}
+                            {relativeDate(item.lastSeenAt, es)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </div>
-      ) : (
-        <ol className="space-y-3">
-          {plan.map((item, idx) => {
-            const isHighFrequency = item.occurrences >= 3;
-            return (
-              <li
-                key={`${item.focus}-${idx}`}
-                className="flex gap-3 p-3 border border-border rounded bg-background hover-elevate"
-                data-testid={`focus-item-${idx}`}
-              >
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-display text-primary">
-                  {idx + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm leading-snug mb-2">{item.focus}</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge
-                      variant={isHighFrequency ? "default" : "secondary"}
-                      className="font-mono text-xs"
-                      data-testid={`focus-occurrences-${idx}`}
-                    >
-                      {es
-                        ? `Visto ${item.occurrences}×`
-                        : `Seen ${item.occurrences}×`}
-                    </Badge>
-                    {item.sourceMix === "writing" && (
-                      <Badge variant="outline" className="font-mono text-xs gap-1">
-                        <PenTool className="w-3 h-3" />
-                        {es ? "Escritura" : "Writing"}
-                      </Badge>
-                    )}
-                    {item.sourceMix === "speaking" && (
-                      <Badge variant="outline" className="font-mono text-xs gap-1">
-                        <Mic className="w-3 h-3" />
-                        {es ? "Habla" : "Speaking"}
-                      </Badge>
-                    )}
-                    {item.sourceMix === "both" && (
-                      <Badge variant="outline" className="font-mono text-xs gap-1">
-                        <PenTool className="w-3 h-3" />
-                        <Mic className="w-3 h-3" />
-                        {es ? "Ambas" : "Both"}
-                      </Badge>
-                    )}
-                    {item.lastSeenAt && (
-                      <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {es ? "última: " : "last: "}
-                        {relativeDate(item.lastSeenAt, es)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
       )}
     </Card>
   );

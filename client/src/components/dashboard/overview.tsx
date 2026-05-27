@@ -20,7 +20,6 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { LiveNowWidget } from "@/components/dashboard/live-now-widget";
-import { DailyChallengeWidget } from "@/components/dashboard/daily-challenge-widget";
 import { MissionCard } from "@/components/dashboard/mission-card";
 import type { LiveSession, SessionRoom, UserStats, Enrollment, Course } from "@shared/schema";
 
@@ -275,8 +274,9 @@ export function DashboardOverview() {
       {/* ---------- LIVE NOW WIDGET (top, only when sessions are live) ---------- */}
       <LiveNowWidget />
 
-      {/* ---------- DAILY CHALLENGE compact entry ---------- */}
-      <DailyChallengeWidget variant="compact" />
+      {/* Daily Challenge widget removed (May 27, 2026) — it now appears as
+          Step 1 inside the Mission Card when not yet done today. Having it
+          here ADDITIONALLY was redundant + caused decision fatigue. */}
 
       {/* ---------- HERO CARD ---------- */}
       {/* Brand-aligned: white card, "WELCOME, {NAME}" in display uppercase,
