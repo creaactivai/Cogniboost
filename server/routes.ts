@@ -7406,6 +7406,10 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
 
   // GET /api/daily-challenge/today — fetch up to N unanswered questions
   // at student's level. Adapts the question type to their CEFR level.
+  // FALLBACK: if no questions exist at the student's level (because Coral
+  // hasn't seeded that level yet), fall back to lower CEFR levels so the
+  // student isn't blocked — better to practice A2 questions than to see
+  // "no questions available" for days.
   app.get('/api/daily-challenge/today', requireAuth, async (req: any, res) => {
     try {
       const studentId = (req.user as any)?.id;
@@ -7413,38 +7417,58 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
       await ensureDailyChallengeTables();
       const { pool } = await import("./db");
       const student = await storage.getUser(studentId);
-      const level = student?.placementLevel || 'A1';
+      const studentLevel = (student as any)?.currentLevel || student?.placementLevel || 'A1';
       const limit = Math.min(parseInt(String(req.query.limit || '10'), 10) || 10, 20);
 
-      // Pick questions the student hasn't answered yet (or rotated)
-      const { rows } = await (pool as any).query(
-        `SELECT q.* FROM daily_challenge_questions q
-         WHERE q.level = $1 AND q.is_published = true
-           AND q.id NOT IN (
-             SELECT question_id FROM daily_challenge_attempts WHERE student_id = $2
-           )
-         ORDER BY RANDOM()
-         LIMIT $3`,
-        [level, studentId, limit]
-      );
+      // Build the level-fallback chain: prefer student's level, fall back
+      // to lower levels in order. e.g., B1 student → ['B1', 'A2', 'A1'].
+      const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const studentIdx = levelOrder.indexOf(studentLevel);
+      const fallbackChain = studentIdx >= 0
+        ? levelOrder.slice(0, studentIdx + 1).reverse()  // ['B1','A2','A1']
+        : ['A1'];
 
-      // If they've exhausted unseen ones, allow repeats but prefer ones they got wrong
-      let final = rows;
+      // Try each level in the fallback chain until we get enough questions
+      let final: any[] = [];
+      let levelUsed = studentLevel;
+      for (const level of fallbackChain) {
+        if (final.length >= limit) break;
+        const remaining = limit - final.length;
+        const { rows } = await (pool as any).query(
+          `SELECT q.* FROM daily_challenge_questions q
+           WHERE q.level = $1 AND q.is_published = true
+             AND q.id NOT IN (
+               SELECT question_id FROM daily_challenge_attempts WHERE student_id = $2
+             )
+           ORDER BY RANDOM()
+           LIMIT $3`,
+          [level, studentId, remaining]
+        );
+        if (rows.length > 0) {
+          if (final.length === 0) levelUsed = level; // record the level we actually served
+          final = [...final, ...rows];
+        }
+      }
+
+      // If STILL not enough across ALL fallback levels, allow repeats from
+      // the student's preferred level (prioritize wrong answers for relearning)
       if (final.length < limit) {
         const rem = limit - final.length;
         const { rows: extras } = await (pool as any).query(
           `SELECT q.*, COALESCE(SUM(CASE WHEN a.is_correct = false THEN 1 ELSE 0 END), 0) AS wrong_count
            FROM daily_challenge_questions q
            LEFT JOIN daily_challenge_attempts a ON a.question_id = q.id AND a.student_id = $1
-           WHERE q.level = $2 AND q.is_published = true
+           WHERE q.level = ANY($2::text[]) AND q.is_published = true
              AND q.id NOT IN (${final.map((_: any, i: number) => `$${i + 3}`).join(',') || 'NULL'})
            GROUP BY q.id
            ORDER BY wrong_count DESC, RANDOM()
            LIMIT $${final.length + 3}`,
-          [studentId, level, ...final.map((r: any) => r.id), rem]
+          [studentId, fallbackChain, ...final.map((r: any) => r.id), rem]
         );
         final = [...final, ...extras];
       }
+
+      const level = levelUsed;
 
       // Shuffle option positions per-question so correct isn't always same letter
       const formatted = final.map((q: any) => {
@@ -7665,6 +7689,51 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
       res.json({ saved, requested: questions.length, errors });
     } catch (e: any) {
       console.error('[daily-challenge/manual-insert]', e);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
+  // GET /api/admin/daily-challenge/stats — per-level inventory so Coral
+  // can see at a glance which levels need more questions. Returns total
+  // questions per level + published count + total attempts.
+  app.get('/api/admin/daily-challenge/stats', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      await ensureDailyChallengeTables();
+      const { pool } = await import("./db");
+
+      const { rows } = await (pool as any).query(`
+        SELECT
+          q.level,
+          COUNT(*) FILTER (WHERE q.is_published = true) AS published,
+          COUNT(*) FILTER (WHERE q.is_published = false) AS draft,
+          COUNT(*) AS total
+        FROM daily_challenge_questions q
+        GROUP BY q.level
+        ORDER BY q.level
+      `);
+
+      // Fill missing levels with zeros so UI shows the gap
+      const all = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const byLevel: Record<string, { published: number; draft: number; total: number }> = {};
+      for (const lvl of all) byLevel[lvl] = { published: 0, draft: 0, total: 0 };
+      for (const r of rows) {
+        byLevel[r.level] = {
+          published: Number(r.published) || 0,
+          draft: Number(r.draft) || 0,
+          total: Number(r.total) || 0,
+        };
+      }
+
+      const totals = Object.values(byLevel).reduce(
+        (acc, l) => ({ published: acc.published + l.published, draft: acc.draft + l.draft, total: acc.total + l.total }),
+        { published: 0, draft: 0, total: 0 }
+      );
+
+      res.json({ byLevel, totals });
+    } catch (e: any) {
+      console.error('[admin/daily-challenge/stats]', e?.message);
       res.status(500).json({ error: e?.message || 'Failed' });
     }
   });
