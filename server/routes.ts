@@ -7233,8 +7233,8 @@ OUTPUT FORMAT (strict JSON, no markdown):
       // intonation (less robotic). Generation is slightly slower but we cache
       // forever, so students never wait for it twice.
       const TTS_MODEL = "eleven_multilingual_v2";
-      const TTS_SETTINGS = { stability: 0.4, similarity_boost: 0.8, style: 0.45, use_speaker_boost: true };
-      const TTS_VERSION = "v2"; // bump to force-regenerate all cached audio
+      const TTS_SETTINGS = { stability: 0.3, similarity_boost: 0.75, style: 0.65, use_speaker_boost: true };
+      const TTS_VERSION = "v3"; // bump to force-regenerate all cached audio
 
       // Cache signature folds in the exact voices, model + settings version, so
       // any voice/model/transcript change regenerates. Folder = primary voice.
