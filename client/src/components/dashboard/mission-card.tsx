@@ -126,11 +126,16 @@ export function MissionCard() {
   // Respect live classes — if a class is happening RIGHT NOW, hide the
   // Mission card so the LiveNowWidget above has full attention. Mission
   // card returns after class ends (next dashboard load).
+  //
+  // NOTE: hooks must run UNCONDITIONALLY in the same order every render
+  // (React Rules of Hooks). Previously the `liveSessions.length > 0` early
+  // return came BEFORE useMutation(startMutation) — that caused React error
+  // #310 because the hook count differed between renders. Fix: declare ALL
+  // hooks up top, then do early returns last.
   const { data: liveSessions = [] } = useQuery<any[]>({
     queryKey: ["/api/labs/live-now"],
     refetchInterval: 30_000,
   });
-  if (liveSessions.length > 0) return null;
 
   const startMutation = useMutation({
     mutationFn: async (missionId: string) => {
@@ -141,6 +146,9 @@ export function MissionCard() {
       qc.invalidateQueries({ queryKey: ["/api/student/today-mission"] });
     },
   });
+
+  // Early returns AFTER all hooks
+  if (liveSessions.length > 0) return null;
 
   if (isLoading) {
     return (

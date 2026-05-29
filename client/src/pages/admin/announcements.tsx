@@ -261,9 +261,12 @@ export default function AnnouncementsPage() {
   const [tab, setTab] = useState("new");
 
   // Editor state
-  const [templateKey, setTemplateKey] = useState("memorial_day");
-  const [subject, setSubject] = useState(TEMPLATES[0].subject);
-  const [body, setBody] = useState(TEMPLATES[0].body);
+  // Default to blank template — was "memorial_day" but that holiday passed.
+  // The "blank" template gives a clean slate so the user can write fresh.
+  const blankTemplate = TEMPLATES.find((t) => t.key === "blank") || TEMPLATES[TEMPLATES.length - 1];
+  const [templateKey, setTemplateKey] = useState("blank");
+  const [subject, setSubject] = useState(blankTemplate.subject);
+  const [body, setBody] = useState(blankTemplate.body);
   const [audience, setAudience] = useState("today");
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [selectedLabId, setSelectedLabId] = useState<string>("");
@@ -423,7 +426,21 @@ export default function AnnouncementsPage() {
           </p>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            // If user clicks "Nuevo Anuncio" while already on that tab,
+            // reset the form to a clean blank slate (per Coral feedback —
+            // it felt like "nothing was happening" because the form had
+            // leftover content from a previous template selection).
+            if (v === "new" && tab === "new") {
+              applyTemplate("blank");
+              setPreview(null);
+              setLastResult(null);
+            }
+            setTab(v);
+          }}
+        >
           <TabsList className="mb-6">
             <TabsTrigger value="new" data-testid="tab-new">
               <Plus className="w-4 h-4 mr-2" /> Nuevo Anuncio
@@ -641,9 +658,22 @@ export default function AnnouncementsPage() {
               ) : !historyData?.announcements || historyData.announcements.length === 0 ? (
                 <div className="py-12 text-center">
                   <Mail className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
-                  <p className="text-sm font-mono text-muted-foreground">
+                  <p className="text-sm font-mono text-muted-foreground mb-4">
                     Aún no has enviado ningún anuncio. Cuando envíes uno aparecerá aquí.
                   </p>
+                  <Button
+                    onClick={() => {
+                      applyTemplate("blank");
+                      setPreview(null);
+                      setLastResult(null);
+                      setTab("new");
+                    }}
+                    variant="default"
+                    data-testid="button-create-first-announcement"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear mi primer anuncio
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
