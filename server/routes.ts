@@ -7660,6 +7660,24 @@ Keep arrays to 2-3 items each. Everything in English.`;
     }
   });
 
+  // Speech-to-text for a spoken student turn. The browser records a short
+  // audio clip; Whisper transcribes it (forced English) and we return the
+  // text, which the client then sends to /api/scenario/chat like a typed
+  // reply. Audio is transient — we do NOT store it.
+  app.post("/api/scenario/transcribe", requireAuth, uploadSpeaking.single("recording"), async (req: any, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No recording file" });
+      const { transcribeFromBuffer } = await import("./grading/whisperClient");
+      const result = await transcribeFromBuffer(req.file.buffer, req.file.originalname || "turn.webm");
+      const text = String(result.transcript || "").trim();
+      if (!text) return res.status(422).json({ error: "Couldn't hear anything — please try again." });
+      res.json({ text });
+    } catch (e: any) {
+      console.error("[scenario/transcribe]", e);
+      res.status(500).json({ error: e?.message || "Transcription failed" });
+    }
+  });
+
   /* ---- Listening admin CRUD ---- */
   app.get("/api/admin/listening-projects/by-course/:courseId", requireAuth, async (req: any, res) => {
     try {

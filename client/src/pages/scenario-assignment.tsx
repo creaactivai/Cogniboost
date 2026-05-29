@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, ArrowRight, AlertTriangle, Loader2, Send, Volume2,
-  Mic, CheckCircle2, Target, MessageSquare, Sparkles, RotateCcw,
+  Mic, Square, CheckCircle2, Target, MessageSquare, Sparkles, RotateCcw,
 } from "lucide-react";
 
 interface ScenarioProject {
@@ -70,6 +70,13 @@ export default function ScenarioAssignmentPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const msgsRef = useRef<HTMLDivElement | null>(null);
 
+  // --- voice input (Whisper) ---
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const { data: proj, isLoading, error } = useQuery<ScenarioProject>({
     queryKey: [`/api/scenario-projects/by-module/${moduleId}`],
     enabled: !!moduleId,
@@ -95,6 +102,61 @@ export default function ScenarioAssignmentPage() {
     const audio = new Audio(url);
     audio.play().catch(() => toast({ title: "Couldn't play audio", variant: "destructive" }));
   };
+
+  const stopTracks = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
+  // Whisper voice input: record → upload → transcribe → drop the text into
+  // the input box so the student can review/edit before sending.
+  const startRecording = async () => {
+    if (isRecording || isTranscribing) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stopTracks();
+        const blob = new Blob(chunksRef.current, { type: mime || "audio/webm" });
+        if (blob.size < 800) { setIsTranscribing(false); return; } // basically silence
+        setIsTranscribing(true);
+        try {
+          const fd = new FormData();
+          fd.append("recording", new File([blob], "turn.webm", { type: blob.type }));
+          const res = await fetch("/api/scenario/transcribe", { method: "POST", body: fd, credentials: "include" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data?.error || "Transcription failed");
+          setDraft((d) => (d ? d + " " : "") + data.text);
+        } catch (err: any) {
+          toast({ title: "Couldn't transcribe", description: err?.message, variant: "destructive" });
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      recorder.start();
+      setIsRecording(true);
+    } catch (err: any) {
+      toast({
+        title: "Microphone blocked",
+        description: "Please allow microphone access to speak your reply.",
+        variant: "destructive",
+      });
+      stopTracks();
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+    setIsRecording(false);
+  };
+
+  // Clean up the mic if the student navigates away mid-recording.
+  useEffect(() => () => { stopTracks(); }, []);
 
   const send = useMutation({
     mutationFn: async (studentText: string) => {
@@ -237,15 +299,20 @@ export default function ScenarioAssignmentPage() {
           </div>
 
           <div className="flex items-center gap-2 border-t px-4 py-3">
-            <button type="button" disabled title="Voice replies are coming soon"
-              className="px-3 py-2.5 rounded-xl border border-dashed text-muted-foreground cursor-not-allowed">
-              <Mic className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isTranscribing || send.isPending}
+              title={isRecording ? "Tap to stop" : "Tap to speak"}
+              className={`px-3 py-2.5 rounded-xl border transition-colors disabled:opacity-50 ${isRecording ? "bg-red-500 text-white border-red-500 animate-pulse" : "border-primary text-primary hover:bg-primary/5"}`}
+            >
+              {isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Type your reply in English…"
+              placeholder={isRecording ? "Listening… tap the square to stop" : isTranscribing ? "Transcribing…" : "Type or tap the mic to speak…"}
               className="flex-1 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             <Button onClick={handleSend} disabled={!draft.trim() || send.isPending}>
