@@ -7418,7 +7418,37 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
       const { pool } = await import("./db");
       const student = await storage.getUser(studentId);
       const studentLevel = (student as any)?.currentLevel || student?.placementLevel || 'A1';
-      const limit = Math.min(parseInt(String(req.query.limit || '10'), 10) || 10, 20);
+
+      // ── DAILY CAP — 10 questions per day per student ──────────────
+      // Pedagogically grounded: prevents burnout, creates anticipation
+      // for tomorrow, makes the streak meaningful. Reads questionsToday
+      // from daily_challenge_streaks (which the /answer endpoint already
+      // increments + resets on new day). If today's date matches
+      // last_played_date AND questionsToday >= 10, return a "limit
+      // reached" payload that the UI renders as "See you tomorrow!".
+      const DAILY_CAP = 10;
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const { rows: streakRows } = await (pool as any).query(
+        `SELECT questions_today, last_played_date FROM daily_challenge_streaks WHERE student_id = $1`,
+        [studentId]
+      );
+      const sRow = streakRows[0];
+      const questionsToday = sRow && sRow.last_played_date === todayISO ? Number(sRow.questions_today) || 0 : 0;
+      const remainingToday = Math.max(0, DAILY_CAP - questionsToday);
+
+      if (remainingToday <= 0) {
+        return res.json({
+          level: studentLevel,
+          questions: [],
+          dailyLimitReached: true,
+          questionsToday,
+          dailyCap: DAILY_CAP,
+        });
+      }
+
+      // Cap the requested limit by what remains in the daily allowance
+      const requestedLimit = Math.min(parseInt(String(req.query.limit || '10'), 10) || 10, 20);
+      const limit = Math.min(requestedLimit, remainingToday);
 
       // Build the level-fallback chain: prefer student's level, fall back
       // to lower levels in order. e.g., B1 student → ['B1', 'A2', 'A1'].

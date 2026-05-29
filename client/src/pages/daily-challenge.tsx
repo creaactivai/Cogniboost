@@ -159,6 +159,26 @@ export default function DailyChallengePage() {
   }
 
   if (!currentQ) {
+    // Two different empty states:
+    // 1. Student hit today's 10-question cap → friendly "see you tomorrow"
+    // 2. No content at the level → "we're setting up X level"
+    const hitDailyLimit = (payload as any)?.dailyLimitReached;
+    if (hitDailyLimit) {
+      return (
+        <div className="max-w-2xl mx-auto p-6">
+          <Card className="p-8 text-center space-y-3 border-emerald-200 bg-emerald-50/50">
+            <Trophy className="w-12 h-12 mx-auto text-emerald-600" />
+            <h2 className="text-xl font-bold text-emerald-900">¡Daily Challenge completado!</h2>
+            <p className="text-sm text-emerald-800">
+              Ya completaste tus {(payload as any)?.dailyCap || 10} preguntas de hoy. Vuelve mañana para mantener tu racha. 🔥
+            </p>
+            <p className="text-xs font-mono text-emerald-700/70 mt-2">
+              See you tomorrow!
+            </p>
+          </Card>
+        </div>
+      );
+    }
     return (
       <div className="max-w-2xl mx-auto p-6">
         <Card className="p-8 text-center space-y-3">
