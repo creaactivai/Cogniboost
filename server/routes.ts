@@ -7693,6 +7693,89 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
     }
   });
 
+  // GET /api/admin/daily-challenge/student-state?studentId=X — diagnostic
+  // for a specific student. Returns their level, how many questions
+  // available, how many they've answered, what the curator WOULD return.
+  // Useful when a student reports "no questions available" — Coral can
+  // hit this endpoint with their studentId to see the exact state.
+  app.get('/api/admin/daily-challenge/student-state', requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+      const studentId = req.query.studentId as string;
+      if (!studentId) return res.status(400).json({ error: 'studentId required' });
+
+      await ensureDailyChallengeTables();
+      const { pool } = await import('./db');
+
+      const student = await storage.getUser(studentId);
+      if (!student) return res.status(404).json({ error: 'Student not found' });
+
+      const level = (student as any)?.currentLevel || student?.placementLevel || student?.englishLevel || 'A1';
+      const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const studentIdx = levelOrder.indexOf(level);
+      const fallbackChain = studentIdx >= 0 ? levelOrder.slice(0, studentIdx + 1) : ['A1'];
+
+      // Count questions per fallback level
+      const inventory: Record<string, { published: number; answered: number; unanswered: number }> = {};
+      for (const lvl of fallbackChain) {
+        const { rows: pub } = await (pool as any).query(
+          `SELECT COUNT(*) AS c FROM daily_challenge_questions WHERE level = $1 AND is_published = true`,
+          [lvl]
+        );
+        const { rows: ans } = await (pool as any).query(
+          `SELECT COUNT(DISTINCT a.question_id) AS c
+             FROM daily_challenge_attempts a
+             JOIN daily_challenge_questions q ON q.id = a.question_id
+             WHERE q.level = $1 AND q.is_published = true AND a.student_id = $2`,
+          [lvl, studentId]
+        );
+        const published = Number(pub[0]?.c) || 0;
+        const answered = Number(ans[0]?.c) || 0;
+        inventory[lvl] = { published, answered, unanswered: Math.max(0, published - answered) };
+      }
+
+      // Recent attempts (last 10) for context
+      const { rows: recentAttempts } = await (pool as any).query(
+        `SELECT a.id, a.is_correct, a.attempted_at, q.level, q.prompt
+           FROM daily_challenge_attempts a
+           JOIN daily_challenge_questions q ON q.id = a.question_id
+           WHERE a.student_id = $1
+           ORDER BY a.attempted_at DESC
+           LIMIT 10`,
+        [studentId]
+      );
+
+      const totalUnanswered = Object.values(inventory).reduce((s, x) => s + x.unanswered, 0);
+
+      res.json({
+        student: {
+          id: studentId,
+          email: student.email,
+          firstName: student.firstName,
+          lastName: student.lastName,
+        },
+        effectiveLevel: level,
+        fallbackChain,
+        inventory,
+        totalUnanswered,
+        diagnosis: totalUnanswered > 0
+          ? `Should work — ${totalUnanswered} unanswered question(s) across fallback chain`
+          : `EXHAUSTED — student has answered every question in fallback chain. Curator will return repeats (preferring wrong answers).`,
+        recentAttempts: recentAttempts.map((r: any) => ({
+          id: r.id,
+          correct: r.is_correct,
+          at: r.attempted_at,
+          level: r.level,
+          promptPreview: (r.prompt || '').slice(0, 80),
+        })),
+      });
+    } catch (e: any) {
+      console.error('[admin/daily-challenge/student-state]', e?.message);
+      res.status(500).json({ error: e?.message || 'Failed' });
+    }
+  });
+
   // GET /api/admin/daily-challenge/stats — per-level inventory so Coral
   // can see at a glance which levels need more questions. Returns total
   // questions per level + published count + total attempts.
