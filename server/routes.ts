@@ -7457,6 +7457,22 @@ OUTPUT FORMAT (strict JSON, no markdown):
         if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
       }
 
+      // Token-spend guardrails:
+      // 1) hard cap on how many turns a single role-play can run, and
+      // 2) cap on how long any one student message can be.
+      const studentTurnCount = history.filter((h) => h.role === "student").length;
+      const maxTurns = (proj as any).maxTurns ?? 12;
+      if (studentTurnCount > maxTurns) {
+        return res.status(429).json({
+          error: "turn_limit",
+          message: `You've reached the end of this role-play (${maxTurns} replies). Tap "Finish & get feedback" to see how you did.`,
+        });
+      }
+      const lastStudent = [...history].reverse().find((h) => h.role === "student");
+      if (lastStudent && lastStudent.text.length > 600) {
+        return res.status(400).json({ error: "Your reply is too long. Please keep it shorter (a sentence or two)." });
+      }
+
       const { getAnthropicClient, ANTHROPIC_MODELS, extractTextContent } = await import("./anthropicClient");
       const client = getAnthropicClient();
 

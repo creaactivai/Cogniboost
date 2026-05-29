@@ -58,11 +58,14 @@ async function ensureTable(c: Client) {
     target_vocab text[] NOT NULL DEFAULT '{}',
     target_language text,
     min_turns integer NOT NULL DEFAULT 4,
+    max_turns integer NOT NULL DEFAULT 12,
     is_published boolean NOT NULL DEFAULT false,
     created_at timestamp DEFAULT now(),
     updated_at timestamp DEFAULT now()
   )`);
   await c.query(`CREATE UNIQUE INDEX IF NOT EXISTS scenario_projects_module_idx ON scenario_projects(module_id)`);
+  // Additive migration for tables created before max_turns existed.
+  await c.query(`ALTER TABLE scenario_projects ADD COLUMN IF NOT EXISTS max_turns integer NOT NULL DEFAULT 12`);
   // Submissions table (created here too so a fresh DB is fully ready).
   await c.query(`CREATE TABLE IF NOT EXISTS scenario_submissions (
     id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,6 +105,7 @@ async function main() {
     const targetVocab: string[] = item.targetVocab?.length ? item.targetVocab : [];
     const targetLanguage: string | null = item.targetLanguage || null;
     const minTurns = item.minTurns ?? 4;
+    const maxTurns = item.maxTurns ?? 12;
     const subtitle = item.subtitle || null;
 
     let existing: { rows: any[] } = { rows: [] };
@@ -118,7 +122,7 @@ async function main() {
     console.log(`   goal:       ${short(item.goal, 70)}`);
     console.log(`   opening:    ${short(item.openingLine, 60)}`);
     console.log(`   vocab:      ${targetVocab.join(", ") || "—"}`);
-    console.log(`   minTurns ${minTurns} · published ${PUBLISH}`);
+    console.log(`   minTurns ${minTurns} · maxTurns ${maxTurns} · published ${PUBLISH}`);
     console.log("");
     changes++;
 
@@ -127,18 +131,18 @@ async function main() {
         await c.query(
           `UPDATE scenario_projects SET title=$1, subtitle=$2, student_role=$3, character_name=$4,
              character_role=$5, accent=$6, goal=$7, opening_line=$8, target_vocab=$9,
-             target_language=$10, min_turns=$11, is_published=$12, updated_at=now()
-           WHERE module_id=$13`,
+             target_language=$10, min_turns=$11, max_turns=$12, is_published=$13, updated_at=now()
+           WHERE module_id=$14`,
           [item.title, subtitle, item.studentRole, item.characterName, item.characterRole, accent,
-           item.goal, item.openingLine, targetVocab, targetLanguage, minTurns, PUBLISH, item.moduleId],
+           item.goal, item.openingLine, targetVocab, targetLanguage, minTurns, maxTurns, PUBLISH, item.moduleId],
         );
       } else {
         await c.query(
           `INSERT INTO scenario_projects (module_id, level, title, subtitle, student_role, character_name,
-             character_role, accent, goal, opening_line, target_vocab, target_language, min_turns, is_published)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+             character_role, accent, goal, opening_line, target_vocab, target_language, min_turns, max_turns, is_published)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
           [item.moduleId, level, item.title, subtitle, item.studentRole, item.characterName,
-           item.characterRole, accent, item.goal, item.openingLine, targetVocab, targetLanguage, minTurns, PUBLISH],
+           item.characterRole, accent, item.goal, item.openingLine, targetVocab, targetLanguage, minTurns, maxTurns, PUBLISH],
         );
       }
     }

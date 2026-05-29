@@ -41,6 +41,7 @@ interface ScenarioProject {
   goal: string;
   openingLine: string;
   minTurns: number;
+  maxTurns: number;
 }
 
 interface Turn { role: "ai" | "student"; text: string; }
@@ -96,6 +97,8 @@ export default function ScenarioAssignmentPage() {
 
   const studentTurns = turns.filter((t) => t.role === "student").length;
   const minTurns = proj?.minTurns ?? 4;
+  const maxTurns = proj?.maxTurns ?? 12;
+  const reachedMax = studentTurns >= maxTurns;
 
   const playLine = (text: string) => {
     if (!proj) return;
@@ -212,6 +215,10 @@ export default function ScenarioAssignmentPage() {
   const handleSend = () => {
     const text = draft.trim();
     if (!text || send.isPending) return;
+    if (reachedMax) {
+      toast({ title: "You've reached the end", description: "Tap \"Finish & get feedback\" to see how you did." });
+      return;
+    }
     setTurns((prev) => [...prev, { role: "student", text }]);
     setDraft("");
     send.mutate(text);
@@ -329,26 +336,35 @@ export default function ScenarioAssignmentPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 border-t px-4 py-3">
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isTranscribing || send.isPending}
-              title={isRecording ? "Tap to stop" : "Tap to speak"}
-              className={`px-3 py-2.5 rounded-xl border transition-colors disabled:opacity-50 ${isRecording ? "bg-red-500 text-white border-red-500 animate-pulse" : "border-primary text-primary hover:bg-primary/5"}`}
-            >
-              {isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={isRecording ? "Listening… tap the square to stop" : isTranscribing ? "Transcribing…" : "Type or tap the mic to speak…"}
-              className="flex-1 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            <Button onClick={handleSend} disabled={!draft.trim() || send.isPending}>
-              <Send className="w-4 h-4" />
-            </Button>
+          {reachedMax ? (
+            <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground bg-muted/40">
+              You've reached the end of this role-play ({maxTurns} replies). Tap <span className="font-semibold text-primary">Finish &amp; get feedback</span> below.
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 border-t px-4 py-3">
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isTranscribing || send.isPending}
+                title={isRecording ? "Tap to stop" : "Tap to speak"}
+                className={`px-3 py-2.5 rounded-xl border transition-colors disabled:opacity-50 ${isRecording ? "bg-red-500 text-white border-red-500 animate-pulse" : "border-primary text-primary hover:bg-primary/5"}`}
+              >
+                {isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder={isRecording ? "Listening… tap the square to stop" : isTranscribing ? "Transcribing…" : "Type or tap the mic to speak…"}
+                className="flex-1 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <Button onClick={handleSend} disabled={!draft.trim() || send.isPending}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+          <div className="px-4 pt-1 text-[11px] text-muted-foreground text-right">
+            {studentTurns} / {maxTurns} replies
           </div>
 
           <div className="px-4 pb-4">

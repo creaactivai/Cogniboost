@@ -940,6 +940,7 @@ export const scenarioProjects = pgTable("scenario_projects", {
   targetVocab: text("target_vocab").array().notNull().default(sql`'{}'::text[]`),
   targetLanguage: text("target_language"),               // grammar/structures to elicit
   minTurns: integer("min_turns").notNull().default(4),   // before "Finish" is meaningful
+  maxTurns: integer("max_turns").notNull().default(12),  // hard cap per attempt — protects token spend
   isPublished: boolean("is_published").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
