@@ -7118,13 +7118,15 @@ OUTPUT FORMAT (strict JSON, no markdown):
   // config. Railway env vars (ELEVENLABS_VOICE_ID_<ACCENT> / _<ACCENT>_2) are
   // OPTIONAL overrides if you ever want to swap a voice. Voice 2 falls back to
   // voice 1 if unset (dialogue stays single-voice, still natural).
-  //   american  : Sarah (F)   + Brian (M)
-  //   british   : Alice (F)   + George (M)
-  //   australian: Charlie (M) + Matilda (F)
+  // Picked CONVERSATIONAL voices (not news/narration) so they sound like real
+  // people chatting, not radio announcers.
+  //   american  : Jessica (F, playful/warm) + Eric (M, smooth) — both conversational
+  //   british   : Lily (F, actress)         + George (M)        — no truly "conversational" British voice exists in the library
+  //   australian: Charlie (M, conversational)+ River (neutral, relaxed conversational)
   const ACCENT_VOICE_DEFAULTS: Record<string, [string, string]> = {
-    AMERICAN: ["EXAVITQu4vr4xnSDxMaL", "nPczCjzI2devNBz1zQrb"],
-    BRITISH: ["Xb7hH8MSUJpSbSDYk0k2", "JBFqnCBsd6RMkjVDRZzb"],
-    AUSTRALIAN: ["IKne3meq5aSn9XLyUdCD", "XrExE9yKIg1WjnnlVkGX"],
+    AMERICAN: ["cgSgspJ2msm6clMCkdW9", "cjVigY5qzO86Huf0OWal"],
+    BRITISH: ["pFZP5JQG7iQjIQuC4Bku", "JBFqnCBsd6RMkjVDRZzb"],
+    AUSTRALIAN: ["IKne3meq5aSn9XLyUdCD", "SAz9YHcvj6GT2YYXdXww"],
   };
   function resolveAccentVoices(accent: string): string[] {
     const key = String(accent || "").trim().toUpperCase();
@@ -7233,8 +7235,8 @@ OUTPUT FORMAT (strict JSON, no markdown):
       // intonation (less robotic). Generation is slightly slower but we cache
       // forever, so students never wait for it twice.
       const TTS_MODEL = "eleven_multilingual_v2";
-      const TTS_SETTINGS = { stability: 0.3, similarity_boost: 0.75, style: 0.65, use_speaker_boost: true };
-      const TTS_VERSION = "v3"; // bump to force-regenerate all cached audio
+      const TTS_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true };
+      const TTS_VERSION = "v4"; // bump to force-regenerate all cached audio
 
       // Cache signature folds in the exact voices, model + settings version, so
       // any voice/model/transcript change regenerates. Folder = primary voice.
