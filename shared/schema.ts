@@ -910,6 +910,69 @@ export type ListeningProject = typeof listeningProjects.$inferSelect;
 export type InsertListeningProject = z.infer<typeof insertListeningProjectSchema>;
 
 /* =====================================================================
+ * SCENARIO SPRINTS (Phase 2 — text role-play with AI)
+ * ---------------------------------------------------------------------
+ * One role-play per module (mirrors the Listening Hub: 1 per module).
+ * The student plays a role and chats (text first; voice/mic = Phase 2)
+ * with an AI character who STAYS IN CHARACTER, speaks at the student's
+ * CEFR level, and never breaks to correct. At the end a separate "coach"
+ * pass gives criterion-referenced feedback. AI voices use NATIVE ACCENTS
+ * ONLY (no cloned teacher voice). Anchored to the real module's
+ * vocabulary / grammar / expressions (Coral's rule).
+ *
+ * Two isolated tables, purely additive — they do NOT touch the existing
+ * `submissions` table or its enum, so this is fully reversible and
+ * zero-risk to production.
+ * ===================================================================== */
+export const scenarioProjects = pgTable("scenario_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").references(() => courseModules.id).notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),                         // e.g. "Check into a hotel in London"
+  subtitle: text("subtitle"),                             // short tagline for the intro card
+  studentRole: text("student_role").notNull(),           // what the student is doing
+  characterName: text("character_name").notNull(),       // e.g. "Emma"
+  characterRole: text("character_role").notNull(),       // e.g. "hotel receptionist"
+  // Native accent for the AI voice — maps to an ElevenLabs voice id.
+  accent: text("accent").notNull().default("british"),   // american | british | australian
+  goal: text("goal").notNull(),                          // the communicative goal
+  openingLine: text("opening_line").notNull(),           // character's first message
+  targetVocab: text("target_vocab").array().notNull().default(sql`'{}'::text[]`),
+  targetLanguage: text("target_language"),               // grammar/structures to elicit
+  minTurns: integer("min_turns").notNull().default(4),   // before "Finish" is meaningful
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertScenarioProjectSchema = createInsertSchema(scenarioProjects).omit({ id: true, createdAt: true, updatedAt: true });
+export type ScenarioProject = typeof scenarioProjects.$inferSelect;
+export type InsertScenarioProject = z.infer<typeof insertScenarioProjectSchema>;
+
+export const scenarioSubmissions = pgTable("scenario_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").references(() => users.id).notNull(),
+  scenarioProjectId: varchar("scenario_project_id").references(() => scenarioProjects.id).notNull(),
+  moduleId: varchar("module_id").references(() => courseModules.id).notNull(),
+  transcript: jsonb("transcript").$type<Array<{
+    role: "ai" | "student";
+    text: string;
+  }>>().notNull().default([] as any),
+  aiFeedback: jsonb("ai_feedback").$type<{
+    score: number;
+    didWell: string[];
+    toPolish: Array<{ quote?: string; tip: string }>;
+    vocab: Array<{ term: string; meaning: string }>;
+  }>(),
+  aiScore: decimal("ai_score", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertScenarioSubmissionSchema = createInsertSchema(scenarioSubmissions).omit({ id: true, createdAt: true });
+export type ScenarioSubmission = typeof scenarioSubmissions.$inferSelect;
+export type InsertScenarioSubmission = z.infer<typeof insertScenarioSubmissionSchema>;
+
+/* =====================================================================
  * FINAL EXAMS + CERTIFICATES (Phase 1.7)
  * ---------------------------------------------------------------------
  * One Final Exam per CEFR level. Unlocked after 100% module completion.

@@ -23,6 +23,7 @@ import ReadingAssignmentPage from "@/pages/reading-assignment";
 import ReadingSubmissionViewPage from "@/pages/reading-submission-view";
 import ListeningAssignmentPage from "@/pages/listening-assignment";
 import ListeningSubmissionViewPage from "@/pages/listening-submission-view";
+import ScenarioAssignmentPage from "@/pages/scenario-assignment";
 import SubmissionViewPage from "@/pages/submission-view";
 import SpeakingAssignmentPage from "@/pages/speaking-assignment";
 import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
@@ -246,6 +247,8 @@ export default function Dashboard() {
               {/* Fase 2 — Listening Hub per module */}
               <Route path="/dashboard/listening/:moduleId" component={ListeningAssignmentPage} />
               <Route path="/dashboard/listening-submissions/:id" component={ListeningSubmissionViewPage} />
+              {/* Fase 2 — Scenario Sprints (text role-play) per module */}
+              <Route path="/dashboard/scenario-sprint/:moduleId" component={ScenarioAssignmentPage} />
               {/* Phase 1.7 — CEFR Mastery Final Exams + Certificates */}
               <Route path="/dashboard/exams" component={FinalExamsPage} />
               <Route path="/dashboard/exam/:level/result/:attemptId" component={ExamResultPage} />

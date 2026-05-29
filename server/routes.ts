@@ -7407,6 +7407,259 @@ OUTPUT FORMAT (strict JSON, no markdown):
     }
   });
 
+  /* =====================================================================
+   * SCENARIO SPRINTS — text role-play with an in-character AI.
+   * Built fresh on Claude (the legacy ai-tutor chat stays on OpenAI).
+   * Four endpoints: fetch the scenario, chat (in-character reply),
+   * feedback (coach pass + save), audio (on-demand TTS for an AI line).
+   * ===================================================================== */
+
+  // Fetch the published scenario for a module. Strips the coaching internals
+  // (targetVocab / targetLanguage) so students can't "game" the feedback.
+  app.get("/api/scenario-projects/by-module/:moduleId", requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { scenarioProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(scenarioProjects).where(eq(scenarioProjects.moduleId, req.params.moduleId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Scenario not found for this module" });
+      if (!proj.isPublished) {
+        const u = await storage.getUser((req.user as any)?.id);
+        if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
+      }
+      const { targetVocab, targetLanguage, ...safe } = proj as any;
+      res.json(safe);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // In-character reply. Claude (Haiku) plays the character, speaks at the
+  // student's CEFR level, stays in character, keeps turns SHORT, and never
+  // stops to correct grammar (that's the coach's job at the end).
+  app.post("/api/scenario/chat", requireAuth, async (req: any, res) => {
+    try {
+      const { scenarioProjectId, history } = req.body as {
+        scenarioProjectId: string;
+        history: Array<{ role: "ai" | "student"; text: string }>;
+      };
+      if (!scenarioProjectId || !Array.isArray(history)) {
+        return res.status(400).json({ error: "scenarioProjectId and history required" });
+      }
+
+      const { db } = await import("./db");
+      const { scenarioProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(scenarioProjects).where(eq(scenarioProjects.id, scenarioProjectId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Scenario not found" });
+      if (!proj.isPublished) {
+        const u = await storage.getUser((req.user as any)?.id);
+        if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
+      }
+
+      const { getAnthropicClient, ANTHROPIC_MODELS, extractTextContent } = await import("./anthropicClient");
+      const client = getAnthropicClient();
+
+      const systemPrompt = `You are ${proj.characterName}, a ${proj.characterRole}. You are role-playing with an English learner whose CEFR level is ${proj.level}.
+
+SCENARIO: ${proj.title}. ${proj.goal}
+The learner's role: ${proj.studentRole}
+
+RULES — follow ALL of them:
+- STAY IN CHARACTER as ${proj.characterName} at all times. Never mention you are an AI or a language model.
+- Speak natural English at CEFR ${proj.level} level — clear and not too complex. Match the learner's level.
+- Keep every reply SHORT: 1–2 sentences. This is a spoken conversation, not an essay.
+- NEVER correct the learner's grammar or vocabulary, and never give meta feedback. Just respond naturally as the character would.
+- Move the conversation toward the goal, but let the learner lead. React to what they actually say.
+- If the learner has clearly achieved the goal, you may bring the conversation to a warm, natural close.
+- Reply with ONLY your spoken line — no stage directions, no name label, no quotation marks.`;
+
+      // Map the running history to Anthropic message turns. The character's
+      // opening line counts as the first assistant turn.
+      const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+      for (const turn of history) {
+        messages.push({ role: turn.role === "student" ? "user" : "assistant", content: turn.text });
+      }
+      // Anthropic requires the conversation to start with a user turn. If the
+      // first turn is the AI opening line, drop it (it's already in `system`
+      // context via the scenario) — but only if a student turn follows.
+      while (messages.length && messages[0].role === "assistant") messages.shift();
+      if (!messages.length) {
+        return res.status(400).json({ error: "Need at least one student message" });
+      }
+
+      const msg = await client.messages.create({
+        model: ANTHROPIC_MODELS.speaking,
+        max_tokens: 160,
+        system: systemPrompt,
+        messages,
+      });
+      const reply = extractTextContent(msg).trim().replace(/^["']|["']$/g, "");
+      res.json({ reply });
+    } catch (e: any) {
+      console.error("[scenario/chat]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Coach pass — runs once when the student finishes. Claude (Sonnet) reviews
+  // the whole conversation against the module's target vocab/language and
+  // returns criterion-referenced feedback. Saved to scenario_submissions.
+  app.post("/api/scenario/feedback", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { scenarioProjectId, transcript } = req.body as {
+        scenarioProjectId: string;
+        transcript: Array<{ role: "ai" | "student"; text: string }>;
+      };
+      if (!scenarioProjectId || !Array.isArray(transcript)) {
+        return res.status(400).json({ error: "scenarioProjectId and transcript required" });
+      }
+
+      const { db } = await import("./db");
+      const { scenarioProjects, scenarioSubmissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(scenarioProjects).where(eq(scenarioProjects.id, scenarioProjectId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Scenario not found" });
+
+      const convo = transcript
+        .map((t) => `${t.role === "student" ? "STUDENT" : proj.characterName.toUpperCase()}: ${t.text}`)
+        .join("\n");
+
+      const { getAnthropicClient, ANTHROPIC_MODELS, extractTextContent, parseJsonFromResponse } = await import("./anthropicClient");
+      const client = getAnthropicClient();
+
+      const prompt = `You are a warm, encouraging ESL speaking coach. A CEFR ${proj.level} learner just completed a role-play.
+
+SCENARIO: ${proj.title} — ${proj.goal}
+The learner played: ${proj.studentRole}
+${proj.targetVocab?.length ? `TARGET VOCABULARY for this module: ${proj.targetVocab.join(", ")}\n` : ""}${proj.targetLanguage ? `TARGET LANGUAGE / STRUCTURES: ${proj.targetLanguage}\n` : ""}
+CONVERSATION:
+"""
+${convo}
+"""
+
+Give criterion-referenced feedback on the STUDENT's English ONLY (ignore the character's lines). Judge: did they achieve the communicative goal? Was their language appropriate for ${proj.level}? Be generous and motivating — this is formative practice, not an exam.
+
+Reply with ONLY this JSON (no markdown):
+{
+  "score": <integer 0-100>,
+  "didWell": ["<short specific praise>", "..."],
+  "toPolish": [{"quote": "<the student's exact phrase, optional>", "tip": "<a kind, concrete suggestion>"}],
+  "vocab": [{"term": "<useful word/phrase from the module they could use>", "meaning": "<short gloss>"}]
+}
+Keep arrays to 2-3 items each. Everything in English.`;
+
+      let feedback: any = null;
+      try {
+        const msg = await client.messages.create({
+          model: ANTHROPIC_MODELS.grading,
+          max_tokens: 700,
+          messages: [{ role: "user", content: prompt }],
+        });
+        feedback = parseJsonFromResponse<any>(extractTextContent(msg));
+      } catch (gErr: any) {
+        console.error("[scenario/feedback] Claude grading failed:", gErr?.message);
+        return res.status(502).json({ error: "Coach feedback temporarily unavailable. Please try again." });
+      }
+
+      const score = Math.max(0, Math.min(100, Math.round(Number(feedback?.score) || 0)));
+      const normalized = {
+        score,
+        didWell: Array.isArray(feedback?.didWell) ? feedback.didWell.map(String) : [],
+        toPolish: Array.isArray(feedback?.toPolish)
+          ? feedback.toPolish.map((p: any) => ({ quote: p?.quote ? String(p.quote) : undefined, tip: String(p?.tip || "") }))
+          : [],
+        vocab: Array.isArray(feedback?.vocab)
+          ? feedback.vocab.map((v: any) => ({ term: String(v?.term || ""), meaning: String(v?.meaning || "") }))
+          : [],
+      };
+
+      let submissionId: string | null = null;
+      try {
+        const [sub] = await db.insert(scenarioSubmissions).values({
+          studentId: userId,
+          scenarioProjectId: proj.id,
+          moduleId: proj.moduleId,
+          transcript: transcript as any,
+          aiFeedback: normalized as any,
+          aiScore: String(score),
+        } as any).returning({ id: scenarioSubmissions.id });
+        submissionId = sub?.id || null;
+      } catch (saveErr: any) {
+        console.error("[scenario/feedback] save failed (returning feedback anyway):", saveErr?.message);
+      }
+
+      res.json({ submissionId, ...normalized });
+    } catch (e: any) {
+      console.error("[scenario/feedback]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // On-demand TTS for a single AI line (the 🔊 Play button). Native accent
+  // voice only. Cached in GCS by text hash → zero cost on replay. Uses a
+  // fixed pseudo-projectId so identical lines across attempts share a cache.
+  app.get("/api/scenario/audio", requireAuth, async (req: any, res) => {
+    try {
+      const text = String(req.query.text || "").trim();
+      const accent = String(req.query.accent || "british").trim().toLowerCase();
+      const level = String(req.query.level || "B1").trim().toUpperCase();
+      if (!text) return res.status(400).json({ error: "text required" });
+      if (text.length > 600) return res.status(400).json({ error: "text too long" });
+
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      const voices = resolveAccentVoices(accent);
+      if (!apiKey || !voices.length) {
+        return res.status(503).json({ error: "TTS not configured" });
+      }
+
+      const TTS_MODEL = "eleven_multilingual_v2";
+      const SPEED_BY_LEVEL: Record<string, number> = { A1: 0.85, A2: 0.9, B1: 0.95, B2: 1.0, C1: 1.0, C2: 1.0 };
+      const speed = SPEED_BY_LEVEL[level] ?? 1.0;
+      const TTS_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true, speed };
+      const TTS_VERSION = "v1";
+
+      const voiceId = voices[0];
+      const cacheSig = `${TTS_VERSION}|${TTS_MODEL}|sp=${speed}|v=${voiceId}::${text}`;
+      const PSEUDO_PROJECT = "scenario-lines";
+
+      const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
+      try {
+        if (await listeningAudioExists(voiceId, PSEUDO_PROJECT, cacheSig)) {
+          res.setHeader("X-Cache", "HIT");
+          return res.redirect(302, gcsListeningAudioUrl(voiceId, PSEUDO_PROJECT, cacheSig));
+        }
+      } catch (existsErr: any) {
+        console.warn("[scenario/audio] existence check failed, generating:", existsErr?.message);
+      }
+
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: "POST",
+        headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
+        body: JSON.stringify({ text, model_id: TTS_MODEL, voice_settings: TTS_SETTINGS }),
+      });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => "");
+        console.error("[scenario/audio] ElevenLabs error:", r.status, errText.slice(0, 200));
+        return res.status(502).json({ error: `TTS upstream ${r.status}` });
+      }
+      const buf = Buffer.from(await r.arrayBuffer());
+      try {
+        await saveListeningAudio(voiceId, PSEUDO_PROJECT, cacheSig, buf);
+      } catch (saveErr: any) {
+        console.error("[scenario/audio] GCS save failed (serving inline):", saveErr?.message);
+      }
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("X-Cache", "MISS");
+      res.send(buf);
+    } catch (e: any) {
+      console.error("[scenario/audio]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
   /* ---- Listening admin CRUD ---- */
   app.get("/api/admin/listening-projects/by-course/:courseId", requireAuth, async (req: any, res) => {
     try {
