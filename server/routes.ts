@@ -7112,15 +7112,25 @@ OUTPUT FORMAT (strict JSON, no markdown):
   // separate voice; if its env var isn't set we fall back to the default
   // voice so the feature works with a single voice today and gains real
   // accents the moment Coral adds the extra voice ids in Railway.
-  // Each accent can have up to TWO voices so a two-person dialogue sounds like
-  // two real people. Voice 1 = ELEVENLABS_VOICE_ID_<ACCENT>, voice 2 =
-  // ELEVENLABS_VOICE_ID_<ACCENT>_2 (optional). Falls back gracefully: if the
-  // 2nd voice is unset, dialogues use a single voice (still natural). If the
-  // accent voice is unset entirely, falls back to the base ELEVENLABS_VOICE_ID.
+  // Each accent has TWO real ElevenLabs voices so a two-person dialogue sounds
+  // like two real people. Voice IDs are PUBLIC identifiers (not secrets), so we
+  // ship sensible defaults here — multi-accent works out of the box with no
+  // config. Railway env vars (ELEVENLABS_VOICE_ID_<ACCENT> / _<ACCENT>_2) are
+  // OPTIONAL overrides if you ever want to swap a voice. Voice 2 falls back to
+  // voice 1 if unset (dialogue stays single-voice, still natural).
+  //   american  : Sarah (F)   + Brian (M)
+  //   british   : Alice (F)   + George (M)
+  //   australian: Charlie (M) + Matilda (F)
+  const ACCENT_VOICE_DEFAULTS: Record<string, [string, string]> = {
+    AMERICAN: ["EXAVITQu4vr4xnSDxMaL", "nPczCjzI2devNBz1zQrb"],
+    BRITISH: ["Xb7hH8MSUJpSbSDYk0k2", "JBFqnCBsd6RMkjVDRZzb"],
+    AUSTRALIAN: ["IKne3meq5aSn9XLyUdCD", "XrExE9yKIg1WjnnlVkGX"],
+  };
   function resolveAccentVoices(accent: string): string[] {
-    const key = String(accent || "").trim().toLowerCase().toUpperCase();
-    const v1 = process.env[`ELEVENLABS_VOICE_ID_${key}`] || process.env.ELEVENLABS_VOICE_ID;
-    const v2 = process.env[`ELEVENLABS_VOICE_ID_${key}_2`];
+    const key = String(accent || "").trim().toUpperCase();
+    const def = ACCENT_VOICE_DEFAULTS[key] || [];
+    const v1 = process.env[`ELEVENLABS_VOICE_ID_${key}`] || def[0] || process.env.ELEVENLABS_VOICE_ID;
+    const v2 = process.env[`ELEVENLABS_VOICE_ID_${key}_2`] || def[1];
     const out: string[] = [];
     if (v1) out.push(v1);
     if (v2 && v2 !== v1) out.push(v2);
