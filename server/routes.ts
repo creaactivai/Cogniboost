@@ -7112,26 +7112,55 @@ OUTPUT FORMAT (strict JSON, no markdown):
   // separate voice; if its env var isn't set we fall back to the default
   // voice so the feature works with a single voice today and gains real
   // accents the moment Coral adds the extra voice ids in Railway.
-  function resolveAccentVoiceId(accent: string): string | undefined {
-    const key = String(accent || "").trim().toLowerCase();
-    const map: Record<string, string | undefined> = {
-      american: process.env.ELEVENLABS_VOICE_ID_AMERICAN,
-      british: process.env.ELEVENLABS_VOICE_ID_BRITISH,
-      australian: process.env.ELEVENLABS_VOICE_ID_AUSTRALIAN,
-    };
-    return map[key] || process.env.ELEVENLABS_VOICE_ID;
+  // Each accent can have up to TWO voices so a two-person dialogue sounds like
+  // two real people. Voice 1 = ELEVENLABS_VOICE_ID_<ACCENT>, voice 2 =
+  // ELEVENLABS_VOICE_ID_<ACCENT>_2 (optional). Falls back gracefully: if the
+  // 2nd voice is unset, dialogues use a single voice (still natural). If the
+  // accent voice is unset entirely, falls back to the base ELEVENLABS_VOICE_ID.
+  function resolveAccentVoices(accent: string): string[] {
+    const key = String(accent || "").trim().toLowerCase().toUpperCase();
+    const v1 = process.env[`ELEVENLABS_VOICE_ID_${key}`] || process.env.ELEVENLABS_VOICE_ID;
+    const v2 = process.env[`ELEVENLABS_VOICE_ID_${key}_2`];
+    const out: string[] = [];
+    if (v1) out.push(v1);
+    if (v2 && v2 !== v1) out.push(v2);
+    return out;
   }
 
-  // Speaker labels ("Waiter:", "Shop assistant:", "Ana:") are useful in the
-  // REVEALED transcript the student reads, but a real-accent TTS voice would
-  // literally say "Waiter colon…". Strip them for synthesis only. Matches a
-  // 1-2 word capitalized label + colon at the start or right after sentence
-  // punctuation, so normal prose is never touched.
-  function speakableTranscript(t: string): string {
-    return String(t || "")
-      .replace(/(^|[.?!]\s+)([A-Z][a-z]+(?:\s[A-Za-z]+)?):\s*/g, "$1")
-      .replace(/\s+/g, " ")
-      .trim();
+  // Split a transcript into ordered turns. A "turn" begins at a speaker label
+  // ("Waiter:", "Shop assistant:", "Ana:") and runs until the next label. The
+  // label itself is removed from the spoken text (a TTS voice must not say
+  // "Waiter colon…") but stays in the REVEALED transcript the student reads.
+  // Each distinct speaker (by first appearance) is assigned a voice index, so
+  // the same character keeps the same voice throughout. Monologues with no
+  // labels return a single turn with voiceIndex 0.
+  function parseDialogueTurns(t: string): Array<{ text: string; voiceIndex: number }> {
+    const src = String(t || "");
+    const labelRe = /(^|[.?!]\s+|\s)([A-Z][a-z]+(?:\s[A-Za-z]+)?):\s+/g;
+    const marks: Array<{ index: number; labelEnd: number; speaker: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = labelRe.exec(src)) !== null) {
+      // m.index points at the leading separator; the label starts after it.
+      const sepLen = m[1].length;
+      marks.push({ index: m.index + sepLen, labelEnd: labelRe.lastIndex, speaker: m[2].toLowerCase() });
+    }
+    if (marks.length < 2) {
+      // 0 or 1 label → treat as a monologue (strip a lone leading label too).
+      const text = src.replace(/^([A-Z][a-z]+(?:\s[A-Za-z]+)?):\s+/, "").replace(/\s+/g, " ").trim();
+      return text ? [{ text, voiceIndex: 0 }] : [];
+    }
+    const speakerOrder: string[] = [];
+    const turns: Array<{ text: string; voiceIndex: number }> = [];
+    for (let i = 0; i < marks.length; i++) {
+      const start = marks[i].labelEnd;
+      const end = i + 1 < marks.length ? marks[i + 1].index : src.length;
+      const text = src.slice(start, end).replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      let vi = speakerOrder.indexOf(marks[i].speaker);
+      if (vi === -1) { speakerOrder.push(marks[i].speaker); vi = speakerOrder.length - 1; }
+      turns.push({ text, voiceIndex: vi });
+    }
+    return turns;
   }
 
   app.get("/api/listening-projects/by-module/:moduleId", requireAuth, async (req: any, res) => {
@@ -7167,8 +7196,8 @@ OUTPUT FORMAT (strict JSON, no markdown):
       if (!projectId) return res.status(400).json({ error: "projectId required" });
 
       const apiKey = process.env.ELEVENLABS_API_KEY;
-      const voiceId = resolveAccentVoiceId(accent);
-      if (!apiKey || !voiceId) {
+      const voices = resolveAccentVoices(accent);
+      if (!apiKey || !voices.length) {
         return res.status(503).json({ error: "TTS not configured (ELEVENLABS_API_KEY + a voice id required)" });
       }
 
@@ -7183,41 +7212,57 @@ OUTPUT FORMAT (strict JSON, no markdown):
       }
       const transcript = proj.transcript || "";
       if (!transcript) return res.status(404).json({ error: "No transcript to synthesize" });
-      // What the voice actually says — speaker labels removed. Used for both
-      // the TTS text AND the cache key, so the cached audio always matches the
-      // spoken content (and re-authoring/label changes invalidate the cache).
-      const speakText = speakableTranscript(transcript);
+
+      // Split into speaker turns; assign each speaker a voice from the accent
+      // pool (mod len). Monologues → one turn on voices[0].
+      const turns = parseDialogueTurns(transcript);
+      if (!turns.length) return res.status(404).json({ error: "No transcript to synthesize" });
+
+      // Cache signature folds the exact voices used into the key, so any voice
+      // or transcript change regenerates. Folder uses the primary voice id.
+      const cacheVoiceId = voices[0];
+      const cacheSig = `v=${voices.join(",")}::${turns.map(t => `${t.voiceIndex}:${t.text}`).join(" | ")}`;
 
       const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
 
       // Fast path: already cached in GCS.
       try {
-        if (await listeningAudioExists(voiceId, projectId, speakText)) {
+        if (await listeningAudioExists(cacheVoiceId, projectId, cacheSig)) {
           res.setHeader("X-Cache", "HIT");
-          return res.redirect(302, gcsListeningAudioUrl(voiceId, projectId, speakText));
+          return res.redirect(302, gcsListeningAudioUrl(cacheVoiceId, projectId, cacheSig));
         }
       } catch (existsErr: any) {
         console.warn("[listening/audio] existence check failed, generating:", existsErr?.message);
       }
 
-      // Slow path: synthesize once.
-      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: "POST",
-        headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
-        body: JSON.stringify({
-          text: speakText,
-          model_id: "eleven_turbo_v2_5",
-          voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.25, use_speaker_boost: true },
-        }),
-      });
-      if (!r.ok) {
-        const errText = await r.text().catch(() => "");
-        console.error("[listening/audio] ElevenLabs error:", r.status, errText.slice(0, 200));
-        return res.status(502).json({ error: `TTS upstream ${r.status}` });
+      // Slow path: synthesize each turn with its assigned voice, then stitch
+      // the mp3 segments into one clip. previous_text / next_text give the TTS
+      // continuity so the conversation flows naturally across turns.
+      const segments: Buffer[] = [];
+      for (let i = 0; i < turns.length; i++) {
+        const turn = turns[i];
+        const vId = voices[turn.voiceIndex % voices.length];
+        const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vId}`, {
+          method: "POST",
+          headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
+          body: JSON.stringify({
+            text: turn.text,
+            model_id: "eleven_turbo_v2_5",
+            previous_text: turns[i - 1]?.text || undefined,
+            next_text: turns[i + 1]?.text || undefined,
+            voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.25, use_speaker_boost: true },
+          }),
+        });
+        if (!r.ok) {
+          const errText = await r.text().catch(() => "");
+          console.error("[listening/audio] ElevenLabs error:", r.status, errText.slice(0, 200));
+          return res.status(502).json({ error: `TTS upstream ${r.status}` });
+        }
+        segments.push(Buffer.from(await r.arrayBuffer()));
       }
-      const buf = Buffer.from(await r.arrayBuffer());
+      const buf = Buffer.concat(segments);
       try {
-        await saveListeningAudio(voiceId, projectId, speakText, buf);
+        await saveListeningAudio(cacheVoiceId, projectId, cacheSig, buf);
       } catch (saveErr: any) {
         console.error("[listening/audio] GCS save failed (serving inline):", saveErr?.message);
       }

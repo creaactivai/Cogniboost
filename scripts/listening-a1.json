@@ -1,0 +1,103 @@
+{
+  "level": "A1",
+  "_note": "One Listening per A1 module. Scripts + questions anchored to each module's aligned vocabulary/grammar/expressions (Ola 1, distilled from the real lessons). Student-facing content in English. 5 questions per module (final M8 has 6): mix of multiple_choice/true_false/fill_in (auto-graded) + 1 open (Claude). MC correct-answer positions are varied so 'A' is not always right.",
+  "listenings": [
+    {
+      "moduleId": "1c5c758e-f84f-467a-907c-0fa9c74f9c2d",
+      "title": "Meeting Someone New",
+      "transcript": "Hi! My name is Carla. Nice to meet you. I am from Mexico, so I am Mexican. I am twenty-five years old, and I am a teacher. This is my friend David. He is from the United States. He is American, and he is a doctor. We are very happy to be here!",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "Where is Carla from?", "options": ["United States", "Spain", "Mexico", "Canada"], "correctAnswer": "2", "explanation": "Carla says 'I am from Mexico'." },
+        { "type": "multiple_choice", "questionText": "What is Carla's job?", "options": ["teacher", "doctor", "engineer", "student"], "correctAnswer": "0", "explanation": "She says 'I am a teacher'." },
+        { "type": "true_false", "questionText": "David is American.", "correctAnswer": "true", "explanation": "Carla says David is from the United States and he is American." },
+        { "type": "fill_in", "questionText": "David is a ___. (one word)", "correctAnswer": "doctor", "explanation": "'He is a doctor.'" },
+        { "type": "open", "questionText": "Introduce yourself like Carla: say your name, where you are from, and your job.", "sampleAnswer": "My name is Ana. I am from Colombia. I am a designer." }
+      ]
+    },
+    {
+      "moduleId": "99c99679-da6d-4d9d-a5d0-b893c9d96905",
+      "title": "My Family",
+      "transcript": "Hello! Let me tell you about my family. I have got one brother and two sisters. My father is a teacher and my mother is a doctor. My brother is twenty years old; he is a student. We all live together in a big house. I love my family very much.",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "How many brothers has the speaker got?", "options": ["Three", "Two", "One", "None"], "correctAnswer": "2", "explanation": "'I have got one brother and two sisters.'" },
+        { "type": "multiple_choice", "questionText": "What is the mother's job?", "options": ["teacher", "doctor", "engineer", "manager"], "correctAnswer": "1", "explanation": "'My mother is a doctor.'" },
+        { "type": "fill_in", "questionText": "The father is a ___. (one word)", "correctAnswer": "teacher", "explanation": "'My father is a teacher.'" },
+        { "type": "true_false", "questionText": "The brother is a student.", "correctAnswer": "true", "explanation": "'He is a student.'" },
+        { "type": "open", "questionText": "Describe your family: how many brothers or sisters have you got, and what is one person's job?", "sampleAnswer": "I have got two sisters. My father is an engineer." }
+      ]
+    },
+    {
+      "moduleId": "225a0db5-0bb5-4f16-b9c0-701835c9d00a",
+      "title": "My Daily Routine",
+      "transcript": "This is my daily routine. I always wake up at seven o'clock in the morning. Then I have breakfast and go to work. I usually have lunch at one o'clock. In the evening, I watch TV with my family. I never go to bed late. On weekends, I sometimes visit my friends.",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "What time does the speaker wake up?", "options": ["six o'clock", "seven o'clock", "eight o'clock", "nine o'clock"], "correctAnswer": "1", "explanation": "'I always wake up at seven o'clock.'" },
+        { "type": "fill_in", "questionText": "The speaker has ___ at one o'clock. (one word)", "correctAnswer": "lunch", "explanation": "'I usually have lunch at one o'clock.'" },
+        { "type": "multiple_choice", "questionText": "How often does the speaker go to bed late?", "options": ["always", "usually", "never", "sometimes"], "correctAnswer": "2", "explanation": "'I never go to bed late.'" },
+        { "type": "true_false", "questionText": "In the evening, the speaker watches TV.", "correctAnswer": "true", "explanation": "'In the evening, I watch TV with my family.'" },
+        { "type": "open", "questionText": "Describe your morning routine: what do you do, and at what time?", "sampleAnswer": "I wake up at six o'clock. Then I have breakfast and go to work." }
+      ]
+    },
+    {
+      "moduleId": "157719fc-8eda-4cfc-b832-4de555a062a2",
+      "title": "At the Restaurant",
+      "transcript": "Waiter: Good evening! Here is the menu. What would you like to order? Customer: I would like the chicken with a salad, please. Waiter: And to drink? Customer: Can I have a glass of water and a coffee, please? Waiter: Of course. Customer: Thank you. The bill, please.",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "What food does the customer order?", "options": ["pasta", "soup", "eggs", "chicken with salad"], "correctAnswer": "3", "explanation": "'I would like the chicken with a salad.'" },
+        { "type": "multiple_choice", "questionText": "What does the customer want to drink?", "options": ["water and coffee", "juice", "tea", "milk"], "correctAnswer": "0", "explanation": "'Can I have a glass of water and a coffee?'" },
+        { "type": "fill_in", "questionText": "At the end, the customer asks for the ___. (one word)", "correctAnswer": "bill", "explanation": "'The bill, please.'" },
+        { "type": "true_false", "questionText": "The waiter gives the customer the menu.", "correctAnswer": "true", "explanation": "'Here is the menu.'" },
+        { "type": "open", "questionText": "Order a meal at a restaurant: say what food and drink you would like.", "sampleAnswer": "I would like the chicken, please. Can I have a coffee?" }
+      ]
+    },
+    {
+      "moduleId": "b74a7c4b-bb66-4d93-a40f-e023fd8c5018",
+      "title": "Directions to the Bank",
+      "transcript": "Tourist: Excuse me, where is the bank? Local: Go straight and turn left. The bank is next to the supermarket. Tourist: Is it near the park? Local: Yes, it is in front of the park. You can take the bus or go on foot. Tourist: Thank you very much!",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "What is the tourist looking for?", "options": ["the park", "the bank", "the hospital", "the school"], "correctAnswer": "1", "explanation": "'Where is the bank?'" },
+        { "type": "multiple_choice", "questionText": "The bank is next to the ___.", "options": ["pharmacy", "station", "supermarket", "restaurant"], "correctAnswer": "2", "explanation": "'The bank is next to the supermarket.'" },
+        { "type": "true_false", "questionText": "The bank is in front of the park.", "correctAnswer": "true", "explanation": "'It is in front of the park.'" },
+        { "type": "fill_in", "questionText": "The local says: 'Go straight and turn ___.' (one word)", "correctAnswer": "left", "explanation": "'Go straight and turn left.'" },
+        { "type": "open", "questionText": "Give directions to a place near your home. Use 'go straight', 'turn left/right', and 'next to'.", "sampleAnswer": "Go straight and turn right. It is next to the park." }
+      ]
+    },
+    {
+      "moduleId": "024e4dcc-d1f3-456e-a563-eff8e4f19f3f",
+      "title": "Buying a Jacket",
+      "transcript": "Customer: How much is this blue jacket? Assistant: It is fifty dollars. Customer: And that red one? Assistant: The red one is forty dollars. It is cheaper than the blue one. Customer: Can I try it on? ... I'll take this red jacket. Do you have a bigger size? Assistant: Yes, here you are.",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "How much is the blue jacket?", "options": ["forty dollars", "fifty dollars", "thirty dollars", "sixty dollars"], "correctAnswer": "1", "explanation": "'It is fifty dollars.'" },
+        { "type": "true_false", "questionText": "The red jacket is cheaper than the blue jacket.", "correctAnswer": "true", "explanation": "'The red one is forty dollars. It is cheaper than the blue one.'" },
+        { "type": "multiple_choice", "questionText": "Which jacket does the customer buy?", "options": ["the blue one", "the green one", "the red one", "none"], "correctAnswer": "2", "explanation": "'I'll take this red jacket.'" },
+        { "type": "fill_in", "questionText": "The customer asks for a ___ size. (one word)", "correctAnswer": "bigger", "explanation": "'Do you have a bigger size?'" },
+        { "type": "open", "questionText": "Compare two things you can buy, and say which one you prefer. Use 'cheaper' or 'more expensive'.", "sampleAnswer": "The red shirt is cheaper than the blue one. I'll take the red shirt." }
+      ]
+    },
+    {
+      "moduleId": "154a2881-5e1d-41cd-b1a4-9501e40b615e",
+      "title": "Plans for the Weekend",
+      "transcript": "Ana: What are you going to do next weekend? Sam: I am going to have a party at my house on Saturday. Would you like to come with me? Ana: Yes, I'd love to! What time? Sam: Let's meet at seven o'clock in the evening. Ana: Great. On Sunday I am going to go to the beach because it is summer. Sam: Sounds fun!",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "What is Sam going to do on Saturday?", "options": ["go to the beach", "work", "have a party", "travel"], "correctAnswer": "2", "explanation": "'I am going to have a party at my house on Saturday.'" },
+        { "type": "multiple_choice", "questionText": "What time are they going to meet?", "options": ["five o'clock", "six o'clock", "seven o'clock", "eight o'clock"], "correctAnswer": "2", "explanation": "'Let's meet at seven o'clock.'" },
+        { "type": "true_false", "questionText": "Ana is going to go to the beach on Sunday.", "correctAnswer": "true", "explanation": "'On Sunday I am going to go to the beach.'" },
+        { "type": "fill_in", "questionText": "Sam invites Ana: 'Would you like to come ___ me?' (one word)", "correctAnswer": "with", "explanation": "'Would you like to come with me?'" },
+        { "type": "open", "questionText": "Make a plan for next weekend. Use 'I am going to ...'.", "sampleAnswer": "Next weekend I am going to visit my family. On Sunday I am going to watch a movie." }
+      ]
+    },
+    {
+      "moduleId": "8ac62cbf-8e6e-444b-81ab-b71e8cd238c3",
+      "title": "My English Journey",
+      "transcript": "Hi! My name is Lucia and I am from Colombia. I am twenty-eight years old and I am a designer. I have got a big family: two brothers and one sister. Every day I wake up at six o'clock and have breakfast. I love eating fruit and drinking coffee. My favourite place is the park near my house. Next month I am going to travel to Canada. I am very happy with my English!",
+      "questions": [
+        { "type": "multiple_choice", "questionText": "Where is Lucia from?", "options": ["Canada", "Mexico", "Colombia", "Spain"], "correctAnswer": "2", "explanation": "'I am from Colombia.'" },
+        { "type": "multiple_choice", "questionText": "What is Lucia's job?", "options": ["teacher", "designer", "doctor", "student"], "correctAnswer": "1", "explanation": "'I am a designer.'" },
+        { "type": "fill_in", "questionText": "Lucia wakes up at ___ o'clock. (one word)", "correctAnswer": "six", "explanation": "'I wake up at six o'clock.'" },
+        { "type": "true_false", "questionText": "Lucia is going to travel to Canada next month.", "correctAnswer": "true", "explanation": "'Next month I am going to travel to Canada.'" },
+        { "type": "multiple_choice", "questionText": "How many brothers has Lucia got?", "options": ["one", "two", "three", "four"], "correctAnswer": "1", "explanation": "'two brothers and one sister.'" },
+        { "type": "open", "questionText": "Tell your story: your name, where you are from, your job, and one plan for the future.", "sampleAnswer": "My name is Pedro. I am from Mexico. I am a teacher. Next year I am going to study in the United States." }
+      ]
+    }
+  ]
+}
