@@ -31,6 +31,7 @@ import {
   Mic,
   PenLine,
   BookText,
+  Headphones,
 } from "lucide-react";
 import type { Course, Lesson, Quiz, QuizQuestion } from "@shared/schema";
 
@@ -627,6 +628,26 @@ export function CourseViewer({ isAdminPreview: isAdminPreviewProp }: CourseViewe
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate leading-tight">Reading Project</p>
                             <p className="text-[11px] text-muted-foreground mt-0.5">Read &amp; answer comprehension</p>
+                          </div>
+                        </div>
+                      </Card>
+
+                      {/* Listening Project card — violet identity */}
+                      <Card
+                        className="p-2.5 cursor-pointer hover-elevate transition-all rounded-lg border-border/50"
+                        onClick={() => setLocation(`/dashboard/listening/${mod.id}`)}
+                        data-testid={`card-listening-project-${mod.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                            style={{ backgroundColor: '#6d3be4' }}
+                          >
+                            <Headphones className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate leading-tight">Listening Project</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Listen &amp; answer comprehension</p>
                           </div>
                         </div>
                       </Card>

@@ -121,3 +121,59 @@ export async function saveVocabAudio(
 
   return `https://storage.googleapis.com/${bucketName}/${path}`;
 }
+
+/* ===================================================================
+ * Listening Hub audio (Fase 2). Same "generate once, store forever"
+ * GCS cache as vocab audio, but keyed by (voiceId, projectId, transcript
+ * hash) so re-authoring a listening's script auto-invalidates the cache.
+ * The voiceId encodes the accent (one ElevenLabs voice per accent).
+ * =================================================================== */
+
+/** Deterministic GCS path for a listening clip in a given accent voice. */
+export function gcsListeningAudioPath(voiceId: string, projectId: string, transcript: string): string {
+  const hash = createHash("sha256").update(transcript).digest("hex").slice(0, 12);
+  return `listening-audio/${voiceId}/${projectId}-${hash}.mp3`;
+}
+
+export function gcsListeningAudioUrl(voiceId: string, projectId: string, transcript: string): string {
+  const bucketName = getBucketName();
+  return `https://storage.googleapis.com/${bucketName}/${gcsListeningAudioPath(voiceId, projectId, transcript)}`;
+}
+
+/** True if a cached MP3 already exists for this (voice, project, transcript). */
+export async function listeningAudioExists(voiceId: string, projectId: string, transcript: string): Promise<boolean> {
+  try {
+    const storage = getStorage();
+    const bucket = storage.bucket(getBucketName());
+    const [exists] = await bucket.file(gcsListeningAudioPath(voiceId, projectId, transcript)).exists();
+    return !!exists;
+  } catch (err) {
+    console.warn("[listeningAudioExists] check failed:", (err as any)?.message);
+    return false;
+  }
+}
+
+/** Save a listening MP3 buffer at the deterministic path and return its URL. */
+export async function saveListeningAudio(
+  voiceId: string,
+  projectId: string,
+  transcript: string,
+  buffer: Buffer,
+): Promise<string> {
+  const storage = getStorage();
+  const bucketName = getBucketName();
+  const bucket = storage.bucket(bucketName);
+  const path = gcsListeningAudioPath(voiceId, projectId, transcript);
+  const file = bucket.file(path);
+
+  await file.save(buffer, {
+    contentType: "audio/mpeg",
+    metadata: {
+      cacheControl: "public, max-age=31536000, immutable",
+      metadata: { projectId, voiceId },
+    },
+  });
+  await file.makePublic();
+
+  return `https://storage.googleapis.com/${bucketName}/${path}`;
+}

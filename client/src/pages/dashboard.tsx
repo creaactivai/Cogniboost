@@ -21,6 +21,8 @@ import ExamTakePage from "@/pages/exam-take";
 import ExamResultPage from "@/pages/exam-result";
 import ReadingAssignmentPage from "@/pages/reading-assignment";
 import ReadingSubmissionViewPage from "@/pages/reading-submission-view";
+import ListeningAssignmentPage from "@/pages/listening-assignment";
+import ListeningSubmissionViewPage from "@/pages/listening-submission-view";
 import SubmissionViewPage from "@/pages/submission-view";
 import SpeakingAssignmentPage from "@/pages/speaking-assignment";
 import SpeakingSubmissionViewPage from "@/pages/speaking-submission-view";
@@ -241,6 +243,9 @@ export default function Dashboard() {
               {/* Phase 1.8 — Reading Comprehension per module */}
               <Route path="/dashboard/reading/:moduleId" component={ReadingAssignmentPage} />
               <Route path="/dashboard/reading-submissions/:id" component={ReadingSubmissionViewPage} />
+              {/* Fase 2 — Listening Hub per module */}
+              <Route path="/dashboard/listening/:moduleId" component={ListeningAssignmentPage} />
+              <Route path="/dashboard/listening-submissions/:id" component={ListeningSubmissionViewPage} />
               {/* Phase 1.7 — CEFR Mastery Final Exams + Certificates */}
               <Route path="/dashboard/exams" component={FinalExamsPage} />
               <Route path="/dashboard/exam/:level/result/:attemptId" component={ExamResultPage} />

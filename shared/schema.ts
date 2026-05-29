@@ -871,6 +871,44 @@ export const insertReadingProjectSchema = createInsertSchema(readingProjects).om
 export type ReadingProject = typeof readingProjects.$inferSelect;
 export type InsertReadingProject = z.infer<typeof insertReadingProjectSchema>;
 
+// Listening Projects — one per module (Fase 2 "Listening Hub", May 2026).
+// Mirrors readingProjects but the "passage" is an audio SCRIPT (transcript)
+// that ElevenLabs renders into multi-accent audio (cached in GCS, generate-
+// once). The transcript stays HIDDEN from the student until they submit, so
+// they train their ear instead of reading along. Questions are a mix of
+// auto-graded closed types (multiple_choice/true_false/fill_in) and one or
+// more "open" questions graded by Claude. Anchored to the real module's
+// vocabulary / grammar / slang (Coral's rule: must connect to the lessons).
+export const listeningProjects = pgTable("listening_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").references(() => courseModules.id).notNull(),
+  level: courseLevelEnum("level").notNull(),
+  title: text("title").notNull(),
+  transcript: text("transcript").notNull(),              // the audio SCRIPT — hidden until submit
+  // Accents the student may choose from. Each maps to an ElevenLabs voice id
+  // resolved at audio-generation time (env: ELEVENLABS_VOICE_ID_<ACCENT>).
+  accents: text("accents").array().notNull().default(sql`'{american,british,australian}'::text[]`),
+  questions: jsonb("questions").$type<Array<{
+    id: string;
+    type: "multiple_choice" | "true_false" | "fill_in" | "open";
+    questionText: string;
+    options?: string[];
+    correctAnswer?: string;        // closed types only
+    explanation?: string;
+    sampleAnswer?: string;         // open types — guides Claude's grading
+  }>>().notNull().default([] as any),
+  durationSeconds: integer("duration_seconds"),          // estimate, for the UI
+  maxPlays: integer("max_plays").notNull().default(3),   // replay limit per attempt
+  passingScore: integer("passing_score").notNull().default(70),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertListeningProjectSchema = createInsertSchema(listeningProjects).omit({ id: true, createdAt: true, updatedAt: true });
+export type ListeningProject = typeof listeningProjects.$inferSelect;
+export type InsertListeningProject = z.infer<typeof insertListeningProjectSchema>;
+
 /* =====================================================================
  * FINAL EXAMS + CERTIFICATES (Phase 1.7)
  * ---------------------------------------------------------------------

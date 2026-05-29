@@ -7098,6 +7098,300 @@ OUTPUT FORMAT (strict JSON, no markdown):
     } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
   });
 
+  /* ═══════════════════════════════════════════════════════════════
+   * Fase 2 — LISTENING HUB  (one listening per module)
+   *   GET  /api/listening-projects/by-module/:moduleId   (student)
+   *   GET  /api/listening/audio?projectId=&accent=        (cached TTS)
+   *   POST /api/listening-submissions                     (auto + Claude)
+   *   GET  /api/listening-submissions/:id                 (result + reveal)
+   *   admin: GET by-course / POST upsert / PATCH
+   * Transcript is HIDDEN from students until they submit (train the ear).
+   * ═══════════════════════════════════════════════════════════════ */
+
+  // Resolve an accent key to its ElevenLabs voice id. Each accent is a
+  // separate voice; if its env var isn't set we fall back to the default
+  // voice so the feature works with a single voice today and gains real
+  // accents the moment Coral adds the extra voice ids in Railway.
+  function resolveAccentVoiceId(accent: string): string | undefined {
+    const key = String(accent || "").trim().toLowerCase();
+    const map: Record<string, string | undefined> = {
+      american: process.env.ELEVENLABS_VOICE_ID_AMERICAN,
+      british: process.env.ELEVENLABS_VOICE_ID_BRITISH,
+      australian: process.env.ELEVENLABS_VOICE_ID_AUSTRALIAN,
+    };
+    return map[key] || process.env.ELEVENLABS_VOICE_ID;
+  }
+
+  app.get("/api/listening-projects/by-module/:moduleId", requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { listeningProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(listeningProjects).where(eq(listeningProjects.moduleId, req.params.moduleId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Listening project not found for this module" });
+      if (!proj.isPublished) {
+        const u = await storage.getUser((req.user as any)?.id);
+        if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
+      }
+      // Strip answers AND the transcript — the student must not see the
+      // text until they submit (that's the whole point of the activity).
+      const safeQuestions = (proj.questions || []).map((q: any) => {
+        const { correctAnswer, explanation, sampleAnswer, ...rest } = q;
+        return rest;
+      });
+      const { transcript, ...rest } = proj as any;
+      res.json({ ...rest, questions: safeQuestions });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Cached, multi-accent TTS for a listening clip. Generate-once → GCS,
+  // then 302-redirect on every future request (zero ElevenLabs cost).
+  app.get("/api/listening/audio", requireAuth, async (req: any, res) => {
+    try {
+      const projectId = String(req.query.projectId || "").trim();
+      const accent = String(req.query.accent || "american").trim().toLowerCase();
+      if (!projectId) return res.status(400).json({ error: "projectId required" });
+
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      const voiceId = resolveAccentVoiceId(accent);
+      if (!apiKey || !voiceId) {
+        return res.status(503).json({ error: "TTS not configured (ELEVENLABS_API_KEY + a voice id required)" });
+      }
+
+      const { db } = await import("./db");
+      const { listeningProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [proj] = await db.select().from(listeningProjects).where(eq(listeningProjects.id, projectId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Listening project not found" });
+      if (!proj.isPublished) {
+        const u = await storage.getUser((req.user as any)?.id);
+        if (!u?.isAdmin) return res.status(403).json({ error: "Not published yet" });
+      }
+      const transcript = proj.transcript || "";
+      if (!transcript) return res.status(404).json({ error: "No transcript to synthesize" });
+
+      const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
+
+      // Fast path: already cached in GCS.
+      try {
+        if (await listeningAudioExists(voiceId, projectId, transcript)) {
+          res.setHeader("X-Cache", "HIT");
+          return res.redirect(302, gcsListeningAudioUrl(voiceId, projectId, transcript));
+        }
+      } catch (existsErr: any) {
+        console.warn("[listening/audio] existence check failed, generating:", existsErr?.message);
+      }
+
+      // Slow path: synthesize once.
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: "POST",
+        headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
+        body: JSON.stringify({
+          text: transcript,
+          model_id: "eleven_turbo_v2_5",
+          voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.25, use_speaker_boost: true },
+        }),
+      });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => "");
+        console.error("[listening/audio] ElevenLabs error:", r.status, errText.slice(0, 200));
+        return res.status(502).json({ error: `TTS upstream ${r.status}` });
+      }
+      const buf = Buffer.from(await r.arrayBuffer());
+      try {
+        await saveListeningAudio(voiceId, projectId, transcript, buf);
+      } catch (saveErr: any) {
+        console.error("[listening/audio] GCS save failed (serving inline):", saveErr?.message);
+      }
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("X-Cache", "MISS");
+      res.send(buf);
+    } catch (e: any) {
+      console.error("[listening/audio]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  // Submit answers. Closed questions auto-graded; "open" questions graded
+  // by Claude (Haiku) against the transcript + a sample answer. Stored on
+  // the submissions table with assignmentType='listening_quiz'.
+  app.post("/api/listening-submissions", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { listeningProjectId, moduleId, answers } = req.body as {
+        listeningProjectId: string; moduleId: string; answers: Record<string, string>;
+      };
+      if (!listeningProjectId || !answers) return res.status(400).json({ error: "listeningProjectId and answers required" });
+
+      const { db } = await import("./db");
+      const { listeningProjects, submissions } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [proj] = await db.select().from(listeningProjects).where(eq(listeningProjects.id, listeningProjectId)).limit(1);
+      if (!proj) return res.status(404).json({ error: "Listening project not found" });
+
+      const qs = (proj.questions || []) as any[];
+      const openQs = qs.filter((q) => q.type === "open");
+
+      // Grade open questions with Claude in parallel (best-effort; on error
+      // the student isn't penalised — the question is marked for review).
+      let openGrades: Record<string, { score: number; feedback: string; right: boolean }> = {};
+      if (openQs.length > 0) {
+        try {
+          const { getAnthropicClient, ANTHROPIC_MODELS, extractTextContent, parseJsonFromResponse } = await import("./anthropicClient");
+          const client = getAnthropicClient();
+          const results = await Promise.all(openQs.map(async (q) => {
+            const studentAns = String(answers[q.id] || "").trim();
+            const prompt = `You are grading one short open-ended answer from an ESL listening comprehension quiz (CEFR ${proj.level}).\n\nAUDIO TRANSCRIPT (what the student heard):\n"""${proj.transcript}"""\n\nQUESTION: ${q.questionText}\n${q.sampleAnswer ? `MODEL / SAMPLE ANSWER: ${q.sampleAnswer}\n` : ""}STUDENT ANSWER: "${studentAns || "(no answer)"}"\n\nGrade whether the student understood the audio. Be fair for their CEFR level — reward correct comprehension even with small grammar/spelling slips, but note the slip briefly. Reply with ONLY JSON: {"score": <0-100 integer>, "feedback": "<one short sentence, in English, encouraging>"}`;
+            const msg = await client.messages.create({
+              model: ANTHROPIC_MODELS.speaking,
+              max_tokens: 200,
+              messages: [{ role: "user", content: prompt }],
+            });
+            const parsed = parseJsonFromResponse<{ score: number; feedback: string }>(extractTextContent(msg));
+            const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 0)));
+            return { id: q.id, score, feedback: String(parsed.feedback || ""), right: score >= 70 };
+          }));
+          for (const g of results) openGrades[g.id] = { score: g.score, feedback: g.feedback, right: g.right };
+        } catch (gErr: any) {
+          console.error("[listening-submissions] Claude grading failed:", gErr?.message);
+        }
+      }
+
+      let totalPoints = 0;
+      let earnedPoints = 0;
+      const detail: any[] = [];
+      for (const q of qs) {
+        totalPoints += 1;
+        if (q.type === "open") {
+          const g = openGrades[q.id];
+          const frac = g ? g.score / 100 : 0;
+          earnedPoints += frac;
+          detail.push({
+            qid: q.id, type: "open", given: String(answers[q.id] || ""),
+            right: g ? g.right : false, score: g ? g.score : null,
+            feedback: g ? g.feedback : "Couldn't auto-grade this one — your teacher will review it.",
+            sampleAnswer: q.sampleAnswer,
+          });
+        } else {
+          const userAns = String(answers[q.id] || "").trim().toLowerCase();
+          const correct = String(q.correctAnswer || "").trim().toLowerCase();
+          const right = !!userAns && userAns === correct;
+          if (right) earnedPoints += 1;
+          detail.push({ qid: q.id, type: q.type, given: userAns, correct, right, explanation: q.explanation });
+        }
+      }
+      const scorePct = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 10000) / 100 : 0;
+      const passed = scorePct >= (proj.passingScore || 70);
+
+      const [sub] = await db.insert(submissions).values({
+        studentId: userId,
+        assignmentType: "listening_quiz",
+        moduleId,
+        content: JSON.stringify({ answers }),
+        transcript: proj.transcript,                       // for the reveal on the result screen
+        aiGrade: { score: scorePct, total: totalPoints, earned: Math.round(earnedPoints * 100) / 100, detail, passed, transcript: proj.transcript } as any,
+        aiScore: String(scorePct),
+        status: "ai_graded",
+      } as any).returning({ id: submissions.id });
+
+      res.json({ submissionId: sub.id, score: scorePct, totalPoints, passed, detail, transcript: proj.transcript });
+    } catch (e: any) {
+      console.error("[listening-submissions POST]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.get("/api/listening-submissions/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { db } = await import("./db");
+      const { submissions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [s] = await db.select().from(submissions)
+        .where(and(eq(submissions.id, req.params.id), eq(submissions.studentId, userId)))
+        .limit(1);
+      if (!s) return res.status(404).json({ error: "Not found" });
+      res.json(s);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  /* ---- Listening admin CRUD ---- */
+  app.get("/api/admin/listening-projects/by-course/:courseId", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { listeningProjects, courseModules } = await import("@shared/schema");
+      const { eq, inArray } = await import("drizzle-orm");
+      const mods = await db.select({ id: courseModules.id }).from(courseModules).where(eq(courseModules.courseId, req.params.courseId));
+      if (mods.length === 0) return res.json([]);
+      const rows = await db.select().from(listeningProjects).where(inArray(listeningProjects.moduleId, mods.map(m => m.id)));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
+  });
+
+  app.post("/api/admin/listening-projects", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { listeningProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Defensive migration — safe no-op if the table already exists.
+      try {
+        const { pool } = await import("./db");
+        await (pool as any).query(`CREATE TABLE IF NOT EXISTS listening_projects (
+          id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+          module_id varchar NOT NULL,
+          level course_level NOT NULL,
+          title text NOT NULL,
+          transcript text NOT NULL,
+          accents text[] NOT NULL DEFAULT '{american,british,australian}',
+          questions jsonb NOT NULL DEFAULT '[]',
+          duration_seconds integer,
+          max_plays integer NOT NULL DEFAULT 3,
+          passing_score integer NOT NULL DEFAULT 70,
+          is_published boolean NOT NULL DEFAULT false,
+          created_at timestamp DEFAULT now(),
+          updated_at timestamp DEFAULT now()
+        )`);
+        await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS listening_projects_module_idx ON listening_projects(module_id)`);
+      } catch (migErr: any) {
+        console.warn('[listening-projects POST] defensive migration warning:', migErr?.message);
+      }
+
+      const existing = await db.select().from(listeningProjects).where(eq(listeningProjects.moduleId, req.body.moduleId)).limit(1);
+      if (existing[0]) return res.json(existing[0]);
+      const [created] = await db.insert(listeningProjects).values(req.body).returning();
+      res.json(created);
+    } catch (e: any) {
+      console.error("[admin/listening-projects POST]", e);
+      res.status(500).json({ error: e?.message || "Failed" });
+    }
+  });
+
+  app.patch("/api/admin/listening-projects/:id", requireAuth, async (req: any, res) => {
+    try {
+      const user = await storage.getUser((req.user as any)?.id);
+      if (!user?.isAdmin) return res.status(403).json({ error: "Forbidden" });
+      const { db } = await import("./db");
+      const { listeningProjects } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const allowed = ["title","transcript","accents","questions","durationSeconds","maxPlays","passingScore","isPublished"];
+      const patch: any = { updatedAt: new Date() };
+      for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+      const [updated] = await db.update(listeningProjects).set(patch).where(eq(listeningProjects.id, req.params.id)).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e?.message || "Failed" }); }
+  });
+
   // ════════════════════════════════════════════════════════════════
   // Phase 2.0 — HABLA Method Lab Lesson Plan endpoints
   // ════════════════════════════════════════════════════════════════
