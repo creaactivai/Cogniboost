@@ -76,6 +76,7 @@ export default function ScenarioAssignmentPage() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const recFmtRef = useRef<{ type: string; ext: string }>({ type: "", ext: "webm" });
 
   const { data: proj, isLoading, error } = useQuery<ScenarioProject>({
     queryKey: [`/api/scenario-projects/by-module/${moduleId}`],
@@ -110,27 +111,57 @@ export default function ScenarioAssignmentPage() {
 
   // Whisper voice input: record → upload → transcribe → drop the text into
   // the input box so the student can review/edit before sending.
+  // Pick a recording format the current browser actually supports. Chrome/
+  // Firefox → webm/opus; Safari/iOS → mp4. The file extension MUST match the
+  // real container or Whisper rejects it ("did not match the expected pattern").
+  const pickRecordingFormat = (): { type: string; ext: string } => {
+    const candidates = [
+      { type: "audio/webm;codecs=opus", ext: "webm" },
+      { type: "audio/webm", ext: "webm" },
+      { type: "audio/mp4", ext: "mp4" },
+      { type: "audio/mpeg", ext: "mp3" },
+      { type: "audio/aac", ext: "m4a" },
+    ];
+    const canCheck = typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function";
+    for (const c of candidates) {
+      if (canCheck && MediaRecorder.isTypeSupported(c.type)) return c;
+    }
+    // Last resort: let the browser choose; assume Safari's default mp4.
+    return { type: "", ext: "mp4" };
+  };
+
   const startRecording = async () => {
     if (isRecording || isTranscribing) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
-      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
-      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      const fmt = pickRecordingFormat();
+      recFmtRef.current = fmt;
+      const recorder = new MediaRecorder(stream, fmt.type ? { mimeType: fmt.type } : undefined);
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = async () => {
         stopTracks();
-        const blob = new Blob(chunksRef.current, { type: mime || "audio/webm" });
-        if (blob.size < 800) { setIsTranscribing(false); return; } // basically silence
+        // Use the recorder's actual mimeType when available (Safari may pick
+        // its own), falling back to what we requested.
+        const actualType = (recorderRef.current?.mimeType || fmt.type || "audio/mp4").split(";")[0];
+        const ext = recFmtRef.current.ext;
+        const blob = new Blob(chunksRef.current, { type: actualType });
+        if (blob.size < 800) { // basically silence / too short
+          toast({ title: "That was too short", description: "Hold the mic a little longer and speak clearly.", variant: "destructive" });
+          return;
+        }
         setIsTranscribing(true);
         try {
           const fd = new FormData();
-          fd.append("recording", new File([blob], "turn.webm", { type: blob.type }));
+          fd.append("recording", new File([blob], `turn.${ext}`, { type: actualType }));
           const res = await fetch("/api/scenario/transcribe", { method: "POST", body: fd, credentials: "include" });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data?.error || "Transcription failed");
+          const raw = await res.text();
+          let data: any = {};
+          try { data = raw ? JSON.parse(raw) : {}; } catch { /* non-JSON error page */ }
+          if (!res.ok) throw new Error(data?.error || `Transcription failed (${res.status})`);
+          if (!data.text) throw new Error("No speech detected — please try again.");
           setDraft((d) => (d ? d + " " : "") + data.text);
         } catch (err: any) {
           toast({ title: "Couldn't transcribe", description: err?.message, variant: "destructive" });
