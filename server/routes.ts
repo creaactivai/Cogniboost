@@ -9290,6 +9290,27 @@ ${JSON.stringify(items)}`;
       // Log the send to the announcements history table so it shows in /admin/announcements > Historial
       try {
         const { announcements } = await import('@shared/schema');
+        const { pool } = await import('./db');
+        // Self-heal: Railway hot-reloads sometimes skip startup migrations.
+        // Without this, the insert silently fails on first deploy after the
+        // table was added → Historial stays empty forever. CREATE IF NOT
+        // EXISTS is idempotent. Same pattern as daily_missions + work_plans.
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS announcements (
+            id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+            subject text NOT NULL,
+            html_body text NOT NULL,
+            audience_type text NOT NULL,
+            audience_config jsonb,
+            template text,
+            recipient_count integer NOT NULL DEFAULT 0,
+            sent_count integer NOT NULL DEFAULT 0,
+            failed_count integer NOT NULL DEFAULT 0,
+            failure_details jsonb,
+            sent_by_user_id varchar NOT NULL,
+            sent_at timestamp NOT NULL DEFAULT now()
+          )
+        `);
         await db.insert(announcements).values({
           subject,
           htmlBody,
@@ -9300,10 +9321,11 @@ ${JSON.stringify(items)}`;
           sentCount: sent,
           failedCount: failed,
           failureDetails: failures.length > 0 ? failures : null,
-          sentByUserId: callerId,
+          sentByUserId: (req.user as any)?.id || caller?.id || 'unknown',
         });
-      } catch (logErr) {
-        console.error('[announce-class-change] history log failed (non-fatal):', logErr);
+      } catch (logErr: any) {
+        // Don't fail the send — but DO log enough to debug if Historial empty
+        console.error('[announce-class-change] history log failed (non-fatal):', logErr?.message, logErr?.stack?.slice(0, 300));
       }
 
       res.json({
@@ -9330,9 +9352,31 @@ ${JSON.stringify(items)}`;
       const rawLimit = parseInt(req.query.limit as string, 10);
       const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
 
-      const { db } = await import('./db');
+      const { db, pool } = await import('./db');
       const { announcements } = await import('@shared/schema');
       const { desc } = await import('drizzle-orm');
+
+      // Self-heal: Railway hot-reloads sometimes skip startup migrations,
+      // so the announcements table may not exist even after a deploy.
+      // CREATE IF NOT EXISTS is idempotent + cheap. Same fix pattern we
+      // used for daily_missions and work_plans.
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS announcements (
+          id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+          subject text NOT NULL,
+          html_body text NOT NULL,
+          audience_type text NOT NULL,
+          audience_config jsonb,
+          template text,
+          recipient_count integer NOT NULL DEFAULT 0,
+          sent_count integer NOT NULL DEFAULT 0,
+          failed_count integer NOT NULL DEFAULT 0,
+          failure_details jsonb,
+          sent_by_user_id varchar NOT NULL,
+          sent_at timestamp NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_announcements_sent_at ON announcements (sent_at DESC)`);
 
       const rows = await db
         .select()
