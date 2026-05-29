@@ -202,6 +202,16 @@ export default function LabRoomPage() {
             <LiveVideoPanel
               meetingUrlOrRoom={session.meetingUrl || `cogniboost-${session.id}`}
               userName={userName}
+              onMeetingEnd={() => {
+                // Meeting ended (user hung up OR moderator ended it).
+                // Don't leave the student staring at the default Jitsi
+                // welcome page — bounce them back to /dashboard/labs.
+                toast({
+                  title: "Class ended",
+                  description: "You can rejoin or pick a new lab from your dashboard.",
+                });
+                navigate("/dashboard/labs");
+              }}
             />
           </div>
 

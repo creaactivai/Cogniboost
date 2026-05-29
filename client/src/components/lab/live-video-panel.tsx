@@ -1,21 +1,27 @@
 /**
  * LiveVideoPanel — embeds a Jitsi Meet room inside the CogniBoost app
- * via iframe. Reference implementation from the Live Classes Spec
- * (page 4) provided by Coral.
+ * via the official Jitsi IFrame API. Reference implementation from the
+ * Live Classes Spec (page 4) provided by Coral.
  *
  * Source URL pattern:
  *   https://<JITSI_HOST>/<roomId>#config.prejoinPageEnabled=false&...
  *
- * The host today is the public `meet.jit.si` (free, no signup, branded
- * with Jitsi). When Coral provisions a DigitalOcean droplet at
- * meet.cogniboost.com per spec Section 3, the host becomes hers and
- * we get full CogniBoost branding inside the video panel — but the
- * student-facing code stays identical.
- *
- * If the lab_session.meetingUrl is already a full URL (e.g. an old
- * Google Meet link from legacy sessions), the iframe loads that
- * directly. Otherwise we derive the room from the session ID.
+ * Using the IFrame API (instead of a plain iframe) lets us listen for
+ * meeting lifecycle events:
+ *   - readyToClose        → fires when meeting ends or user hangs up
+ *   - videoConferenceLeft → fires when this participant leaves the room
+ * We use these to call onMeetingEnd so the parent can navigate away
+ * (e.g., back to /dashboard/labs with a "Class ended" toast) instead of
+ * leaving the student staring at the default Jitsi welcome page.
  */
+
+import { useEffect, useRef } from "react";
+
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI?: any;
+  }
+}
 
 interface LiveVideoPanelProps {
   /** Either a full https://… URL or a bare room slug. */
@@ -24,56 +30,123 @@ interface LiveVideoPanelProps {
   userName: string;
   /** Optional pixel height. Defaults to 600px on desktop. */
   height?: number | string;
+  /** Fires when the meeting ends or user hangs up — parent decides where to go. */
+  onMeetingEnd?: () => void;
 }
 
-// Uses Coral's existing self-hosted Jitsi at meet.cognimight.com (the CogniMight
-// kids-side droplet — already provisioned with branding, anonymous auth, no
-// watermarks). Acceptable bridge while meet.cogniboost.com gets its own droplet.
-// The student never sees the host URL because the iframe is embedded inside
-// /dashboard/labs/:sessionId/room on cogniboost.co.
 const JITSI_HOST = "meet.cognimight.com";
 
-export default function LiveVideoPanel({ meetingUrlOrRoom, userName, height = 600 }: LiveVideoPanelProps) {
-  // Build the iframe src.
-  let src: string;
-  if (/^https?:\/\//i.test(meetingUrlOrRoom)) {
-    // Caller provided a full URL — use it as the base, append our params via #
-    const base = meetingUrlOrRoom.split("#")[0];
-    const params = buildParams(userName);
-    src = `${base}#${params}`;
-  } else {
-    // Caller provided a room slug
-    const params = buildParams(userName);
-    src = `https://${JITSI_HOST}/${encodeURIComponent(meetingUrlOrRoom)}#${params}`;
+// Cached script load promise — avoids loading external_api.js multiple times
+let scriptLoadPromise: Promise<void> | null = null;
+
+function loadJitsiScript(host: string): Promise<void> {
+  if (window.JitsiMeetExternalAPI) return Promise.resolve();
+  if (scriptLoadPromise) return scriptLoadPromise;
+  scriptLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://${host}/external_api.js`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      scriptLoadPromise = null; // allow retry next mount
+      reject(new Error(`Failed to load Jitsi external_api.js from ${host}`));
+    };
+    document.head.appendChild(script);
+  });
+  return scriptLoadPromise;
+}
+
+/** Parse a room name out of a string that might be a full URL or bare slug. */
+function extractRoomName(s: string): { host: string; room: string } {
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      const url = new URL(s);
+      const path = url.pathname.replace(/^\//, "").replace(/\/$/, "");
+      return { host: url.host, room: path || "unknown-room" };
+    } catch {
+      // fall through
+    }
   }
+  return { host: JITSI_HOST, room: s };
+}
+
+export default function LiveVideoPanel({
+  meetingUrlOrRoom,
+  userName,
+  height = 600,
+  onMeetingEnd,
+}: LiveVideoPanelProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<any>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    const { host, room } = extractRoomName(meetingUrlOrRoom);
+
+    loadJitsiScript(host)
+      .then(() => {
+        if (disposed || !containerRef.current || !window.JitsiMeetExternalAPI) return;
+
+        // Construct the Jitsi external API instance. This injects an
+        // iframe into containerRef.current and gives us an event API.
+        const api = new window.JitsiMeetExternalAPI(host, {
+          roomName: room,
+          parentNode: containerRef.current,
+          width: "100%",
+          height: typeof height === "number" ? height : "100%",
+          userInfo: { displayName: userName },
+          configOverwrite: {
+            prejoinPageEnabled: false,
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            disableDeepLinking: true,
+          },
+          interfaceConfigOverwrite: {
+            MOBILE_APP_PROMO: false,
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_BRAND_WATERMARK: false,
+            SHOW_POWERED_BY: false,
+          },
+        });
+        apiRef.current = api;
+
+        // Meeting lifecycle events — call the parent callback so it can
+        // navigate away instead of leaving the student on the welcome page.
+        const handleEnd = () => {
+          if (onMeetingEnd) onMeetingEnd();
+        };
+        api.addListener("readyToClose", handleEnd);
+        api.addListener("videoConferenceLeft", handleEnd);
+      })
+      .catch((err) => {
+        console.error("[LiveVideoPanel] Failed to init Jitsi:", err);
+      });
+
+    return () => {
+      disposed = true;
+      if (apiRef.current) {
+        try {
+          apiRef.current.dispose();
+        } catch (e) {
+          // best-effort
+        }
+        apiRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meetingUrlOrRoom, userName]);
 
   return (
-    <iframe
-      src={src}
-      allow="camera; microphone; fullscreen; display-capture; autoplay"
+    <div
+      ref={containerRef}
+      data-testid="iframe-jitsi"
       style={{
         width: "100%",
         height: typeof height === "number" ? `${height}px` : height,
-        border: 0,
         borderRadius: 12,
+        overflow: "hidden",
         background: "#000",
       }}
-      title="CogniBoost Live Class"
-      data-testid="iframe-jitsi"
     />
   );
-}
-
-function buildParams(userName: string): string {
-  return [
-    "config.prejoinPageEnabled=false",
-    "config.startWithAudioMuted=false",
-    "config.startWithVideoMuted=false",
-    "config.disableDeepLinking=true",
-    "interfaceConfig.MOBILE_APP_PROMO=false",
-    "interfaceConfig.SHOW_JITSI_WATERMARK=false",
-    "interfaceConfig.SHOW_BRAND_WATERMARK=false",
-    "interfaceConfig.SHOW_POWERED_BY=false",
-    `userInfo.displayName="${encodeURIComponent(userName)}"`,
-  ].join("&");
 }
