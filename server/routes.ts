@@ -7451,19 +7451,32 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
       }
 
       // If STILL not enough across ALL fallback levels, allow repeats from
-      // the student's preferred level (prioritize wrong answers for relearning)
+      // the student's preferred level (prioritize wrong answers for relearning).
+      //
+      // BUG FIXED May 29: when `final` was empty (e.g., student answered
+      // every question, like Reinilza with 45/45 A1), the SQL became
+      // `AND q.id NOT IN (NULL)` which filters out everything (NULL
+      // comparison semantics in SQL), so the repeat fallback returned 0
+      // rows and the student still saw "No questions available". Now we
+      // conditionally include the NOT IN clause only when there are IDs
+      // to exclude.
       if (final.length < limit) {
         const rem = limit - final.length;
+        const excludeIds = final.map((r: any) => r.id);
+        const notInClause = excludeIds.length > 0
+          ? `AND q.id NOT IN (${excludeIds.map((_: any, i: number) => `$${i + 3}`).join(',')})`
+          : '';
+        const limitParamIdx = excludeIds.length + 3;
         const { rows: extras } = await (pool as any).query(
           `SELECT q.*, COALESCE(SUM(CASE WHEN a.is_correct = false THEN 1 ELSE 0 END), 0) AS wrong_count
            FROM daily_challenge_questions q
            LEFT JOIN daily_challenge_attempts a ON a.question_id = q.id AND a.student_id = $1
            WHERE q.level = ANY($2::text[]) AND q.is_published = true
-             AND q.id NOT IN (${final.map((_: any, i: number) => `$${i + 3}`).join(',') || 'NULL'})
+             ${notInClause}
            GROUP BY q.id
            ORDER BY wrong_count DESC, RANDOM()
-           LIMIT $${final.length + 3}`,
-          [studentId, fallbackChain, ...final.map((r: any) => r.id), rem]
+           LIMIT $${limitParamIdx}`,
+          [studentId, fallbackChain, ...excludeIds, rem]
         );
         final = [...final, ...extras];
       }
