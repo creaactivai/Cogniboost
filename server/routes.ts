@@ -7235,13 +7235,18 @@ OUTPUT FORMAT (strict JSON, no markdown):
       // intonation (less robotic). Generation is slightly slower but we cache
       // forever, so students never wait for it twice.
       const TTS_MODEL = "eleven_multilingual_v2";
-      const TTS_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true };
-      const TTS_VERSION = "v4"; // bump to force-regenerate all cached audio
+      // Pedagogical pacing: CEFR says A1 must hear "slow, clear" speech, scaling
+      // up toward natural pace as proficiency grows. Speed is a per-clip setting
+      // driven by the project's level (ElevenLabs speed range ~0.7–1.2).
+      const SPEED_BY_LEVEL: Record<string, number> = { A1: 0.85, A2: 0.9, B1: 0.95, B2: 1.0, C1: 1.0, C2: 1.0 };
+      const speed = SPEED_BY_LEVEL[String(proj.level || "").toUpperCase()] ?? 1.0;
+      const TTS_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true, speed };
+      const TTS_VERSION = "v5"; // bump to force-regenerate all cached audio
 
       // Cache signature folds in the exact voices, model + settings version, so
       // any voice/model/transcript change regenerates. Folder = primary voice.
       const cacheVoiceId = voices[0];
-      const cacheSig = `${TTS_VERSION}|${TTS_MODEL}|v=${voices.join(",")}::${turns.map(t => `${t.voiceIndex}:${t.text}`).join(" | ")}`;
+      const cacheSig = `${TTS_VERSION}|${TTS_MODEL}|sp=${speed}|v=${voices.join(",")}::${turns.map(t => `${t.voiceIndex}:${t.text}`).join(" | ")}`;
 
       const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
 
