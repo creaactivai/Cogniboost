@@ -7228,10 +7228,18 @@ OUTPUT FORMAT (strict JSON, no markdown):
       const turns = parseDialogueTurns(transcript);
       if (!turns.length) return res.status(404).json({ error: "No transcript to synthesize" });
 
-      // Cache signature folds the exact voices used into the key, so any voice
-      // or transcript change regenerates. Folder uses the primary voice id.
+      // Voice quality knobs. eleven_multilingual_v2 is far more natural/human
+      // than the turbo model; lower stability + higher style adds lifelike
+      // intonation (less robotic). Generation is slightly slower but we cache
+      // forever, so students never wait for it twice.
+      const TTS_MODEL = "eleven_multilingual_v2";
+      const TTS_SETTINGS = { stability: 0.4, similarity_boost: 0.8, style: 0.45, use_speaker_boost: true };
+      const TTS_VERSION = "v2"; // bump to force-regenerate all cached audio
+
+      // Cache signature folds in the exact voices, model + settings version, so
+      // any voice/model/transcript change regenerates. Folder = primary voice.
       const cacheVoiceId = voices[0];
-      const cacheSig = `v=${voices.join(",")}::${turns.map(t => `${t.voiceIndex}:${t.text}`).join(" | ")}`;
+      const cacheSig = `${TTS_VERSION}|${TTS_MODEL}|v=${voices.join(",")}::${turns.map(t => `${t.voiceIndex}:${t.text}`).join(" | ")}`;
 
       const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
 
@@ -7257,10 +7265,10 @@ OUTPUT FORMAT (strict JSON, no markdown):
           headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
           body: JSON.stringify({
             text: turn.text,
-            model_id: "eleven_turbo_v2_5",
+            model_id: TTS_MODEL,
             previous_text: turns[i - 1]?.text || undefined,
             next_text: turns[i + 1]?.text || undefined,
-            voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.25, use_speaker_boost: true },
+            voice_settings: TTS_SETTINGS,
           }),
         });
         if (!r.ok) {
