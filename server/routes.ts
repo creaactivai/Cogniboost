@@ -7122,6 +7122,18 @@ OUTPUT FORMAT (strict JSON, no markdown):
     return map[key] || process.env.ELEVENLABS_VOICE_ID;
   }
 
+  // Speaker labels ("Waiter:", "Shop assistant:", "Ana:") are useful in the
+  // REVEALED transcript the student reads, but a real-accent TTS voice would
+  // literally say "Waiter colon…". Strip them for synthesis only. Matches a
+  // 1-2 word capitalized label + colon at the start or right after sentence
+  // punctuation, so normal prose is never touched.
+  function speakableTranscript(t: string): string {
+    return String(t || "")
+      .replace(/(^|[.?!]\s+)([A-Z][a-z]+(?:\s[A-Za-z]+)?):\s*/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   app.get("/api/listening-projects/by-module/:moduleId", requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
@@ -7171,14 +7183,18 @@ OUTPUT FORMAT (strict JSON, no markdown):
       }
       const transcript = proj.transcript || "";
       if (!transcript) return res.status(404).json({ error: "No transcript to synthesize" });
+      // What the voice actually says — speaker labels removed. Used for both
+      // the TTS text AND the cache key, so the cached audio always matches the
+      // spoken content (and re-authoring/label changes invalidate the cache).
+      const speakText = speakableTranscript(transcript);
 
       const { listeningAudioExists, gcsListeningAudioUrl, saveListeningAudio } = await import("./gcsDirectUpload");
 
       // Fast path: already cached in GCS.
       try {
-        if (await listeningAudioExists(voiceId, projectId, transcript)) {
+        if (await listeningAudioExists(voiceId, projectId, speakText)) {
           res.setHeader("X-Cache", "HIT");
-          return res.redirect(302, gcsListeningAudioUrl(voiceId, projectId, transcript));
+          return res.redirect(302, gcsListeningAudioUrl(voiceId, projectId, speakText));
         }
       } catch (existsErr: any) {
         console.warn("[listening/audio] existence check failed, generating:", existsErr?.message);
@@ -7189,7 +7205,7 @@ OUTPUT FORMAT (strict JSON, no markdown):
         method: "POST",
         headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": apiKey },
         body: JSON.stringify({
-          text: transcript,
+          text: speakText,
           model_id: "eleven_turbo_v2_5",
           voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.25, use_speaker_boost: true },
         }),
@@ -7201,7 +7217,7 @@ OUTPUT FORMAT (strict JSON, no markdown):
       }
       const buf = Buffer.from(await r.arrayBuffer());
       try {
-        await saveListeningAudio(voiceId, projectId, transcript, buf);
+        await saveListeningAudio(voiceId, projectId, speakText, buf);
       } catch (saveErr: any) {
         console.error("[listening/audio] GCS save failed (serving inline):", saveErr?.message);
       }
