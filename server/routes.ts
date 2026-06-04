@@ -10545,6 +10545,140 @@ ${JSON.stringify(items)}`;
     }
   });
 
+  // PUBLIC upcoming labs — powers the "first free class" booking modal on the
+  // marketing site for logged-OUT visitors. No auth. Returns ALL upcoming
+  // scheduled sessions (every level) with live seat counts. (Coral's choice:
+  // guests can see all levels and self-select.)
+  app.get('/api/lab-sessions/upcoming/public', async (_req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and, count, sql } = await import("drizzle-orm");
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+      const sessions = await db
+        .select()
+        .from(labSessionsV2)
+        .where(and(
+          eq(labSessionsV2.status, 'scheduled'),
+          sql`${labSessionsV2.scheduledAt} + (${labSessionsV2.durationMinutes} * INTERVAL '1 minute') > NOW()`,
+        ));
+      sessions.sort((a, b) => (a.scheduledAt?.getTime() ?? 0) - (b.scheduledAt?.getTime() ?? 0));
+      const out: any[] = [];
+      for (const s of sessions) {
+        const [{ n }] = await db
+          .select({ n: count() })
+          .from(labRegistrations)
+          .where(and(
+            eq(labRegistrations.labSessionId, s.id),
+            eq(labRegistrations.cancelled, false),
+          ));
+        const booked = Number(n);
+        const max = s.maxParticipants ?? 8;
+        out.push({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          level: s.level,
+          scheduledAt: s.scheduledAt,
+          durationMinutes: s.durationMinutes,
+          maxParticipants: max,
+          bookedCount: booked,
+          seatsLeft: Math.max(0, max - booked),
+        });
+      }
+      res.json(out);
+    } catch (err: any) {
+      console.error('[lab-sessions/upcoming/public] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to fetch upcoming labs' });
+    }
+  });
+
+  // GUEST booking into a real Conversation Lab (no account). Mirrors the legacy
+  // /api/room-bookings/guest pattern: studentId = `guest:<email>` (the column
+  // has no FK, so this is safe). Enforces capacity so guests can't overbook a
+  // paid lab. Upserts a lead + sends the confirmation email. Non-fatal side
+  // effects never block the booking.
+  app.post('/api/lab-bookings/guest', async (req: any, res) => {
+    try {
+      const { labSessionId, email, name, phone } = req.body || {};
+      if (!labSessionId) return res.status(400).json({ error: 'labSessionId is required' });
+      if (!email) return res.status(400).json({ error: 'Email is required' });
+      const cleanEmail = String(email).toLowerCase().trim();
+
+      const { db } = await import("./db");
+      const { eq, and, count } = await import("drizzle-orm");
+      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
+
+      const rows = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, labSessionId)).limit(1);
+      if (!rows.length) return res.status(404).json({ error: 'Class not found' });
+      const session: any = rows[0];
+      if (session.status === 'cancelled') return res.status(409).json({ error: 'Class was cancelled' });
+      const start = session.scheduledAt instanceof Date ? session.scheduledAt : new Date(session.scheduledAt);
+      if (start.getTime() <= Date.now()) return res.status(409).json({ error: 'Class already started' });
+
+      const guestId = `guest:${cleanEmail}`;
+
+      // Idempotent: if this guest already holds a (non-cancelled) seat, return it.
+      const existing = await db.select().from(labRegistrations).where(and(
+        eq(labRegistrations.labSessionId, labSessionId),
+        eq(labRegistrations.studentId, guestId),
+        eq(labRegistrations.cancelled, false),
+      )).limit(1);
+      if (existing.length) return res.status(200).json(existing[0]);
+
+      // Capacity guard — never overbook a paid lab.
+      const [{ n }] = await db.select({ n: count() }).from(labRegistrations).where(and(
+        eq(labRegistrations.labSessionId, labSessionId),
+        eq(labRegistrations.cancelled, false),
+      ));
+      if (Number(n) >= (session.maxParticipants ?? 8)) return res.status(409).json({ error: 'Lab is full' });
+
+      const [reg] = await db.insert(labRegistrations).values({ labSessionId, studentId: guestId }).returning();
+
+      // Track as a lead (non-fatal).
+      try {
+        const existingLead = await storage.getLeadByEmail(cleanEmail);
+        if (existingLead) {
+          await storage.updateLead(existingLead.id, { status: 'engaged', source: 'class_booking' });
+        } else {
+          const parts = String(name || '').trim().split(/\s+/);
+          await storage.createLead({
+            email: cleanEmail,
+            firstName: parts[0] || 'Sin nombre',
+            lastName: parts.length > 1 ? parts.slice(1).join(' ') : null,
+            phone: phone || null,
+            source: 'class_booking',
+            status: 'engaged',
+          } as any);
+        }
+      } catch (leadErr) {
+        console.error('[lab-bookings/guest] lead upsert failed:', leadErr);
+      }
+
+      // Confirmation email (non-fatal).
+      try {
+        const sessionDate = start.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+        const sessionTime = start.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        await sendEmail(cleanEmail, 'class_booking_confirmation', {
+          firstName: (String(name || '').trim().split(/\s+/)[0]) || 'estudiante',
+          sessionTitle: session.title || 'Clase de Conversación',
+          sessionDate,
+          sessionTime,
+          roomTopic: session.title || 'Conversación',
+          roomLevel: session.level || 'Todos los niveles',
+          sessionDuration: String(session.durationMinutes || 60),
+          meetingUrl: session.meetingUrl || '',
+        });
+      } catch (emailErr) {
+        console.error('[lab-bookings/guest] email failed:', emailErr);
+      }
+
+      res.status(201).json(reg);
+    } catch (err: any) {
+      console.error('[lab-bookings/guest] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to book class' });
+    }
+  });
+
   // GET single lab session by ID. Needed for the lab-room page so it can
   // resolve a session that's CURRENTLY LIVE but not in the user's
   // "upcoming" feed (which is upcoming-only by date) and not in their
