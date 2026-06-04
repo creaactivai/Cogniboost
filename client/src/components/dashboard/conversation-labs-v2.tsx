@@ -66,9 +66,19 @@ export function ConversationLabsV2() {
   const tierLimits = getTierLimits(tier);
   const hasAccess = canAccessLabs(tier);
 
+  // Free tier gets ONE lifetime trial Lab (the "first free class"). Ask the
+  // server whether this account still has it available, so free users can
+  // actually browse + book it from the dashboard instead of hitting a wall.
+  const { data: trialStatus } = useQuery<{ hasLabsAccess: boolean; trialUsed: boolean; canBookTrial: boolean }>({
+    queryKey: ["/api/lab-bookings/trial-status"],
+    enabled: !hasAccess,
+  });
+  const canBookTrial = !hasAccess && !!trialStatus?.canBookTrial;
+  const trialUsed = !hasAccess && !!trialStatus?.trialUsed;
+
   const { data: interests = [] } = useQuery<InterestTopic[]>({
     queryKey: ["/api/lab-interest-topics"],
-    enabled: hasAccess,
+    enabled: hasAccess || canBookTrial,
   });
   const { data: upcoming = [] } = useQuery<LabSession[]>({
     queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`],
@@ -96,9 +106,16 @@ export function ConversationLabsV2() {
     onSuccess: () => {
       toast({ title: "Spot reserved!", description: "You'll get a reminder before class starts." });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
+      qc.invalidateQueries({ queryKey: ["/api/lab-bookings/trial-status"] });
       qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`] });
     },
-    onError: (err: any) => toast({ title: "Couldn't book", description: err?.message, variant: "destructive" }),
+    onError: (err: any) => {
+      const msg = err?.message || "";
+      const description = msg.includes("Free trial used")
+        ? "Ya usaste tu clase de prueba gratis. Pasa a un plan para reservar más."
+        : msg;
+      toast({ title: "Couldn't book", description, variant: "destructive" });
+    },
   });
 
   const cancelMutation = useMutation({
@@ -130,15 +147,18 @@ export function ConversationLabsV2() {
 
   const tierLabel =
     tier === "premium" ? "Premium" : tier === "basic" ? "Basic" : tier === "flex" ? "Flex" : "Free";
-  const quotaText =
-    tierLimits.weeklyLabLimit !== null
+  const quotaText = !hasAccess
+    ? (canBookTrial ? "1 clase de prueba gratis" : "Prueba usada")
+    : tierLimits.weeklyLabLimit !== null
       ? `${weeklyUsed}/${tierLimits.weeklyLabLimit} this week`
       : tierLimits.monthlyLabLimit !== null
       ? `${monthlyUsed}/${tierLimits.monthlyLabLimit} this month`
       : "Unlimited";
 
-  // Gate for free tier
-  if (!hasAccess) {
+  // Gate: only free users who have ALREADY used their trial AND have no
+  // upcoming booking see the upgrade wall. Free users with a trial still
+  // available (canBookTrial) get the full browse + book experience below.
+  if (!hasAccess && !canBookTrial && myBookings.length === 0) {
     return (
       <div className="container mx-auto p-4 space-y-6">
         <div>
@@ -149,10 +169,15 @@ export function ConversationLabsV2() {
         </div>
         <Card className="p-8 text-center space-y-4">
           <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
-          <h2 className="text-xl font-bold">Conversation Labs require a paid plan</h2>
+          <h2 className="text-xl font-bold">
+            {trialUsed ? "Ya usaste tu clase de prueba gratis" : "Conversation Labs require a paid plan"}
+          </h2>
           <p className="text-muted-foreground text-sm">
-            Practice English live with teachers and other students at your level.
-            Available from the <strong>Flex Plan</strong> ($14.99/mo — 1 Lab per month).
+            {trialUsed ? (
+              "Pasa a un plan para seguir practicando en vivo con maestros y otros estudiantes de tu nivel. Desde el Plan Flex ($14.99/mes — 1 Lab al mes)."
+            ) : (
+              <>Practice English live with teachers and other students at your level. Available from the <strong>Flex Plan</strong> ($14.99/mo — 1 Lab per month).</>
+            )}
           </p>
           <Button asChild>
             <Link href="/choose-plan">View plans & pricing</Link>
@@ -183,6 +208,28 @@ export function ConversationLabsV2() {
           </div>
         </div>
       </div>
+
+      {/* Free trial: friendly nudge so a free student knows their first class
+          is free and exactly how to book it (no confusing paywall). */}
+      {canBookTrial && (
+        <Card className="p-4 border-2 border-primary/40 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-bold">🎁 Tu primera clase es GRATIS</p>
+              <p className="text-muted-foreground">Elige una clase abajo y toca “Reservar mi lugar”. Es tu clase de prueba, sin costo.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+      {trialUsed && myBookings.length > 0 && (
+        <Card className="p-4 border bg-muted/30">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-muted-foreground">Ya usaste tu clase de prueba gratis. Pasa a un plan para reservar más.</p>
+            <Button size="sm" asChild><Link href="/choose-plan">Ver planes</Link></Button>
+          </div>
+        </Card>
+      )}
 
       {/* Warm-up entry — quick game before the live class */}
       <DailyChallengeWidget variant="compact" />

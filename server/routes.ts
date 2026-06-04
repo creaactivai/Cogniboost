@@ -10669,6 +10669,35 @@ ${JSON.stringify(items)}`;
   //   flex:    1 booking per calendar month
   //   basic:   2 bookings per ISO week (Mon-Sun)
   //   premium: unlimited
+  // Does this account still have its ONE free trial Lab? Lets the dashboard
+  // show free users a "book your free class" experience instead of a hard wall.
+  app.get('/api/lab-bookings/trial-status', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import("./db");
+      const { eq, and, count } = await import("drizzle-orm");
+      const { labRegistrations } = await import('@shared/schema');
+      const { canAccessLabs } = await import('@shared/tier-access');
+      const userId = req.user?.id;
+      const tier = (req.user as any)?.subscriptionTier;
+      const hasLabsAccess = canAccessLabs(tier);
+      let trialUsed = false;
+      if (!hasLabsAccess) {
+        const [{ n }] = await db
+          .select({ n: count() })
+          .from(labRegistrations)
+          .where(and(
+            eq(labRegistrations.studentId, userId),
+            eq(labRegistrations.cancelled, false),
+          ));
+        trialUsed = Number(n) >= 1;
+      }
+      res.json({ hasLabsAccess, trialUsed, canBookTrial: !hasLabsAccess && !trialUsed });
+    } catch (err: any) {
+      console.error('[lab-bookings/trial-status] Error:', err?.message);
+      res.status(500).json({ error: 'Failed' });
+    }
+  });
+
   app.post('/api/lab-bookings', requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
