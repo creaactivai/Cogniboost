@@ -18,7 +18,7 @@ interface BookClassModalProps {
   bookingType?: 'class' | 'demo';
 }
 
-type Step = "form" | "calendar" | "confirm";
+type Step = "signup" | "calendar" | "confirm";
 
 // Shape returned by GET /api/lab-sessions/upcoming/public — a real
 // Conversation Lab (lab_sessions), with live seat counts.
@@ -35,49 +35,61 @@ interface LabSessionPublic {
 }
 
 export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'class' }: BookClassModalProps) {
-  const [step, setStep] = useState<Step>("form");
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
+  const [step, setStep] = useState<Step>("signup");
+  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
   const [selectedSession, setSelectedSession] = useState<LabSessionPublic | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
+  // Logged-in visitors skip the signup step and go straight to picking a class.
+  useEffect(() => {
+    if (isOpen) {
+      setStep(isAuthenticated ? "calendar" : "signup");
+    }
+  }, [isOpen, isAuthenticated]);
+
   const { data: sessions, isLoading: loadingSessions } = useQuery<LabSessionPublic[]>({
     queryKey: ["/api/lab-sessions/upcoming/public"],
     enabled: isOpen && step === "calendar",
   });
 
-  const createLeadMutation = useMutation({
-    mutationFn: async (data: { name: string; email: string; phone?: string }) => {
+  // Create a FREE account (and log in) so the booking is tied to a real user.
+  const signupMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string }) => {
       const nameParts = data.name.trim().split(/\s+/);
       const firstName = nameParts[0] || data.name;
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
-
-      const payload: Record<string, string | undefined> = {
+      return apiRequest("POST", "/api/auth/signup", {
         email: data.email,
+        password: data.password,
         firstName,
-      };
-
-      if (lastName) {
-        payload.lastName = lastName;
-      }
-      if (data.phone && data.phone.trim()) {
-        payload.phone = data.phone.trim();
-      }
-
-      return apiRequest("POST", "/api/leads", payload);
+        lastName,
+      });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Refresh auth state so the booking call is authenticated.
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setStep("calendar");
     },
     onError: (error: any) => {
-      if (error?.message?.includes("already exists")) {
-        setStep("calendar");
+      const msg = error?.message || "";
+      if (msg.includes("Ya existe") || msg.includes("already exists") || msg.includes("409")) {
+        toast({
+          title: "Ya tienes una cuenta",
+          description: "Ese correo ya está registrado. Inicia sesión para reservar tu clase.",
+        });
+      } else if (msg.includes("8 caracteres") || msg.includes("password")) {
+        toast({
+          title: "Contraseña muy corta",
+          description: "La contraseña debe tener al menos 8 caracteres.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
-          description: "No pudimos guardar tu información. Intenta de nuevo.",
+          description: "No pudimos crear tu cuenta. Intenta de nuevo.",
           variant: "destructive",
         });
       }
@@ -86,17 +98,7 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
 
   const bookMutation = useMutation({
     mutationFn: async (labSessionId: string) => {
-      if (isAuthenticated) {
-        // Logged-in users book through the regular (tier-checked) endpoint.
-        return apiRequest("POST", "/api/lab-bookings", { labSessionId });
-      }
-      // Guests book through the no-account endpoint with their form data.
-      return apiRequest("POST", "/api/lab-bookings/guest", {
-        labSessionId,
-        email: formData.email,
-        name: formData.name,
-        phone: formData.phone || undefined,
-      });
+      return apiRequest("POST", "/api/lab-bookings", { labSessionId });
     },
     onSuccess: () => {
       trackBookingSubmitted(bookingType);
@@ -113,13 +115,15 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
       let description = "No pudimos reservar la clase. Intenta de nuevo.";
       if (msg.includes("full")) description = "Esta clase ya está llena. Elige otra fecha.";
       else if (msg.includes("already started")) description = "Esta clase ya comenzó. Elige otra fecha.";
+      else if (msg.includes("Free trial used")) description = "Ya usaste tu clase de prueba gratis. Pasa a un plan para reservar más.";
+      else if (msg.includes("Already registered")) description = "Ya estás registrado en esta clase.";
       toast({ title: "Error", description, variant: "destructive" });
     },
   });
 
   const resetModal = () => {
-    setStep("form");
-    setFormData({ name: "", email: "", phone: "" });
+    setStep(isAuthenticated ? "calendar" : "signup");
+    setFormData({ name: "", email: "", password: "" });
     setSelectedSession(null);
   };
 
@@ -135,17 +139,25 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
     };
   }, [isOpen]);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
+    if (!formData.name || !formData.email || !formData.password) {
       toast({
         title: "Campos requeridos",
-        description: "Por favor ingresa tu nombre y email.",
+        description: "Ingresa tu nombre, correo y una contraseña.",
         variant: "destructive",
       });
       return;
     }
-    createLeadMutation.mutate(formData);
+    if (formData.password.length < 8) {
+      toast({
+        title: "Contraseña muy corta",
+        description: "La contraseña debe tener al menos 8 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    signupMutation.mutate(formData);
   };
 
   const handleSessionSelect = (session: LabSessionPublic) => {
@@ -195,7 +207,7 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">
-              {step === "form" && "Reserva tu Clase Gratis"}
+              {step === "signup" && "Crea tu cuenta gratis"}
               {step === "calendar" && "Selecciona una Fecha"}
               {step === "confirm" && "Confirmar Reserva"}
             </h2>
@@ -212,10 +224,10 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
         </div>
 
         <div className="p-6">
-          {step === "form" && (
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+          {step === "signup" && (
+            <form onSubmit={handleSignupSubmit} className="space-y-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Ingresa tus datos para reservar tu clase gratuita con uno de nuestros expertos.
+                Crea tu cuenta gratis para reservar tu <strong>primera clase de prueba</strong>. Toma 30 segundos.
               </p>
 
               <div className="space-y-2">
@@ -244,29 +256,37 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono (opcional)</Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+52 55 1234 5678"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  data-testid="input-booking-phone"
+                  id="password"
+                  type="password"
+                  placeholder="Mínimo 8 caracteres"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  data-testid="input-booking-password"
+                  required
                 />
               </div>
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={createLeadMutation.isPending}
+                disabled={signupMutation.isPending}
                 data-testid="button-booking-continue"
               >
-                {createLeadMutation.isPending ? (
+                {signupMutation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
-                Ver Clases Disponibles
+                Crear cuenta y ver clases
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
+
+              <p className="text-center text-xs text-muted-foreground">
+                ¿Ya tienes cuenta?{" "}
+                <a href="/login" className="text-primary hover:underline font-medium">
+                  Inicia sesión
+                </a>
+              </p>
             </form>
           )}
 
@@ -335,14 +355,6 @@ export function BookClassModal({ isOpen, onClose, triggerRef, bookingType = 'cla
                   </p>
                 </div>
               )}
-
-              <Button
-                variant="outline"
-                onClick={() => setStep("form")}
-                className="w-full"
-              >
-                Volver
-              </Button>
             </div>
           )}
 

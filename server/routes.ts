@@ -10592,92 +10592,10 @@ ${JSON.stringify(items)}`;
     }
   });
 
-  // GUEST booking into a real Conversation Lab (no account). Mirrors the legacy
-  // /api/room-bookings/guest pattern: studentId = `guest:<email>` (the column
-  // has no FK, so this is safe). Enforces capacity so guests can't overbook a
-  // paid lab. Upserts a lead + sends the confirmation email. Non-fatal side
-  // effects never block the booking.
-  app.post('/api/lab-bookings/guest', async (req: any, res) => {
-    try {
-      const { labSessionId, email, name, phone } = req.body || {};
-      if (!labSessionId) return res.status(400).json({ error: 'labSessionId is required' });
-      if (!email) return res.status(400).json({ error: 'Email is required' });
-      const cleanEmail = String(email).toLowerCase().trim();
-
-      const { db } = await import("./db");
-      const { eq, and, count } = await import("drizzle-orm");
-      const { labSessionsV2, labRegistrations } = await import('@shared/schema');
-
-      const rows = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, labSessionId)).limit(1);
-      if (!rows.length) return res.status(404).json({ error: 'Class not found' });
-      const session: any = rows[0];
-      if (session.status === 'cancelled') return res.status(409).json({ error: 'Class was cancelled' });
-      const start = session.scheduledAt instanceof Date ? session.scheduledAt : new Date(session.scheduledAt);
-      if (start.getTime() <= Date.now()) return res.status(409).json({ error: 'Class already started' });
-
-      const guestId = `guest:${cleanEmail}`;
-
-      // Idempotent: if this guest already holds a (non-cancelled) seat, return it.
-      const existing = await db.select().from(labRegistrations).where(and(
-        eq(labRegistrations.labSessionId, labSessionId),
-        eq(labRegistrations.studentId, guestId),
-        eq(labRegistrations.cancelled, false),
-      )).limit(1);
-      if (existing.length) return res.status(200).json(existing[0]);
-
-      // Capacity guard — never overbook a paid lab.
-      const [{ n }] = await db.select({ n: count() }).from(labRegistrations).where(and(
-        eq(labRegistrations.labSessionId, labSessionId),
-        eq(labRegistrations.cancelled, false),
-      ));
-      if (Number(n) >= (session.maxParticipants ?? 8)) return res.status(409).json({ error: 'Lab is full' });
-
-      const [reg] = await db.insert(labRegistrations).values({ labSessionId, studentId: guestId }).returning();
-
-      // Track as a lead (non-fatal).
-      try {
-        const existingLead = await storage.getLeadByEmail(cleanEmail);
-        if (existingLead) {
-          await storage.updateLead(existingLead.id, { status: 'engaged', source: 'class_booking' });
-        } else {
-          const parts = String(name || '').trim().split(/\s+/);
-          await storage.createLead({
-            email: cleanEmail,
-            firstName: parts[0] || 'Sin nombre',
-            lastName: parts.length > 1 ? parts.slice(1).join(' ') : null,
-            phone: phone || null,
-            source: 'class_booking',
-            status: 'engaged',
-          } as any);
-        }
-      } catch (leadErr) {
-        console.error('[lab-bookings/guest] lead upsert failed:', leadErr);
-      }
-
-      // Confirmation email (non-fatal).
-      try {
-        const sessionDate = start.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-        const sessionTime = start.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        await sendEmail(cleanEmail, 'class_booking_confirmation', {
-          firstName: (String(name || '').trim().split(/\s+/)[0]) || 'estudiante',
-          sessionTitle: session.title || 'Clase de Conversación',
-          sessionDate,
-          sessionTime,
-          roomTopic: session.title || 'Conversación',
-          roomLevel: session.level || 'Todos los niveles',
-          sessionDuration: String(session.durationMinutes || 60),
-          meetingUrl: session.meetingUrl || '',
-        });
-      } catch (emailErr) {
-        console.error('[lab-bookings/guest] email failed:', emailErr);
-      }
-
-      res.status(201).json(reg);
-    } catch (err: any) {
-      console.error('[lab-bookings/guest] Error:', err?.message);
-      res.status(500).json({ error: 'Failed to book class' });
-    }
-  });
+  // NOTE: public booking now requires a free account (Coral's decision —
+  // controls abuse + gates access behind login). A brand-new Free-tier account
+  // gets ONE trial Lab via POST /api/lab-bookings (see isFreeTrial there). The
+  // old no-account guest endpoint was intentionally removed.
 
   // GET single lab session by ID. Needed for the lab-room page so it can
   // resolve a session that's CURRENTLY LIVE but not in the user's
@@ -10770,12 +10688,27 @@ ${JSON.stringify(items)}`;
 
       // Look up user's current subscription tier
       const tier = (req.user as any)?.subscriptionTier as 'free' | 'flex' | 'basic' | 'premium' | undefined;
+      // FREE TRIAL: a Free-tier account gets exactly ONE lifetime Lab booking
+      // (the "first free class" funnel). After that it must upgrade. The trial
+      // booking bypasses level + quota checks (a brand-new account has no
+      // placement level yet). Paid tiers use the normal access path.
+      let isFreeTrial = false;
       if (!canAccessLabs(tier)) {
-        return res.status(403).json({
-          error: 'Conversation Labs require a paid plan',
-          message: 'Tu plan actual no incluye acceso a los Labs. Considera upgradear a Flex, Básico o Premium.',
-          currentTier: tier ?? 'free',
-        });
+        const [{ n: lifetimeBookings }] = await db
+          .select({ n: count() })
+          .from(labRegistrations)
+          .where(and(
+            eq(labRegistrations.studentId, userId),
+            eq(labRegistrations.cancelled, false),
+          ));
+        if (Number(lifetimeBookings) >= 1) {
+          return res.status(403).json({
+            error: 'Free trial used',
+            message: 'Ya usaste tu clase de prueba gratis. Pasa a un plan (Flex, Básico o Premium) para reservar más Conversation Labs.',
+            currentTier: tier ?? 'free',
+          });
+        }
+        isFreeTrial = true;
       }
 
       // Validate the target session
@@ -10789,7 +10722,7 @@ ${JSON.stringify(items)}`;
       // Admins/teachers are exempt so they can observe any session.
       const studentRow = await storage.getUser(userId);
       const isStaff = studentRow?.isAdmin || (req.user as any)?.role === 'teacher';
-      if (!isStaff) {
+      if (!isStaff && !isFreeTrial) {
         const studentLevel = studentRow?.placementLevel || studentRow?.englishLevel;
         if (!studentLevel) {
           return res.status(403).json({
@@ -10873,7 +10806,7 @@ ${JSON.stringify(items)}`;
         }
       }
 
-      if (!canBookMoreLabs(tier, weeklyUsed, monthlyUsed)) {
+      if (!isFreeTrial && !canBookMoreLabs(tier, weeklyUsed, monthlyUsed)) {
         const tierLabel = tier === 'basic' ? 'Básico' : tier === 'flex' ? 'Flex' : tier ?? 'Free';
         const reason =
           limits.weeklyLabLimit !== null
