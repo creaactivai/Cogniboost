@@ -10674,7 +10674,7 @@ ${JSON.stringify(items)}`;
   app.get('/api/lab-bookings/trial-status', requireAuth, async (req: any, res) => {
     try {
       const { db } = await import("./db");
-      const { eq, and, count } = await import("drizzle-orm");
+      const { eq, count } = await import("drizzle-orm");
       const { labRegistrations } = await import('@shared/schema');
       const { canAccessLabs } = await import('@shared/tier-access');
       const userId = req.user?.id;
@@ -10682,13 +10682,12 @@ ${JSON.stringify(items)}`;
       const hasLabsAccess = canAccessLabs(tier);
       let trialUsed = false;
       if (!hasLabsAccess) {
+        // Count ANY booking ever (incl. cancelled) — the free trial is one
+        // class for life, so cancelling does not restore it.
         const [{ n }] = await db
           .select({ n: count() })
           .from(labRegistrations)
-          .where(and(
-            eq(labRegistrations.studentId, userId),
-            eq(labRegistrations.cancelled, false),
-          ));
+          .where(eq(labRegistrations.studentId, userId));
         trialUsed = Number(n) >= 1;
       }
       res.json({ hasLabsAccess, trialUsed, canBookTrial: !hasLabsAccess && !trialUsed });
@@ -10723,13 +10722,14 @@ ${JSON.stringify(items)}`;
       // placement level yet). Paid tiers use the normal access path.
       let isFreeTrial = false;
       if (!canAccessLabs(tier)) {
+        // Count ANY lab booking this account has EVER made — including
+        // cancelled ones — so the free trial is strictly ONE class for life.
+        // (Counting only non-cancelled would let a free user cancel and
+        // re-book endlessly.)
         const [{ n: lifetimeBookings }] = await db
           .select({ n: count() })
           .from(labRegistrations)
-          .where(and(
-            eq(labRegistrations.studentId, userId),
-            eq(labRegistrations.cancelled, false),
-          ));
+          .where(eq(labRegistrations.studentId, userId));
         if (Number(lifetimeBookings) >= 1) {
           return res.status(403).json({
             error: 'Free trial used',
