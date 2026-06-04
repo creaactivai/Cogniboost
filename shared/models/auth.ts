@@ -60,6 +60,9 @@ export const users = pgTable("users", {
   weeklyHoursGoal: text("weekly_hours_goal"), // 1-3, 4-6, 7-10, 10+
   welcomeEmailSent: boolean("welcome_email_sent").notNull().default(false),
   onboardingReminderSent: boolean("onboarding_reminder_sent").notNull().default(false),
+  // Set true once the user finishes/dismisses the welcome walkthrough, so the
+  // 6-step tour shows ONCE per account (not once per browser/device).
+  walkthroughSeen: boolean("walkthrough_seen").notNull().default(false),
   // Email sequence tracking
   onboardingDay2Sent: boolean("onboarding_day2_sent").notNull().default(false),
   onboardingDay5Sent: boolean("onboarding_day5_sent").notNull().default(false),

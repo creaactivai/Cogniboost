@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,22 +109,29 @@ const STEPS: Step[] = [
 export function WelcomeWalkthrough() {
   const [, setLocation] = useLocation();
   const { locale } = useTranslation();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
 
-  // Show once per user (localStorage). Defer to next tick to avoid flashing
+  // Show ONCE per account. The source of truth is the server flag
+  // `walkthroughSeen` (persists across browsers/devices); localStorage is
+  // only a fast local short-circuit. Defer to next tick to avoid flashing
   // before auth/onboarding redirects finish.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const done = localStorage.getItem(STORAGE_KEY);
-    if (done) return;
+    if (!user) return; // wait for auth to load
+    if ((user as any).walkthroughSeen) return; // already seen on this account
+    if (localStorage.getItem(STORAGE_KEY)) return; // already seen on this device
     const id = window.setTimeout(() => setOpen(true), 600);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [user]);
 
   const dismiss = () => {
     localStorage.setItem(STORAGE_KEY, new Date().toISOString());
     setOpen(false);
+    // Persist server-side so it never reappears on another browser/device.
+    // Fire-and-forget — a failure here only means the local flag still holds.
+    apiRequest("POST", "/api/auth/walkthrough-seen").catch(() => {});
   };
 
   const next = () => {

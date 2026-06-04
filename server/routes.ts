@@ -8168,7 +8168,7 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
           `SELECT q.*, COALESCE(SUM(CASE WHEN a.is_correct = false THEN 1 ELSE 0 END), 0) AS wrong_count
            FROM daily_challenge_questions q
            LEFT JOIN daily_challenge_attempts a ON a.question_id = q.id AND a.student_id = $1
-           WHERE q.level = ANY($2::text[]) AND q.is_published = true
+           WHERE q.level::text = ANY($2::text[]) AND q.is_published = true
              ${notInClause}
            GROUP BY q.id
            ORDER BY wrong_count DESC, RANDOM()

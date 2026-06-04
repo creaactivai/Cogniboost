@@ -207,6 +207,7 @@ export interface IStorage {
     onboardingCompleted: boolean;
     welcomeEmailSent: boolean;
     onboardingReminderSent: boolean;
+    walkthroughSeen: boolean;
     placementLevel: string;
     placementConfidence: string;
     placementAttemptId: string;
@@ -1079,6 +1080,7 @@ export class DatabaseStorage implements IStorage {
     onboardingCompleted: boolean;
     welcomeEmailSent: boolean;
     onboardingReminderSent: boolean;
+    walkthroughSeen: boolean;
     placementLevel: string;
     placementConfidence: string;
     placementAttemptId: string;

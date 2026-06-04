@@ -29,6 +29,18 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
+  // Mark the welcome walkthrough as seen for this account (persists across
+  // browsers/devices so the tour never reappears after it's been dismissed).
+  app.post("/api/auth/walkthrough-seen", isAuthenticated, async (req: any, res) => {
+    try {
+      await db.update(users).set({ walkthroughSeen: true }).where(eq(users.id, req.user.id));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error marking walkthrough seen:", error);
+      res.status(500).json({ message: "Failed to update" });
+    }
+  });
+
   // Signup with email/password
   app.post("/api/auth/signup", async (req, res, next) => {
     try {
