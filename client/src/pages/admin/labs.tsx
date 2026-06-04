@@ -14,6 +14,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card } from "@/components/ui/card";
@@ -207,6 +208,11 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSession, cancelled }: SessionRowProps) {
+  const [, navigate] = useLocation();
+  // Host the class INSIDE CogniBoost (branded video, clean end screen) instead
+  // of opening the raw native Jitsi room (which shows "Jitsi" branding + a
+  // promotional close page). Same room, but wrapped in our app.
+  const joinInApp = () => navigate(`/dashboard/labs/${s.id}/room`);
   return (
     <Card className={`p-3 ${cancelled ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 flex-wrap">
@@ -239,7 +245,7 @@ function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSe
                 <Button
                   size="sm"
                   className="bg-red-600 hover:bg-red-700 text-white animate-pulse"
-                  onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
+                  onClick={joinInApp}
                 >
                   <Radio className="w-3.5 h-3.5 mr-1" />
                   JOIN NOW
@@ -251,7 +257,7 @@ function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSe
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
+                  onClick={joinInApp}
                   title="Class starts within an hour — you can enter early"
                 >
                   <Radio className="w-3.5 h-3.5 mr-1" />
@@ -264,7 +270,7 @@ function SessionRow({ session: s, interest, onEdit, onViewRegs, onCancel, pastSe
                 size="sm"
                 variant="ghost"
                 onClick={() => window.open(s.meetingUrl!, '_blank', 'noopener,noreferrer')}
-                title="Open Jitsi room"
+                title="Iniciar clase (dentro de CogniBoost)"
               >
                 <Radio className="w-3.5 h-3.5" />
               </Button>
