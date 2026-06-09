@@ -76,6 +76,18 @@ export function ConversationLabsV2() {
   const canBookTrial = !hasAccess && !!trialStatus?.canBookTrial;
   const trialUsed = !hasAccess && !!trialStatus?.trialUsed;
 
+  // Students SEE every level's classes, but can only BOOK their level ±1
+  // (Challenge = one up, Refresh = one down) — matches the server rule.
+  // Free-trial users can book any level (their single trial). Out-of-range
+  // cards show "Not your level" instead of a Book button that would fail.
+  const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  const studentIdx = LEVELS.indexOf(studentLevel);
+  const canBookLevel = (lvl: string) => {
+    if (canBookTrial) return true;
+    const i = LEVELS.indexOf(lvl);
+    return studentIdx >= 0 && i >= 0 && Math.abs(i - studentIdx) <= 1;
+  };
+
   const { data: interests = [] } = useQuery<InterestTopic[]>({
     queryKey: ["/api/lab-interest-topics"],
     enabled: hasAccess || canBookTrial,
@@ -283,6 +295,7 @@ export function ConversationLabsV2() {
                       isBooked={myBookedIds.has(s.id)}
                       onBook={() => bookMutation.mutate(s.id)}
                       bookPending={bookMutation.isPending}
+                      outOfLevel={!canBookLevel(s.level)}
                       live
                     />
                   ))}
@@ -298,6 +311,7 @@ export function ConversationLabsV2() {
                       isBooked={myBookedIds.has(s.id)}
                       onBook={() => bookMutation.mutate(s.id)}
                       bookPending={bookMutation.isPending}
+                      outOfLevel={!canBookLevel(s.level)}
                       startingSoon
                     />
                   ))}
@@ -313,6 +327,7 @@ export function ConversationLabsV2() {
                       isBooked={myBookedIds.has(s.id)}
                       onBook={() => bookMutation.mutate(s.id)}
                       bookPending={bookMutation.isPending}
+                      outOfLevel={!canBookLevel(s.level)}
                     />
                   ))}
                 </div>
@@ -372,9 +387,10 @@ interface SessionCardProps {
   bookPending: boolean;
   live?: boolean;
   startingSoon?: boolean;
+  outOfLevel?: boolean;
 }
 
-function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live, startingSoon }: SessionCardProps) {
+function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live, startingSoon, outOfLevel }: SessionCardProps) {
   const spotsLeft = s.maxParticipants - (s.bookedCount ?? 0);
   const isFull = spotsLeft <= 0;
   const borderColor = live ? "border-red-500" : startingSoon ? "border-amber-500" : "";
@@ -414,15 +430,20 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
                 <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Join now</Link>
               </Button>
             )}
-            {live && !isBooked && !isFull && (
+            {live && !isBooked && !isFull && !outOfLevel && (
               <Button size="sm" className="bg-red-600 hover:bg-red-700" asChild>
                 <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center justify-center gap-2"><Radio className="w-4 h-4" /> Join class</Link>
               </Button>
+            )}
+            {live && !isBooked && outOfLevel && (
+              <Badge variant="outline" className="text-muted-foreground" title="You can join classes at your level, one above, or one below.">Not your level</Badge>
             )}
             {!live && (
               <>
                 {isBooked ? (
                   <Badge variant="default" className="bg-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Booked</Badge>
+                ) : outOfLevel ? (
+                  <Badge variant="outline" className="text-muted-foreground" title="You can book classes at your level, one above, or one below.">Not your level</Badge>
                 ) : isFull ? (
                   <Badge variant="secondary">Full</Badge>
                 ) : (
