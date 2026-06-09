@@ -81,7 +81,7 @@ export function ConversationLabsV2() {
     enabled: hasAccess || canBookTrial,
   });
   const { data: upcoming = [] } = useQuery<LabSession[]>({
-    queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`],
+    queryKey: [`/api/lab-sessions/upcoming?level=all`],
   });
   const { data: myBookings = [] } = useQuery<LabSession[]>({
     queryKey: ["/api/lab-bookings/mine"],
@@ -107,7 +107,7 @@ export function ConversationLabsV2() {
       toast({ title: "Spot reserved!", description: "You'll get a reminder before class starts." });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/trial-status"] });
-      qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`] });
+      qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=all`] });
     },
     onError: (err: any) => {
       const msg = err?.message || "";
@@ -130,7 +130,7 @@ export function ConversationLabsV2() {
     onSuccess: () => {
       toast({ title: "Booking cancelled" });
       qc.invalidateQueries({ queryKey: ["/api/lab-bookings/mine"] });
-      qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=${studentLevel}`] });
+      qc.invalidateQueries({ queryKey: [`/api/lab-sessions/upcoming?level=all`] });
     },
   });
 
@@ -196,7 +196,7 @@ export function ConversationLabsV2() {
             Conversation Labs
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Find a live class at your level ({studentLevel}). Pick a topic that interests you and book a spot.
+            All upcoming live classes are shown — each one is labelled with its level. Your level is {studentLevel}. Pick a topic and book a spot.
           </p>
         </div>
         {/* Plan + quota badge */}
@@ -264,7 +264,7 @@ export function ConversationLabsV2() {
           {/* Split into LIVE NOW + STARTING SOON + UPCOMING for prominent display */}
           {filtered.length === 0 ? (
             <Card className="p-8 text-center text-muted-foreground">
-              No upcoming labs for {studentLevel}{interestFilter !== "all" && " in this interest"}. Check back soon!
+              No upcoming labs right now{interestFilter !== "all" && " for this interest"}. Check back soon!
             </Card>
           ) : (
             <>

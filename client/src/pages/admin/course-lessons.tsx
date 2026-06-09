@@ -369,8 +369,24 @@ export default function AdminCourseLessons() {
       setViewingQuizModule(variables.moduleId);
       toast({ title: `Quiz generado: ${data.questions?.length || 0} preguntas` });
     },
-    onError: () => {
-      toast({ title: "Error al generar quiz del video", variant: "destructive" });
+    onError: (error: any) => {
+      // Surface the REAL reason instead of a generic message, so we can tell
+      // "out of OpenAI funds" from "bad transcript" from "misconfig". The
+      // server sends {error: "..."} and apiRequest wraps it as "500: {json}".
+      const raw = String(error?.message || "").replace(/^\d+:\s*/, "");
+      let detail = raw;
+      try { const j = JSON.parse(raw); detail = j.error || j.message || raw; } catch {}
+      const low = detail.toLowerCase();
+      if (low.includes("quota") || low.includes("insufficient") || low.includes("429") || low.includes("billing")) {
+        detail = "La cuenta de OpenAI parece estar sin fondos. Recarga el saldo de OpenAI e intenta de nuevo.";
+      } else if (low.includes("api key") || low.includes("401") || low.includes("placeholder")) {
+        detail = "La clave de OpenAI no está configurada correctamente en el servidor.";
+      }
+      toast({
+        title: "Error al generar quiz del video",
+        description: detail || "Intenta de nuevo.",
+        variant: "destructive",
+      });
     },
   });
 

@@ -10507,18 +10507,23 @@ ${JSON.stringify(items)}`;
       const { eq, and, count, ne, sql } = await import("drizzle-orm");
       const { labSessionsV2, labRegistrations } = await import('@shared/schema');
       const levelFilter = (req.query.level as string) || (req.user as any)?.currentLevel || 'A1';
+      // level=all → show EVERY level's upcoming classes (each labelled with its
+      // level on the client). Lets students see what else is happening even if
+      // it's not their level. Any other value filters to that single level.
+      const allLevels = levelFilter === 'all';
       const now = new Date();
 
       // We want sessions where scheduled_at + duration_minutes > now,
       // i.e. the session has not yet ended. Compute via SQL.
+      const conds = [
+        ne(labSessionsV2.status, 'cancelled'),
+        sql`${labSessionsV2.scheduledAt} + (${labSessionsV2.durationMinutes} * INTERVAL '1 minute') > NOW()`,
+      ];
+      if (!allLevels) conds.unshift(eq(labSessionsV2.level, levelFilter as any));
       const sessions = await db
         .select()
         .from(labSessionsV2)
-        .where(and(
-          eq(labSessionsV2.level, levelFilter as any),
-          ne(labSessionsV2.status, 'cancelled'),
-          sql`${labSessionsV2.scheduledAt} + (${labSessionsV2.durationMinutes} * INTERVAL '1 minute') > NOW()`,
-        ));
+        .where(and(...conds));
       sessions.sort((a, b) => (a.scheduledAt?.getTime() ?? 0) - (b.scheduledAt?.getTime() ?? 0));
 
       const out: any[] = [];
