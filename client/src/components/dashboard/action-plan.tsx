@@ -63,6 +63,10 @@ function relativeDate(iso: string | null, es: boolean): string {
 export function ActionPlan({ studentId }: ActionPlanProps = {}) {
   const { locale } = useTranslation();
   const es = locale === "es";
+  // Must be declared BEFORE the loading/error early returns below, or the
+  // hook count changes between renders → React #310 ("rendered fewer hooks
+  // than expected"). Keep all hooks above any conditional return.
+  const [expanded, setExpanded] = useState(false);
 
   const url = studentId
     ? `/api/student/${studentId}/action-plan`
@@ -93,7 +97,6 @@ export function ActionPlan({ studentId }: ActionPlanProps = {}) {
   }
 
   const plan = data?.plan ?? [];
-  const [expanded, setExpanded] = useState(false);
   const headerTitle = studentId
     ? (es ? "Plan de Trabajo del Estudiante" : "Student Work Plan")
     : (es ? "Tu Plan de Trabajo" : "Your Work Plan");
