@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 import multer from "multer";
 import OpenAI from "openai";
 import { YoutubeTranscript } from "youtube-transcript";
@@ -85,6 +85,64 @@ export async function registerRoutes(
     }
     next();
   };
+
+  // ============== JITSI JWT TOKEN ==============
+  // The shared Jitsi server (meet.cognimight.com) is moving to JWT auth so
+  // students can no longer be auto-promoted to moderator (classroom-safety
+  // bug). After that flip, every client must send a signed token or it gets
+  // stuck on "Waiting for the host…". We mint the token here, server-side,
+  // and decide `moderator` from isAdmin ONLY — never from the client.
+  //
+  // Backward-compatible: if JITSI_JWT_SECRET is unset (pre-flip), we return
+  // { jwt: null } and the client joins the no-auth server as it does today.
+  const b64url = (input: string | Buffer) =>
+    Buffer.from(input).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+
+  const signJitsiJwt = (payload: object, secret: string): string => {
+    const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = b64url(JSON.stringify(payload));
+    const sig = b64url(createHmac("sha256", secret).update(`${header}.${body}`).digest());
+    return `${header}.${body}.${sig}`;
+  };
+
+  app.get("/api/jitsi-token", requireAuth, async (req: any, res) => {
+    try {
+      const secret = process.env.JITSI_JWT_SECRET;
+      // Pre-flip: no secret configured → join the no-auth server without a token.
+      if (!secret) return res.json({ jwt: null });
+
+      const appId = process.env.JITSI_APP_ID || "cognimight";
+      const domain = process.env.JITSI_DOMAIN || "meet.cognimight.com";
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      // moderator is decided SERVER-SIDE from the user's role. Teachers/admins
+      // get true; students always false. The client cannot influence this.
+      const isTeacher = !!user.isAdmin;
+      const userName =
+        [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Student";
+
+      const now = Math.floor(Date.now() / 1000);
+      const jwt = signJitsiJwt(
+        {
+          aud: appId,
+          iss: appId,
+          sub: domain,
+          room: "*",
+          iat: now,
+          nbf: now - 10,
+          exp: now + 6 * 3600,
+          context: { user: { id: user.id, name: userName, moderator: isTeacher } },
+        },
+        secret,
+      );
+      res.json({ jwt, moderator: isTeacher });
+    } catch (e: any) {
+      console.error("[jitsi-token]", e);
+      res.status(500).json({ error: e?.message || "Failed to mint token" });
+    }
+  });
 
   // Health check endpoint for Railway/monitoring
   app.get("/health", (_req, res) => {

@@ -83,44 +83,63 @@ export default function LiveVideoPanel({
     let disposed = false;
     const { host, room } = extractRoomName(meetingUrlOrRoom);
 
-    loadJitsiScript(host)
-      .then(() => {
-        if (disposed || !containerRef.current || !window.JitsiMeetExternalAPI) return;
+    const init = async () => {
+      // Fetch a signed Jitsi JWT first. The shared server (meet.cognimight.com)
+      // requires it so students can't be auto-promoted to moderator — the
+      // backend sets `moderator` from the user's role, not the client. Pre-flip
+      // the endpoint returns { jwt: null } and we simply join without a token.
+      let jwt: string | null = null;
+      try {
+        const res = await fetch("/api/jitsi-token", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          jwt = data?.jwt ?? null;
+        }
+      } catch (e) {
+        console.warn("[LiveVideoPanel] Could not fetch Jitsi token:", e);
+      }
 
-        // Construct the Jitsi external API instance. This injects an
-        // iframe into containerRef.current and gives us an event API.
-        const api = new window.JitsiMeetExternalAPI(host, {
-          roomName: room,
-          parentNode: containerRef.current,
-          width: "100%",
-          height: typeof height === "number" ? height : "100%",
-          userInfo: { displayName: userName },
-          configOverwrite: {
-            prejoinPageEnabled: false,
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            disableDeepLinking: true,
-          },
-          interfaceConfigOverwrite: {
-            MOBILE_APP_PROMO: false,
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_BRAND_WATERMARK: false,
-            SHOW_POWERED_BY: false,
-          },
-        });
-        apiRef.current = api;
+      await loadJitsiScript(host);
+      if (disposed || !containerRef.current || !window.JitsiMeetExternalAPI) return;
 
-        // Meeting lifecycle events — call the parent callback so it can
-        // navigate away instead of leaving the student on the welcome page.
-        const handleEnd = () => {
-          if (onMeetingEnd) onMeetingEnd();
-        };
-        api.addListener("readyToClose", handleEnd);
-        api.addListener("videoConferenceLeft", handleEnd);
-      })
-      .catch((err) => {
-        console.error("[LiveVideoPanel] Failed to init Jitsi:", err);
+      // Construct the Jitsi external API instance. This injects an
+      // iframe into containerRef.current and gives us an event API.
+      const api = new window.JitsiMeetExternalAPI(host, {
+        roomName: room,
+        // Only include the token when we have one — passing jwt: undefined to a
+        // no-auth server would break the join.
+        ...(jwt ? { jwt } : {}),
+        parentNode: containerRef.current,
+        width: "100%",
+        height: typeof height === "number" ? height : "100%",
+        userInfo: { displayName: userName },
+        configOverwrite: {
+          prejoinPageEnabled: false,
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          disableDeepLinking: true,
+        },
+        interfaceConfigOverwrite: {
+          MOBILE_APP_PROMO: false,
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_BRAND_WATERMARK: false,
+          SHOW_POWERED_BY: false,
+        },
       });
+      apiRef.current = api;
+
+      // Meeting lifecycle events — call the parent callback so it can
+      // navigate away instead of leaving the student on the welcome page.
+      const handleEnd = () => {
+        if (onMeetingEnd) onMeetingEnd();
+      };
+      api.addListener("readyToClose", handleEnd);
+      api.addListener("videoConferenceLeft", handleEnd);
+    };
+
+    init().catch((err) => {
+      console.error("[LiveVideoPanel] Failed to init Jitsi:", err);
+    });
 
     return () => {
       disposed = true;

@@ -119,6 +119,22 @@ export function validateEnv() {
       default: undefined,
     }),
 
+    // Jitsi live-class video (Conversation Labs) - Optional until the shared
+    // meet.cognimight.com server is flipped to JWT auth. Once flipped, the
+    // secret MUST be set or every client is stuck on "Waiting for the host…".
+    JITSI_JWT_SECRET: optionalStr({
+      desc: "Shared HS256 secret for signing Jitsi JWTs (same hex value as CogniMight). Server-side only.",
+      default: undefined,
+    }),
+    JITSI_APP_ID: str({
+      desc: "Jitsi JWT app id / audience (must be exactly 'cognimight' for the shared server)",
+      default: "cognimight",
+    }),
+    JITSI_DOMAIN: str({
+      desc: "Jitsi server domain used as the JWT subject",
+      default: "meet.cognimight.com",
+    }),
+
     // Deployment (Railway/Replit)
     REPLIT_DOMAINS: optionalStr({
       desc: "Comma-separated list of Replit domains for webhooks",
