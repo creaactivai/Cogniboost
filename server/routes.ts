@@ -541,36 +541,48 @@ export async function registerRoutes(
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       const { pool } = await import("./db");
       const user = await storage.getUser(userId);
-      const studentLevel = user?.placementLevel || user?.englishLevel;
+      const studentLevel = user?.placementLevel || user?.englishLevel || (user as any)?.currentLevel;
       const isAdmin = !!user?.isAdmin;
 
-      const params: any[] = [];
-      let where = `status IN ('scheduled', 'live')
+      // Show ALL live classes (every level). We no longer filter to the
+      // student's own level — instead each row is tagged with its relation
+      // to the student so the banner can label other-level classes
+      // "no es tu nivel" (Coral's spec, 2026-07-16). Joinable range = ±1.
+      const where = `status IN ('scheduled', 'live')
                     AND scheduled_at - INTERVAL '5 minutes' <= now()
                     AND scheduled_at + (duration_minutes * INTERVAL '1 minute') + INTERVAL '10 minutes' >= now()`;
-      if (!isAdmin && studentLevel) {
-        params.push(studentLevel);
-        where += ` AND level = $${params.length}`;
-      }
       const { rows } = await (pool as any).query(
         `SELECT s.*, it.name as interest_name, it.icon as interest_icon
          FROM lab_sessions s
          LEFT JOIN lab_interest_topics it ON it.id = s.interest_topic_id
          WHERE ${where}
          ORDER BY scheduled_at ASC`,
-        params
+        []
       );
-      res.json(rows.map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        level: r.level,
-        scheduledAt: r.scheduled_at,
-        durationMinutes: r.duration_minutes,
-        meetingUrl: r.meeting_url,
-        interestName: r.interest_name,
-        interestIcon: r.interest_icon,
-        startsInMs: new Date(r.scheduled_at).getTime() - Date.now(),
-      })));
+      const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const sIdx = LEVELS.indexOf(studentLevel as any);
+      res.json(rows.map((r: any) => {
+        const i = LEVELS.indexOf(r.level);
+        let relation: 'mine' | 'up' | 'down' | 'far';
+        if (isAdmin || sIdx < 0) relation = 'mine';       // admin or unknown level → treat as joinable
+        else if (i === sIdx) relation = 'mine';
+        else if (i === sIdx + 1) relation = 'up';
+        else if (i === sIdx - 1) relation = 'down';
+        else relation = 'far';
+        return {
+          id: r.id,
+          title: r.title,
+          level: r.level,
+          scheduledAt: r.scheduled_at,
+          durationMinutes: r.duration_minutes,
+          meetingUrl: r.meeting_url,
+          interestName: r.interest_name,
+          interestIcon: r.interest_icon,
+          startsInMs: new Date(r.scheduled_at).getTime() - Date.now(),
+          relation,
+          canJoin: relation !== 'far',
+        };
+      }));
     } catch (e: any) {
       console.error('[labs/live-now]', e);
       res.status(500).json({ error: e?.message || 'Failed' });
