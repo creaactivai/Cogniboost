@@ -150,6 +150,31 @@ export function ConversationLabsV2() {
   const filtered = interestFilter === "all" ? upcoming : upcoming.filter((s) => s.interestTopicId === interestFilter);
   const interestById = new Map(interests.map((i) => [i.id, i]));
 
+  // ---- Weekly agenda ("Esta semana en Labs") -----------------------------
+  // Classify each class relative to the student's level, so the agenda can
+  // label it "tu nivel" / "reto" / "repaso" / "no es tu nivel". Bookable
+  // range (±1) matches canBookLevel + the server rule.
+  const relFor = (lvl: string): "mine" | "up" | "down" | "far" => {
+    const i = LEVELS.indexOf(lvl);
+    if (i < 0 || studentIdx < 0) return "far";
+    if (i === studentIdx) return "mine";
+    if (i === studentIdx + 1) return "up";
+    if (i === studentIdx - 1) return "down";
+    return "far";
+  };
+  // Group ALL upcoming sessions by calendar day (student's local tz), keep the
+  // next 7 days that have classes → students see the whole week's topics at a
+  // glance. Uses `upcoming` (every interest), not the interest-filtered list.
+  const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-CA");
+  const weekOrder: string[] = [];
+  const weekMap = new Map<string, LabSession[]>();
+  for (const s of upcoming) {
+    const k = dayKey(s.scheduledAt);
+    if (!weekMap.has(k)) { weekMap.set(k, []); weekOrder.push(k); }
+    weekMap.get(k)!.push(s);
+  }
+  const weekDays = weekOrder.slice(0, 7).map((k) => ({ key: k, sessions: weekMap.get(k)! }));
+
   // Compute student's current period usage (best-effort client-side; server is
   // source of truth for booking enforcement).
   const weekStart = getStartOfCurrentWeek();
@@ -246,13 +271,86 @@ export function ConversationLabsV2() {
       {/* Warm-up entry — quick game before the live class */}
       <DailyChallengeWidget variant="compact" />
 
-      <Tabs defaultValue="browse">
+      <Tabs defaultValue="week">
         <TabsList>
+          <TabsTrigger value="week" data-testid="tab-week">Esta semana</TabsTrigger>
           <TabsTrigger value="browse" data-testid="tab-browse">Browse Labs</TabsTrigger>
           <TabsTrigger value="mine" data-testid="tab-mine">
             My Labs {myBookings.length > 0 && <Badge variant="default" className="ml-2">{myBookings.length}</Badge>}
           </TabsTrigger>
         </TabsList>
+
+        {/* WEEKLY AGENDA — topics of the week at a glance (Coral's spec).
+            Every level is shown; each class is labelled relative to the
+            student's level. Rotating topics mean there's always fresh
+            practice, whether they join today or a month from now. */}
+        <TabsContent value="week" className="space-y-4">
+          {weekDays.length === 0 ? (
+            <Card className="p-8 text-center text-muted-foreground">
+              No hay clases programadas esta semana. ¡Vuelve pronto!
+            </Card>
+          ) : (
+            <>
+              <div className="rounded-2xl border overflow-hidden">
+                <div className="p-4 border-b bg-muted/30 flex items-baseline justify-between gap-2 flex-wrap">
+                  <h2 className="text-base font-bold uppercase tracking-tight">Esta semana en Labs</h2>
+                  <span className="text-xs text-muted-foreground">Tu nivel: <strong>{studentLevel}</strong></span>
+                </div>
+                {weekDays.map(({ key, sessions }) => (
+                  <div key={key}>
+                    <div className="px-4 py-2 bg-muted/40 flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide">{dayLabel(key)}</span>
+                      <span className="text-xs text-muted-foreground">{dateLabel(key)}</span>
+                    </div>
+                    {sessions.map((s) => {
+                      const rel = relFor(s.level);
+                      const booked = myBookedIds.has(s.id);
+                      const spotsLeft = s.maxParticipants - (s.bookedCount ?? 0);
+                      const isFull = spotsLeft <= 0;
+                      return (
+                        <div key={s.id} className="flex items-center gap-3 px-4 py-3 border-t" data-testid={`agenda-row-${s.id}`}>
+                          <div className="w-14 shrink-0 text-sm font-bold tabular-nums leading-tight">
+                            {formatTime(s.scheduledAt)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{topicTitle(s)}</p>
+                            <div className="mt-1"><RelBadge rel={rel} level={s.level} /></div>
+                          </div>
+                          <div className="shrink-0">
+                            {booked ? (
+                              <Button size="sm" variant="outline" asChild>
+                                <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center gap-1.5"><Radio className="w-3.5 h-3.5" /> Entrar</Link>
+                              </Button>
+                            ) : rel === "far" ? (
+                              <Badge variant="outline" className="text-muted-foreground text-[10px]" title="Puedes entrar a clases de tu nivel, uno arriba o uno abajo.">Ver</Badge>
+                            ) : isFull ? (
+                              <span className="text-xs font-semibold text-muted-foreground">Lleno</span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant={rel === "mine" ? "default" : "outline"}
+                                onClick={() => bookMutation.mutate(s.id)}
+                                disabled={bookMutation.isPending}
+                                data-testid={`agenda-book-${s.id}`}
+                              >
+                                {bookMutation.isPending ? "…" : "Reservar"}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground px-1">
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Tu nivel — reservar directo</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500" /> Un nivel arriba/abajo — reto o repaso</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-muted-foreground" /> Otro nivel — visible, marcado</span>
+              </div>
+            </>
+          )}
+        </TabsContent>
 
         <TabsContent value="browse" className="space-y-4">
           {/* Interest chips */}
@@ -484,4 +582,34 @@ function formatDate(iso: string): string {
 }
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit" });
+}
+
+// ---- Weekly agenda helpers -----------------------------------------------
+// key is "YYYY-MM-DD" (local). Build a noon Date to avoid tz day-shift.
+function dayFromKey(key: string): Date {
+  return new Date(`${key}T12:00:00`);
+}
+function dayLabel(key: string): string {
+  const s = dayFromKey(key).toLocaleDateString("es", { weekday: "long" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function dateLabel(key: string): string {
+  return dayFromKey(key).toLocaleDateString("es", { day: "numeric", month: "short" });
+}
+// Clean topic for the agenda: strip the "Conversation Lab · A1 · " prefix and
+// the "(Morning)" / "(Evening TT)" suffix. Custom titles pass through as-is.
+function topicTitle(s: LabSession): string {
+  return s.title
+    .replace(/^Conversation Lab\s*·\s*[A-C][12]\s*·\s*/, "")
+    .replace(/\s*\((Morning|Evening(?:\s*TT|\s*MW)?)\)\s*$/, "")
+    .trim() || s.title;
+}
+function RelBadge({ rel, level }: { rel: "mine" | "up" | "down" | "far"; level: string }) {
+  if (rel === "mine")
+    return <Badge className="bg-primary text-primary-foreground text-[10px]">{level} · tu nivel</Badge>;
+  if (rel === "up")
+    return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40 text-[10px]">{level} · reto ↑</Badge>;
+  if (rel === "down")
+    return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/40 text-[10px]">{level} · repaso ↓</Badge>;
+  return <Badge variant="outline" className="text-muted-foreground text-[10px]">{level} · no es tu nivel</Badge>;
 }
