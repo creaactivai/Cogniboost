@@ -27,6 +27,7 @@ import {
   Brain,
   Sparkles,
   Target,
+  CalendarClock,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -95,14 +96,23 @@ const menuItems = [
 
 const teacherMenuItems = [
   {
+    title: "Planeación de Clases",
+    url: "/dashboard/teacher/classes",
+    icon: CalendarClock,
+  },
+  // Grading queue + Library still gate on admin server-side, so only show them
+  // to admins for now (instructors get Planeación). Open up once verified.
+  {
     title: "Grading queue",
     url: "/dashboard/teacher",
     icon: ClipboardList,
+    adminOnly: true,
   },
   {
     title: "Library",
     url: "/dashboard/teacher/lessons",
     icon: Library,
+    adminOnly: true,
   },
 ];
 
@@ -123,6 +133,9 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { locale, setLocale } = useTranslation();
   const currentPath = window.location.pathname;
+  // Staff = admin OR an invited instructor/teacher. Controls whether the
+  // Teacher nav section (Planeación de Clases, Grading queue, Library) shows.
+  const isStaff = !!(user?.isAdmin || (user as any)?.role === "instructor" || (user as any)?.role === "teacher");
 
   // Pull the student's CEFR level + XP for the always-visible level chip.
   // /api/user-stats is already fetched by DashboardOverview so this is a
@@ -200,14 +213,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.isAdmin && (
+        {isStaff && (
           <SidebarGroup>
             <SidebarGroupLabel className="font-mono text-xs uppercase tracking-widest opacity-60">
               Teacher
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {teacherMenuItems.map((item) => (
+                {teacherMenuItems.filter((item) => user?.isAdmin || !(item as any).adminOnly).map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild

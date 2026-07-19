@@ -6911,7 +6911,7 @@ OUTPUT FORMAT (strict JSON, no markdown):
       if (!proj) return res.status(404).json({ error: 'No speaking project for this module' });
       // Hide drafts from students; admins/teachers see everything.
       const role = (req.user as any)?.role;
-      const isStaff = role === 'admin' || role === 'teacher';
+      const isStaff = role === 'admin' || role === 'teacher' || role === 'instructor';
       if (!proj.isPublished && !isStaff) {
         return res.status(404).json({ error: 'Speaking project not published yet' });
       }
@@ -6991,7 +6991,7 @@ OUTPUT FORMAT (strict JSON, no markdown):
   // duration, published flag. Required for the admin course-lessons UI.
   const isStaffUser = (req: any) => {
     const role = (req.user as any)?.role;
-    return role === 'admin' || role === 'teacher' || (req.user as any)?.isAdmin === true;
+    return role === 'admin' || role === 'teacher' || role === 'instructor' || (req.user as any)?.isAdmin === true;
   };
   /* ===================================================================
    * READING COMPREHENSION (Phase 1.8)
@@ -10448,7 +10448,7 @@ ${JSON.stringify(items)}`;
       const [proj] = await db.select().from(writingProjects).where(eq(writingProjects.moduleId, moduleId));
       if (!proj) return res.status(404).json({ error: 'No writing project for this module' });
       const role = (req.user as any)?.role;
-      const isStaff = role === 'admin' || role === 'teacher';
+      const isStaff = role === 'admin' || role === 'teacher' || role === 'instructor';
       if (!proj.isPublished && !isStaff) {
         return res.status(404).json({ error: 'Writing project not published yet' });
       }
@@ -10520,7 +10520,7 @@ ${JSON.stringify(items)}`;
       if (!sub) return res.status(404).json({ error: 'Submission not found' });
       const userId = req.user?.id;
       const role = (req.user as any)?.role;
-      const isStaff = role === 'admin' || role === 'teacher';
+      const isStaff = role === 'admin' || role === 'teacher' || role === 'instructor';
       if (sub.studentId !== userId && !isStaff) {
         return res.status(403).json({ error: 'Forbidden' });
       }
@@ -10771,6 +10771,48 @@ ${JSON.stringify(items)}`;
     }
   });
 
+  // GET /api/lab-sessions/:id/plan — TEACHER-facing FULL lesson plan (staff
+  // only). Same matched + week-rotated variant as the student brief, but
+  // returns the complete 5-phase plan (hook/live/build/anchor/activate) so the
+  // teacher can actually run the class.
+  app.get('/api/lab-sessions/:id/plan', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import('./db');
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, req.params.id)).limit(1);
+      if (!session) return res.status(404).json({ error: 'Lab session not found' });
+
+      await ensureLabLessonPlansTable();
+      const { pool } = await import('./db');
+      const { rows } = await (pool as any).query(
+        `SELECT title, grammar_focus, pedagogical_objective, vocabulary, expressions, preview_blurb, plan
+         FROM lab_lesson_plans
+         WHERE level = $1 AND interest_topic_id = $2 AND preview_blurb IS NOT NULL AND length(trim(preview_blurb)) > 0
+         ORDER BY variant_number, id`,
+        [(session as any).level, (session as any).interestTopicId]
+      );
+      if (!rows.length) return res.json({ available: false });
+      const when = new Date((session as any).scheduledAt).getTime();
+      const wk = Math.floor(when / (7 * 24 * 3600 * 1000));
+      const pick = rows[(((wk % rows.length) + rows.length) % rows.length)];
+      res.json({
+        available: true,
+        planTitle: pick.title,
+        objective: pick.pedagogical_objective,
+        grammarFocus: pick.grammar_focus,
+        previewBlurb: pick.preview_blurb,
+        vocabulary: pick.vocabulary || [],
+        expressions: pick.expressions || [],
+        plan: pick.plan,
+      });
+    } catch (e: any) {
+      console.error('[GET /lab-sessions/:id/plan] Error:', e?.message);
+      res.status(500).json({ error: 'Failed to fetch lesson plan' });
+    }
+  });
+
   // Get current user's upcoming registrations.
   app.get('/api/lab-bookings/mine', requireAuth, async (req: any, res) => {
     try {
@@ -10883,7 +10925,7 @@ ${JSON.stringify(items)}`;
       // labs at their CEFR level — no A1 student in a B2 session.
       // Admins/teachers are exempt so they can observe any session.
       const studentRow = await storage.getUser(userId);
-      const isStaff = studentRow?.isAdmin || (req.user as any)?.role === 'teacher';
+      const isStaff = studentRow?.isAdmin || (req.user as any)?.role === 'teacher' || (req.user as any)?.role === 'instructor';
       if (!isStaff && !isFreeTrial) {
         const studentLevel = studentRow?.placementLevel || studentRow?.englishLevel;
         if (!studentLevel) {
@@ -11315,7 +11357,7 @@ ${JSON.stringify(items)}`;
       // Authorize: must be the student who submitted it, or staff.
       const userId = req.user?.id;
       const role = (req.user as any)?.role;
-      const isStaff = role === 'admin' || role === 'teacher';
+      const isStaff = role === 'admin' || role === 'teacher' || role === 'instructor';
       if (sub.studentId !== userId && !isStaff) {
         return res.status(403).json({ error: 'Forbidden' });
       }

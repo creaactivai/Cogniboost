@@ -8,6 +8,7 @@ import { CourseCatalog } from "@/components/dashboard/course-catalog";
 import { CourseViewer } from "@/components/dashboard/course-viewer";
 import { ConversationLabs } from "@/components/dashboard/conversation-labs";
 import { ConversationLabsV2 } from "@/components/dashboard/conversation-labs-v2";
+import { ClassPlanning } from "@/components/dashboard/class-planning";
 import { ProgressTracking } from "@/components/dashboard/progress-tracking";
 import { Settings } from "@/components/dashboard/settings";
 import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
@@ -268,6 +269,8 @@ export default function Dashboard() {
               {/* Phase 1.5 — Lesson Library (Master Plan v2.0 §7.4) */}
               <Route path="/dashboard/teacher/lessons/:id" component={TeacherLessonPlanPage} />
               <Route path="/dashboard/teacher/lessons" component={TeacherLessonLibraryPage} />
+              {/* Teacher class-planning: the week's classes + rosters + guiones */}
+              <Route path="/dashboard/teacher/classes" component={ClassPlanning} />
               <Route path="/dashboard/teacher" component={TeacherGradingQueuePage} />
               <Route path="/dashboard" component={DashboardOverview} />
             </Switch>
