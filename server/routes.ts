@@ -9124,7 +9124,7 @@ CRITICAL RULES:
         `SELECT id, name FROM lab_interest_topics WHERE is_active = true ORDER BY display_order`
       );
       const interests = interestsRes.rows;
-      const combos = modules.flatMap((m: any) =>
+      let combos = modules.flatMap((m: any) =>
         interests.map((it: any) => ({ moduleId: m.id, moduleTitle: m.title, interestId: it.id, interestName: it.name }))
       );
 
@@ -9132,10 +9132,29 @@ CRITICAL RULES:
         return res.status(400).json({ error: `No modules or interests for level ${level}` });
       }
 
+      // GAP-FILL by default: skip combos that already have a plan, so we NEVER
+      // overwrite content already reviewed/approved (Coral: "si ya están bien,
+      // están excelentes — no los toques"). Pass { regenerate: true } to force.
+      let skipped = 0;
+      if (!req.body?.regenerate) {
+        const existingRes = await (pool as any).query(
+          `SELECT DISTINCT module_id, interest_topic_id FROM lab_lesson_plans WHERE level = $1`,
+          [level]
+        );
+        const have = new Set(existingRes.rows.map((r: any) => `${r.module_id}|${r.interest_topic_id}`));
+        const before = combos.length;
+        combos = combos.filter((c: any) => !have.has(`${c.moduleId}|${c.interestId}`));
+        skipped = before - combos.length;
+      }
+
+      if (combos.length === 0) {
+        return res.json({ jobId: null, total: 0, skipped, level, note: 'Nada por generar — todas las combinaciones ya tienen guion.' });
+      }
+
       // Initialize job state
       const jobId = `bulk-${level}-${Date.now()}`;
       BULK_JOBS.set(jobId, {
-        jobId, level, total: combos.length, generated: 0, errors: 0,
+        jobId, level, total: combos.length, skipped, generated: 0, errors: 0,
         startedAt: new Date().toISOString(),
         finishedAt: null, currentCombo: null, errorList: [],
       });
@@ -9167,7 +9186,7 @@ CRITICAL RULES:
         job.currentCombo = null;
       })().catch(err => console.error('[habla-bulk] fatal:', err));
 
-      res.json({ jobId, total: combos.length, level });
+      res.json({ jobId, total: combos.length, skipped, level });
     } catch (e: any) {
       console.error('[lab-plans bulk]', e);
       res.status(500).json({ error: e?.message || 'Failed' });
