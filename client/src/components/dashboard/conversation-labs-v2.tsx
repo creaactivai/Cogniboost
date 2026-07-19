@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Users, Sparkles, X, Crown, Lock, BarChart3, Bookmark, CheckCircle2, Radio } from "lucide-react";
+import { Calendar, Clock, Users, Sparkles, X, Crown, Lock, BarChart3, Bookmark, CheckCircle2, Radio, ChevronDown, BookOpen } from "lucide-react";
 import { InterestIcon } from "@/components/lab/interest-icon";
 import { DailyChallengeWidget } from "@/components/dashboard/daily-challenge-widget";
 import { canAccessLabs, getTierLimits, getStartOfCurrentWeek, getStartOfCurrentMonth, type SubscriptionTier } from "@/lib/tier-access";
@@ -51,6 +51,18 @@ interface LabSession {
   bookedCount?: number;            // derived server-side
   liveStatus?: "live" | "starting_soon" | "upcoming";
   registrationId?: string;          // present on my-bookings response
+  hasBrief?: boolean;               // a student "class brief" exists for this level+topic
+}
+
+// Student-facing "what's this class about?" — served by /api/lab-sessions/:id/brief.
+interface ClassBriefData {
+  available: boolean;
+  planTitle?: string;
+  previewBlurb?: string;
+  grammarFocus?: string;
+  objective?: string;
+  vocabulary?: string[];
+  expressions?: string[];
 }
 
 export function ConversationLabsV2() {
@@ -308,7 +320,8 @@ export function ConversationLabsV2() {
                       const spotsLeft = s.maxParticipants - (s.bookedCount ?? 0);
                       const isFull = spotsLeft <= 0;
                       return (
-                        <div key={s.id} className="flex items-center gap-3 px-4 py-3 border-t" data-testid={`agenda-row-${s.id}`}>
+                        <div key={s.id} className="border-t" data-testid={`agenda-row-${s.id}`}>
+                          <div className="flex items-center gap-3 px-4 py-3">
                           <div className="w-14 shrink-0 text-sm font-bold tabular-nums leading-tight">
                             {formatTime(s.scheduledAt)}
                           </div>
@@ -337,6 +350,8 @@ export function ConversationLabsV2() {
                               </Button>
                             )}
                           </div>
+                          </div>
+                          {s.hasBrief && <div className="px-4 pb-3"><ClassBrief session={s} /></div>}
                         </div>
                       );
                     })}
@@ -556,6 +571,7 @@ function SessionCard({ session: s, interest, isBooked, onBook, bookPending, live
               </>
             )}
           </div>
+          {s.hasBrief && <ClassBrief session={s} />}
         </div>
       </div>
     </Card>
@@ -604,6 +620,73 @@ function topicTitle(s: LabSession): string {
     .replace(/\s*\((Morning|Evening(?:\s*TT|\s*MW)?)\)\s*$/, "")
     .trim() || s.title;
 }
+// Collapsible "¿De qué trata esta clase?" — closed by default so the page
+// stays light; the brief is lazy-fetched only when the student opens it.
+// Content (blurb, vocab, expressions) is in English like the topics; the
+// helper labels are Spanish. Renders nothing unless a brief exists.
+function ClassBrief({ session }: { session: LabSession }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading } = useQuery<ClassBriefData>({
+    queryKey: [`/api/lab-sessions/${session.id}/brief`],
+    enabled: open,
+    staleTime: 60 * 60 * 1000,
+  });
+  if (!session.hasBrief) return null;
+  return (
+    <div className="mt-2 rounded-lg border bg-muted/20 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-primary hover:bg-muted/40"
+        data-testid={`brief-toggle-${session.id}`}
+      >
+        <BookOpen className="w-3.5 h-3.5" />
+        <span>¿De qué trata esta clase?</span>
+        <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-1 space-y-3">
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Cargando…</p>
+          ) : data?.available ? (
+            <>
+              {data.previewBlurb && <p className="text-[13px] leading-relaxed">{data.previewBlurb}</p>}
+              {data.vocabulary && data.vocabulary.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">Vocabulario clave</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.vocabulary.map((w, i) => (
+                      <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/15 lowercase">{w}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.expressions && data.expressions.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Expresiones útiles</p>
+                  <ul className="space-y-0.5">
+                    {data.expressions.map((e, i) => (
+                      <li key={i} className="text-[12px] text-muted-foreground">• “{e}”</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {data.grammarFocus && (
+                <p className="text-[12px] rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2.5 py-1.5">
+                  <strong>Enfoque:</strong> {data.grammarFocus}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Detalles próximamente.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RelBadge({ rel, level }: { rel: "mine" | "up" | "down" | "far"; level: string }) {
   if (rel === "mine")
     return <Badge className="bg-primary text-primary-foreground text-[10px]">{level} · tu nivel</Badge>;

@@ -10596,6 +10596,19 @@ ${JSON.stringify(items)}`;
         .where(and(...conds));
       sessions.sort((a, b) => (a.scheduledAt?.getTime() ?? 0) - (b.scheduledAt?.getTime() ?? 0));
 
+      // Which (level, topic) combos have a student "class brief" available, so
+      // the UI shows the "¿De qué trata?" toggle only when there's content to
+      // reveal (see GET /api/lab-sessions/:id/brief).
+      let briefKeys = new Set<string>();
+      try {
+        await ensureLabLessonPlansTable();
+        const { pool } = await import("./db");
+        const briefRes = await (pool as any).query(
+          `SELECT DISTINCT level, interest_topic_id FROM lab_lesson_plans WHERE preview_blurb IS NOT NULL AND length(trim(preview_blurb)) > 0`
+        );
+        briefKeys = new Set(briefRes.rows.map((r: any) => `${r.level}|${r.interest_topic_id}`));
+      } catch { /* briefs are best-effort; never block the schedule */ }
+
       const out: any[] = [];
       for (const s of sessions) {
         const [{ n }] = await db
@@ -10611,7 +10624,7 @@ ${JSON.stringify(items)}`;
         if (sStart <= now && sEnd > now) liveStatus = 'live';
         else if (sStart.getTime() - now.getTime() <= 15 * 60_000) liveStatus = 'starting_soon';
         else liveStatus = 'upcoming';
-        out.push({ ...s, bookedCount: Number(n), liveStatus });
+        out.push({ ...s, bookedCount: Number(n), liveStatus, hasBrief: briefKeys.has(`${s.level}|${s.interestTopicId}`) });
       }
       res.json(out);
     } catch (err: any) {
@@ -10710,6 +10723,51 @@ ${JSON.stringify(items)}`;
     } catch (err: any) {
       console.error('[GET /lab-sessions/:id] Error:', err?.message);
       res.status(500).json({ error: 'Failed to fetch lab session' });
+    }
+  });
+
+  // GET /api/lab-sessions/:id/brief — student-facing "what's this class about?"
+  // for the collapsible preview on the agenda/session cards. Pulls a matching
+  // lab_lesson_plan (by level + interest topic) and rotates the variant by week
+  // so a recurring topic feels fresh across the rotation. Returns only
+  // student-safe fields (no full 5-phase plan). No content is stored on the
+  // session — single source of truth stays in lab_lesson_plans.
+  app.get('/api/lab-sessions/:id/brief', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import('./db');
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, req.params.id)).limit(1);
+      if (!session) return res.status(404).json({ error: 'Lab session not found' });
+
+      await ensureLabLessonPlansTable();
+      const { pool } = await import('./db');
+      const { rows } = await (pool as any).query(
+        `SELECT title, grammar_focus, pedagogical_objective, vocabulary, expressions, preview_blurb
+         FROM lab_lesson_plans
+         WHERE level = $1 AND interest_topic_id = $2 AND preview_blurb IS NOT NULL AND length(trim(preview_blurb)) > 0
+         ORDER BY variant_number, id`,
+        [(session as any).level, (session as any).interestTopicId]
+      );
+      if (!rows.length) return res.json({ available: false });
+
+      // Rotate the variant by week so the same weekly topic varies over the
+      // rotation (join today or in a month → fresh material).
+      const when = new Date((session as any).scheduledAt).getTime();
+      const wk = Math.floor(when / (7 * 24 * 3600 * 1000));
+      const pick = rows[(((wk % rows.length) + rows.length) % rows.length)];
+      res.json({
+        available: true,
+        planTitle: pick.title,
+        previewBlurb: pick.preview_blurb,
+        grammarFocus: pick.grammar_focus,
+        objective: pick.pedagogical_objective,
+        vocabulary: (pick.vocabulary || []).slice(0, 8),
+        expressions: (pick.expressions || []).slice(0, 5),
+      });
+    } catch (e: any) {
+      console.error('[GET /lab-sessions/:id/brief] Error:', e?.message);
+      res.status(500).json({ error: 'Failed to fetch class brief' });
     }
   });
 
