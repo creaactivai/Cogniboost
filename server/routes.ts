@@ -8087,6 +8087,29 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
     }
   }
 
+  // End-of-class "Cierre" — student survey (class + teacher rating + comment)
+  // and optional mini-quiz result. In-platform only (no external Sheets). One
+  // row per (session, student).
+  async function ensureLabFeedbackTable() {
+    try {
+      const { pool } = await import("./db");
+      await (pool as any).query(`CREATE TABLE IF NOT EXISTS lab_feedback (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        lab_session_id varchar NOT NULL,
+        student_id varchar NOT NULL,
+        class_rating integer,
+        teacher_rating integer,
+        comment text,
+        quiz_score integer,
+        quiz_total integer,
+        created_at timestamp DEFAULT now()
+      )`);
+      await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_feedback_session_student_idx ON lab_feedback(lab_session_id, student_id)`);
+    } catch (err: any) {
+      console.warn('[lab-feedback] defensive migration warning:', err?.message);
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════
   // Phase 2.1 — Daily Challenge / Expression Showdown
   // ════════════════════════════════════════════════════════════════
@@ -10829,6 +10852,81 @@ ${JSON.stringify(items)}`;
     } catch (e: any) {
       console.error('[GET /lab-sessions/:id/plan] Error:', e?.message);
       res.status(500).json({ error: 'Failed to fetch lesson plan' });
+    }
+  });
+
+  // POST /api/lab-sessions/:id/end — teacher marks the class finished. This is
+  // the authoritative "class is over" signal (Coral's option A): only students
+  // still in the room when the teacher ends it get the Cierre (quiz + survey).
+  app.post('/api/lab-sessions/:id/end', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      const { db } = await import('./db');
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const [updated] = await db.update(labSessionsV2)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(labSessionsV2.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: 'Lab session not found' });
+      res.json({ ok: true, status: updated.status });
+    } catch (e: any) {
+      console.error('[lab-sessions/:id/end]', e?.message);
+      res.status(500).json({ error: 'Failed to end class' });
+    }
+  });
+
+  // POST /api/lab-feedback — student submits the end-of-class Cierre (survey +
+  // optional quiz result). Stored in-platform ONLY. One row per (session,
+  // student); a re-submit updates it.
+  app.post('/api/lab-feedback', requireAuth, async (req: any, res) => {
+    try {
+      const studentId = (req.user as any)?.id;
+      if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+      const { labSessionId, classRating, teacherRating, comment, quizScore, quizTotal } = req.body || {};
+      if (!labSessionId) return res.status(400).json({ error: 'labSessionId required' });
+      await ensureLabFeedbackTable();
+      const { pool } = await import('./db');
+      const clamp = (v: any) => (v == null ? null : (Math.max(1, Math.min(5, parseInt(v, 10))) || null));
+      const num = (v: any) => (v == null ? null : (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : null));
+      await (pool as any).query(
+        `INSERT INTO lab_feedback (lab_session_id, student_id, class_rating, teacher_rating, comment, quiz_score, quiz_total)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (lab_session_id, student_id) DO UPDATE SET
+           class_rating = EXCLUDED.class_rating, teacher_rating = EXCLUDED.teacher_rating,
+           comment = EXCLUDED.comment, quiz_score = EXCLUDED.quiz_score, quiz_total = EXCLUDED.quiz_total`,
+        [labSessionId, studentId, clamp(classRating), clamp(teacherRating),
+         (comment ? String(comment).slice(0, 1000) : null), num(quizScore), num(quizTotal)]
+      );
+      res.status(201).json({ ok: true });
+    } catch (e: any) {
+      console.error('[lab-feedback POST]', e?.message);
+      res.status(500).json({ error: 'Failed to save feedback' });
+    }
+  });
+
+  // GET /api/lab-sessions/:id/feedback-summary — teacher/admin aggregate view.
+  app.get('/api/lab-sessions/:id/feedback-summary', requireAuth, async (req: any, res) => {
+    try {
+      if (!isStaffUser(req)) return res.status(403).json({ error: 'Forbidden — staff only' });
+      await ensureLabFeedbackTable();
+      const { pool } = await import('./db');
+      const { rows } = await (pool as any).query(
+        `SELECT class_rating, teacher_rating, comment, quiz_score, quiz_total FROM lab_feedback WHERE lab_session_id = $1`,
+        [req.params.id]
+      );
+      const avg = (arr: number[]) => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
+      const cls = rows.map((r: any) => r.class_rating).filter((x: any) => x != null);
+      const tch = rows.map((r: any) => r.teacher_rating).filter((x: any) => x != null);
+      res.json({
+        responses: rows.length,
+        avgClassRating: avg(cls),
+        avgTeacherRating: avg(tch),
+        comments: rows.map((r: any) => r.comment).filter(Boolean),
+      });
+    } catch (e: any) {
+      console.error('[lab-feedback summary]', e?.message);
+      res.status(500).json({ error: 'Failed to fetch summary' });
     }
   });
 
