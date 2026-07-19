@@ -8082,6 +8082,8 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
         updated_at timestamp DEFAULT now()
       )`);
       await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_lesson_plans_combo_idx ON lab_lesson_plans(level, module_id, interest_topic_id, variant_number)`);
+      // Cached end-of-class mini-quiz (3 MCQ), generated once on first request.
+      await (pool as any).query(`ALTER TABLE lab_lesson_plans ADD COLUMN IF NOT EXISTS quiz jsonb`);
     } catch (err: any) {
       console.warn('[habla] defensive migration warning:', err?.message);
     }
@@ -10855,6 +10857,85 @@ ${JSON.stringify(items)}`;
     }
   });
 
+  // GET /api/lab-sessions/:id/quiz — end-of-class mini-quiz (3 MCQ) for the
+  // student Cierre. Built once with AI (Haiku) from the matched plan's vocab/
+  // expressions and cached on the plan row, so it's one cheap generation per
+  // lesson thereafter.
+  app.get('/api/lab-sessions/:id/quiz', requireAuth, async (req: any, res) => {
+    try {
+      const { db } = await import('./db');
+      const { labSessionsV2 } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const [session] = await db.select().from(labSessionsV2).where(eq(labSessionsV2.id, req.params.id)).limit(1);
+      if (!session) return res.status(404).json({ error: 'Lab session not found' });
+      await ensureLabLessonPlansTable();
+      const { pool } = await import('./db');
+      const { rows } = await (pool as any).query(
+        `SELECT id, title, level, vocabulary, expressions, pedagogical_objective, grammar_focus, quiz
+         FROM lab_lesson_plans
+         WHERE level = $1 AND interest_topic_id = $2 AND preview_blurb IS NOT NULL AND length(trim(preview_blurb)) > 0
+         ORDER BY variant_number, id`,
+        [(session as any).level, (session as any).interestTopicId]
+      );
+      if (!rows.length) return res.json({ available: false });
+      const when = new Date((session as any).scheduledAt).getTime();
+      const wk = Math.floor(when / (7 * 24 * 3600 * 1000));
+      const plan = rows[(((wk % rows.length) + rows.length) % rows.length)];
+
+      if (Array.isArray(plan.quiz) && plan.quiz.length) {
+        return res.json({ available: true, questions: plan.quiz });
+      }
+
+      const { getAnthropicClient, ANTHROPIC_MODELS } = await import('./anthropicClient');
+      const client = getAnthropicClient();
+      const msg = await client.messages.create({
+        model: ANTHROPIC_MODELS.speaking,
+        max_tokens: 1200,
+        tools: [{
+          name: 'save_quiz',
+          description: 'Save a 3-question multiple-choice recap quiz for the lesson.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              questions: {
+                type: 'array', minItems: 3, maxItems: 3,
+                items: {
+                  type: 'object',
+                  properties: {
+                    q: { type: 'string' },
+                    options: { type: 'array', minItems: 3, maxItems: 3, items: { type: 'string' } },
+                    correct: { type: 'number', enum: [0, 1, 2] },
+                  },
+                  required: ['q', 'options', 'correct'],
+                },
+              },
+            },
+            required: ['questions'],
+          },
+        }],
+        tool_choice: { type: 'tool', name: 'save_quiz' },
+        messages: [{ role: 'user', content:
+`Create a 3-question multiple-choice recap quiz for an ${plan.level} ESL Conversation Lab. Keep it light and encouraging — a fun recap, not an exam.
+Lesson: "${plan.title}"
+Objective: ${plan.pedagogical_objective}
+Grammar: ${plan.grammar_focus}
+Vocabulary: ${(plan.vocabulary || []).join(', ')}
+Useful expressions: ${(plan.expressions || []).join(' | ')}
+Each question tests vocabulary or a key expression from THIS lesson. Level-appropriate English for ${plan.level}. Exactly 3 options, one correct.`,
+        }],
+      });
+      const toolUse = (msg.content as any[]).find((b: any) => b.type === 'tool_use');
+      const questions = (toolUse as any)?.input?.questions?.slice(0, 3) || [];
+      if (questions.length) {
+        await (pool as any).query(`UPDATE lab_lesson_plans SET quiz = $1 WHERE id = $2`, [JSON.stringify(questions), plan.id]);
+      }
+      res.json({ available: questions.length > 0, questions });
+    } catch (e: any) {
+      console.error('[lab-sessions/:id/quiz]', e?.message);
+      res.status(500).json({ error: 'Failed to build quiz' });
+    }
+  });
+
   // POST /api/lab-sessions/:id/end — teacher marks the class finished. This is
   // the authoritative "class is over" signal (Coral's option A): only students
   // still in the room when the teacher ends it get the Cierre (quiz + survey).
@@ -10889,6 +10970,12 @@ ${JSON.stringify(items)}`;
       const { pool } = await import('./db');
       const clamp = (v: any) => (v == null ? null : (Math.max(1, Math.min(5, parseInt(v, 10))) || null));
       const num = (v: any) => (v == null ? null : (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : null));
+      // First submission for this (session, student)? Award XP only once.
+      const prior = await (pool as any).query(
+        `SELECT 1 FROM lab_feedback WHERE lab_session_id = $1 AND student_id = $2`,
+        [labSessionId, studentId]
+      );
+      const isFirst = prior.rows.length === 0;
       await (pool as any).query(
         `INSERT INTO lab_feedback (lab_session_id, student_id, class_rating, teacher_rating, comment, quiz_score, quiz_total)
          VALUES ($1,$2,$3,$4,$5,$6,$7)
@@ -10898,7 +10985,14 @@ ${JSON.stringify(items)}`;
         [labSessionId, studentId, clamp(classRating), clamp(teacherRating),
          (comment ? String(comment).slice(0, 1000) : null), num(quizScore), num(quizTotal)]
       );
-      res.status(201).json({ ok: true });
+      let xpAwarded = 0;
+      if (isFirst) {
+        try {
+          await (pool as any).query(`UPDATE user_stats SET xp_points = xp_points + 15 WHERE user_id = $1`, [studentId]);
+          xpAwarded = 15;
+        } catch { /* XP is a bonus; never fail the feedback save over it */ }
+      }
+      res.status(201).json({ ok: true, xpAwarded });
     } catch (e: any) {
       console.error('[lab-feedback POST]', e?.message);
       res.status(500).json({ error: 'Failed to save feedback' });

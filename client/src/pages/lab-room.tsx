@@ -18,6 +18,7 @@
  * content on the right. On mobile, stacks vertically (video on top).
  */
 
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,8 +27,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, AlertCircle, MessageSquare, BookOpen, Quote, Info, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, AlertCircle, MessageSquare, BookOpen, Quote, Info, Calendar, Clock, PhoneOff } from "lucide-react";
 import LiveVideoPanel from "@/components/lab/live-video-panel";
+import { ClaseCierre } from "@/components/lab/clase-cierre";
 import { InterestIcon } from "@/components/lab/interest-icon";
 
 interface LabSession {
@@ -89,6 +91,36 @@ export default function LabRoomPage() {
   const session = sessionFromBooking ?? sessionFromUpcoming ?? sessionDirect;
   const isRegistered = !!sessionFromBooking;
   const isAdmin = !!(user as any)?.isAdmin;
+  const isStaff = isAdmin || (user as any)?.role === "instructor" || (user as any)?.role === "teacher";
+
+  // End-of-class Cierre (students only, Coral's option A). Poll the session
+  // status while in the room; when the teacher ends the class (status →
+  // completed), pop the quiz + survey for whoever is still here.
+  const [showCierre, setShowCierre] = useState(false);
+  const [cierreDismissed, setCierreDismissed] = useState(false);
+  const { data: livePoll } = useQuery<{ status?: string }>({
+    queryKey: [`/api/lab-sessions/${sessionId}`, "cierre-poll"],
+    queryFn: () => fetch(`/api/lab-sessions/${sessionId}`, { credentials: "include" }).then((r) => r.json()),
+    enabled: !!sessionId && !isStaff,
+    refetchInterval: !isStaff && !showCierre && !cierreDismissed ? 20000 : false,
+  });
+  useEffect(() => {
+    if (!isStaff && livePoll?.status === "completed" && !cierreDismissed) setShowCierre(true);
+  }, [livePoll?.status, isStaff, cierreDismissed]);
+
+  // Teacher ends the class — the authoritative "class over" trigger.
+  const endClassMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/lab-sessions/${sessionId}/end`, { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("No se pudo terminar la clase");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Clase terminada", description: "Los estudiantes verán su cierre. Ya puedes cerrar la videollamada." });
+      navigate("/dashboard/labs");
+    },
+    onError: (e: any) => toast({ title: "No se pudo terminar", description: e?.message, variant: "destructive" }),
+  });
 
   const interestById = new Map(interests.map((i) => [i.id, i]));
   const interest = session ? interestById.get(session.interestTopicId) : undefined;
@@ -202,10 +234,15 @@ export default function LabRoomPage() {
             <LiveVideoPanel
               meetingUrlOrRoom={session.meetingUrl || `cogniboost-${session.id}`}
               userName={userName}
-              onMeetingEnd={() => {
-                // Meeting ended (user hung up OR moderator ended it).
-                // Don't leave the student staring at the default Jitsi
-                // welcome page — bounce them back to /dashboard/labs.
+              onMeetingEnd={async () => {
+                // If the teacher already ended the class, show the Cierre
+                // (quiz + survey) instead of bouncing the student out.
+                if (!isStaff && !cierreDismissed) {
+                  try {
+                    const s = await fetch(`/api/lab-sessions/${sessionId}`, { credentials: "include" }).then((r) => r.json());
+                    if (s?.status === "completed") { setShowCierre(true); return; }
+                  } catch { /* fall through to normal exit */ }
+                }
                 toast({
                   title: "Class ended",
                   description: "You can rejoin or pick a new lab from your dashboard.",
@@ -217,6 +254,17 @@ export default function LabRoomPage() {
 
           {/* Activity sidebar — right on desktop, below on mobile */}
           <div className="space-y-3">
+            {isStaff && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => endClassMutation.mutate()}
+                disabled={endClassMutation.isPending}
+                data-testid="button-end-class"
+              >
+                <PhoneOff className="w-4 h-4 mr-2" /> {endClassMutation.isPending ? "Terminando…" : "Terminar clase"}
+              </Button>
+            )}
             <Card className="p-4 space-y-2">
               <h3 className="text-sm font-bold flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Topic</h3>
               {session.description && <p className="text-sm">{session.description}</p>}
@@ -253,6 +301,19 @@ export default function LabRoomPage() {
             </Card>
           </div>
         </div>
+      )}
+
+      {showCierre && session && (
+        <ClaseCierre
+          sessionId={sessionId!}
+          topic={interest?.name || session.title}
+          onDone={(msg) => {
+            setShowCierre(false);
+            setCierreDismissed(true);
+            if (msg) toast({ title: msg });
+            navigate("/dashboard/labs");
+          }}
+        />
       )}
     </div>
   );
