@@ -174,18 +174,18 @@ export function ConversationLabsV2() {
     if (i === studentIdx - 1) return "down";
     return "far";
   };
-  // Group ALL upcoming sessions by calendar day (student's local tz), keep the
-  // next 7 days that have classes → students see the whole week's topics at a
-  // glance. Uses `upcoming` (every interest), not the interest-filtered list.
+  // Group the (interest-filtered) upcoming sessions by calendar day. Shows the
+  // WHOLE upcoming schedule so students can look ahead — the interest chips
+  // narrow it by topic. (This single agenda replaced the old "Browse" tab.)
   const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-CA");
   const weekOrder: string[] = [];
   const weekMap = new Map<string, LabSession[]>();
-  for (const s of upcoming) {
+  for (const s of filtered) {
     const k = dayKey(s.scheduledAt);
     if (!weekMap.has(k)) { weekMap.set(k, []); weekOrder.push(k); }
     weekMap.get(k)!.push(s);
   }
-  const weekDays = weekOrder.slice(0, 7).map((k) => ({ key: k, sessions: weekMap.get(k)! }));
+  const weekDays = weekOrder.map((k) => ({ key: k, sessions: weekMap.get(k)! }));
 
   // Compute student's current period usage (best-effort client-side; server is
   // source of truth for booking enforcement).
@@ -285,27 +285,42 @@ export function ConversationLabsV2() {
 
       <Tabs defaultValue="week">
         <TabsList>
-          <TabsTrigger value="week" data-testid="tab-week">Esta semana</TabsTrigger>
-          <TabsTrigger value="browse" data-testid="tab-browse">Browse Labs</TabsTrigger>
+          <TabsTrigger value="week" data-testid="tab-week">Clases</TabsTrigger>
           <TabsTrigger value="mine" data-testid="tab-mine">
-            My Labs {myBookings.length > 0 && <Badge variant="default" className="ml-2">{myBookings.length}</Badge>}
+            Mis Labs {myBookings.length > 0 && <Badge variant="default" className="ml-2">{myBookings.length}</Badge>}
           </TabsTrigger>
         </TabsList>
 
-        {/* WEEKLY AGENDA — topics of the week at a glance (Coral's spec).
-            Every level is shown; each class is labelled relative to the
-            student's level. Rotating topics mean there's always fresh
-            practice, whether they join today or a month from now. */}
+        {/* CLASES — one unified agenda (replaced the old separate "Browse" tab).
+            All upcoming classes grouped by day; interest chips narrow by topic;
+            every level shown, each labelled relative to the student's level. */}
         <TabsContent value="week" className="space-y-4">
+          {/* Interest filter */}
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Filtrar por tema</p>
+            <div className="flex flex-wrap gap-2">
+              <Chip selected={interestFilter === "all"} onClick={() => setInterestFilter("all")}>
+                <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Todos</span>
+              </Chip>
+              {interests.map((i) => (
+                <Chip key={i.id} selected={interestFilter === i.id} onClick={() => setInterestFilter(i.id)}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <InterestIcon name={i.name} size="sm" className="!w-5 !h-5 !rounded-md !shadow-none" />
+                    {i.name}
+                  </span>
+                </Chip>
+              ))}
+            </div>
+          </div>
           {weekDays.length === 0 ? (
             <Card className="p-8 text-center text-muted-foreground">
-              No hay clases programadas esta semana. ¡Vuelve pronto!
+              {interestFilter === "all" ? "No hay clases próximas. ¡Vuelve pronto!" : "No hay clases próximas de este tema. Prueba con otro."}
             </Card>
           ) : (
             <>
               <div className="rounded-2xl border overflow-hidden">
                 <div className="p-4 border-b bg-muted/30 flex items-baseline justify-between gap-2 flex-wrap">
-                  <h2 className="text-base font-bold uppercase tracking-tight">Esta semana en Labs</h2>
+                  <h2 className="text-base font-bold uppercase tracking-tight">Próximas clases</h2>
                   <span className="text-xs text-muted-foreground">Tu nivel: <strong>{studentLevel}</strong></span>
                 </div>
                 {weekDays.map(({ key, sessions }) => (
