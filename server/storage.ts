@@ -3,9 +3,10 @@ import {
   courses, 
   courseModules,
   lessons, 
-  enrollments, 
-  conversationLabs, 
-  labBookings, 
+  enrollments,
+  conversationLabs,
+  labSessionsV2,
+  labBookings,
   subscriptions,
   userStats,
   instructors,
@@ -170,6 +171,9 @@ export interface IStorage {
     totalLabs: number;
     totalRevenue: string;
     activeSubscriptions: number;
+    classesThisWeek: number;
+    estimatedMrr: string;
+    tierCounts: { free: number; flex: number; basic: number; premium: number };
   }>;
   
   // Users
@@ -950,13 +954,39 @@ export class DatabaseStorage implements IStorage {
     totalLabs: number;
     totalRevenue: string;
     activeSubscriptions: number;
+    classesThisWeek: number;
+    estimatedMrr: string;
+    tierCounts: { free: number; flex: number; basic: number; premium: number };
   }> {
+    const weekAhead = new Date(Date.now() + 7 * 24 * 3600 * 1000);
     const [studentsResult] = await db.select({ count: count() }).from(users).where(eq(users.isAdmin, false));
     const [coursesResult] = await db.select({ count: count() }).from(courses);
-    const [labsResult] = await db.select({ count: count() }).from(conversationLabs);
-    const [subsResult] = await db.select({ count: count() }).from(users).where(
-      and(eq(users.isAdmin, false), ne(users.subscriptionTier, 'free'))
+    // Upcoming live classes live in labSessionsV2 — the old conversationLabs
+    // table is legacy/empty (was why this showed 0). Count scheduled, not ended.
+    const [labsResult] = await db.select({ count: count() }).from(labSessionsV2).where(
+      and(
+        ne(labSessionsV2.status, 'cancelled'),
+        sql`${labSessionsV2.scheduledAt} + (${labSessionsV2.durationMinutes} * INTERVAL '1 minute') > NOW()`,
+      )
     );
+    const [weekResult] = await db.select({ count: count() }).from(labSessionsV2).where(
+      and(
+        ne(labSessionsV2.status, 'cancelled'),
+        sql`${labSessionsV2.scheduledAt} >= NOW()`,
+        sql`${labSessionsV2.scheduledAt} < ${weekAhead}`,
+      )
+    );
+    // Subscriptions + estimated MRR from the tier prices (real Stripe totals
+    // need the payments table populated; this is a live estimate meanwhile).
+    const tierRows = await db.select({ tier: users.subscriptionTier, n: count() }).from(users)
+      .where(eq(users.isAdmin, false)).groupBy(users.subscriptionTier);
+    const tierCounts = { free: 0, flex: 0, basic: 0, premium: 0 };
+    for (const r of tierRows) {
+      if (r.tier && r.tier in tierCounts) (tierCounts as any)[r.tier] = Number(r.n);
+    }
+    const PRICE = { flex: 14.99, basic: 49.99, premium: 99.99 };
+    const mrr = tierCounts.flex * PRICE.flex + tierCounts.basic * PRICE.basic + tierCounts.premium * PRICE.premium;
+    const activeSubscriptions = tierCounts.flex + tierCounts.basic + tierCounts.premium;
     const [revenueResult] = await db.select({ total: sql<string>`COALESCE(SUM(amount), 0)` }).from(payments).where(eq(payments.status, "completed"));
 
     return {
@@ -964,7 +994,10 @@ export class DatabaseStorage implements IStorage {
       totalCourses: coursesResult?.count || 0,
       totalLabs: labsResult?.count || 0,
       totalRevenue: revenueResult?.total || "0",
-      activeSubscriptions: subsResult?.count || 0,
+      activeSubscriptions,
+      classesThisWeek: weekResult?.count || 0,
+      estimatedMrr: mrr.toFixed(2),
+      tierCounts,
     };
   }
 
