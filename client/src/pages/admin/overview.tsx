@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { LiveNowWidget } from "@/components/dashboard/live-now-widget";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Users, BookOpen, Calendar, DollarSign, CreditCard, ArrowUpRight } from "lucide-react";
-import type { Course, Payment } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Users, Calendar, CreditCard, DollarSign, Radio, BookOpen, ClipboardCheck, ArrowRight } from "lucide-react";
 
 interface AdminStats {
   totalStudents: number;
@@ -13,232 +13,172 @@ interface AdminStats {
   totalLabs: number;
   totalRevenue: string;
   activeSubscriptions: number;
+  classesThisWeek: number;
+  estimatedMrr: string;
+  tierCounts: { free: number; flex: number; basic: number; premium: number };
 }
 
-const tierLabels: Record<string, string> = {
-  free: "Gratis",
-  flex: "Flex",
-  basic: "Básico",
-  standard: "Estándar",
-  premium: "Prémium",
-};
+interface UpcomingLab {
+  id: string;
+  title: string;
+  level: string;
+  scheduledAt: string;
+  bookedCount?: number;
+}
 
 export default function AdminOverview() {
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     refetchInterval: 30000,
   });
-
-  const { data: courses, isLoading: coursesLoading } = useQuery<Course[]>({
-    queryKey: ["/api/admin/courses"],
+  const { data: upcoming = [] } = useQuery<UpcomingLab[]>({
+    queryKey: ["/api/lab-sessions/upcoming?level=all"],
   });
 
-  const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
-    queryKey: ["/api/admin/payments"],
-    refetchInterval: 30000,
-  });
+  const t = stats?.tierCounts || { free: 0, flex: 0, basic: 0, premium: 0 };
+  const paying = t.flex + t.basic + t.premium;
+  const nextClasses = [...upcoming].slice(0, 4);
 
-  const statCards = [
+  const tiles = [
     {
-      title: "Estudiantes Totales",
-      value: stats?.totalStudents || 0,
-      icon: Users,
-      bgColor: "bg-success",
-      textColor: "text-success-foreground",
+      icon: Users, title: "Estudiantes",
+      value: statsLoading ? "…" : stats?.totalStudents ?? 0,
+      sub: `${t.free} free · ${paying} pagando`,
     },
     {
-      title: "Cursos Activos",
-      value: stats?.totalCourses || 0,
-      icon: BookOpen,
-      bgColor: "bg-primary",
-      textColor: "text-primary-foreground",
+      icon: CreditCard, title: "Suscripciones activas",
+      value: statsLoading ? "…" : stats?.activeSubscriptions ?? 0,
+      sub: `${t.basic} Basic · ${t.premium} Premium`,
     },
     {
-      title: "Laboratorios",
-      value: stats?.totalLabs || 0,
-      icon: Calendar,
-      bgColor: "bg-accent",
-      textColor: "text-accent-foreground",
+      icon: Calendar, title: "Clases esta semana",
+      value: statsLoading ? "…" : stats?.classesThisWeek ?? 0,
+      sub: `${stats?.totalLabs ?? 0} programadas en total`,
     },
     {
-      title: "Ingresos Totales",
-      value: `$${Number(stats?.totalRevenue || 0).toLocaleString()}`,
-      icon: DollarSign,
-      bgColor: "bg-success",
-      textColor: "text-success-foreground",
+      icon: DollarSign, title: "Ingreso mensual est.",
+      value: statsLoading ? "…" : `$${Number(stats?.estimatedMrr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      sub: "estimado de tus planes",
     },
   ];
 
   return (
     <AdminLayout title="Panel General">
       <div className="space-y-6">
-        {/* LIVE NOW widget — shows admin's currently-live Conversation
-            Labs with a JOIN button. Admin sees ALL levels (not filtered). */}
         <LiveNowWidget />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((stat, index) => (
-            <Card key={index} className="p-4" data-testid={`card-stat-${index}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 flex items-center justify-center ${stat.bgColor}`}>
-                  <stat.icon className={`w-5 h-5 ${stat.textColor}`} />
-                </div>
+        {/* Stat tiles */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {tiles.map((tile, i) => (
+            <Card key={i} className="p-4" data-testid={`card-stat-${i}`}>
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                <tile.icon className="w-4.5 h-4.5 text-primary" />
               </div>
-              <p
-                className="text-2xl font-display uppercase tracking-tight mb-1"
-                data-testid={`text-stat-value-${index}`}
-              >
-                {statsLoading ? "..." : stat.value}
-              </p>
-              <p className="text-sm font-mono text-muted-foreground">
-                {stat.title}
-              </p>
+              <p className="text-2xl font-display uppercase tracking-tight" data-testid={`text-stat-value-${i}`}>{tile.value}</p>
+              <p className="text-xs font-mono text-muted-foreground mt-0.5">{tile.title}</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1">{tile.sub}</p>
             </Card>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          {/* Left: teacher command center + courses */}
+          <div className="lg:col-span-2 space-y-6">
             <Card className="p-4">
-              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
-                Cursos Recientes
-              </h2>
-              <div className="space-y-3">
-                {coursesLoading ? (
-                  <p className="font-mono text-muted-foreground">
-                    Cargando cursos...
-                  </p>
-                ) : courses?.length === 0 ? (
-                  <p className="font-mono text-muted-foreground">
-                    No hay cursos todavía
-                  </p>
-                ) : (
-                  courses?.slice(0, 5).map((course) => (
-                    <div
-                      key={course.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 hover-elevate"
-                      data-testid={`course-item-${course.id}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 flex items-center justify-center bg-primary">
-                          <BookOpen className="w-5 h-5 text-primary-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-mono font-medium">
-                            {course.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Nivel {course.level}
-                          </p>
-                        </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-display uppercase tracking-tight flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-primary" /> Tus próximas clases
+                </h2>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/dashboard/teacher/classes" className="text-xs">Ver planeación <ArrowRight className="w-3 h-3 ml-1" /></Link>
+                </Button>
+              </div>
+              {nextClasses.length === 0 ? (
+                <p className="font-mono text-sm text-muted-foreground">No hay clases próximas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {nextClasses.map((s) => (
+                    <div key={s.id} className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg" data-testid={`next-class-${s.id}`}>
+                      <div className="w-14 shrink-0">
+                        <div className="text-sm font-bold tabular-nums">{formatTime(s.scheduledAt)}</div>
+                        <div className="text-[10px] text-muted-foreground">{formatDay(s.scheduledAt)}</div>
                       </div>
-                      <Badge variant={course.isPublished ? "default" : "secondary"}>
-                        {course.isPublished ? "Publicado" : "Borrador"}
-                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{topicTitle(s.title)} <Badge variant="outline" className="text-[10px] ml-1">{s.level}</Badge></p>
+                        <p className="text-[11px] text-muted-foreground">{s.bookedCount ?? 0} agendados</p>
+                      </div>
+                      <Button size="sm" asChild>
+                        <Link href={`/dashboard/labs/${s.id}/room`} className="flex items-center gap-1.5"><Radio className="w-3.5 h-3.5" /> Iniciar</Link>
+                      </Button>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4 flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-primary" /> Por revisar
+              </h2>
+              <div className="flex items-center justify-between p-3 bg-muted/40 rounded-lg">
+                <p className="text-sm text-muted-foreground">Revisa los trabajos de tus estudiantes que esperan calificación.</p>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/dashboard/teacher">Ir a la cola</Link>
+                </Button>
               </div>
             </Card>
           </div>
 
-          <div>
+          {/* Right: business summary */}
+          <div className="space-y-6">
             <Card className="p-4">
-              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
-                Suscripciones
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-mono">
-                      Suscripciones Activas
-                    </span>
-                    <span className="font-bold" data-testid="text-active-subs">
-                      {stats?.activeSubscriptions || 0}
-                    </span>
-                  </div>
-                  <Progress value={stats?.activeSubscriptions ? 100 : 0} className="h-2" />
-                </div>
-                {stats?.activeSubscriptions === 0 && (
-                  <p className="text-sm font-mono text-muted-foreground text-center py-2">
-                    Sin suscriptores aún
-                  </p>
-                )}
+              <h2 className="text-lg font-display uppercase tracking-tight mb-4">Suscripciones</h2>
+              <div className="space-y-3">
+                <TierBar label="Premium" n={t.premium} total={stats?.totalStudents || 1} color="bg-primary" />
+                <TierBar label="Basic" n={t.basic} total={stats?.totalStudents || 1} color="bg-cyan-500" />
+                <TierBar label="Free" n={t.free} total={stats?.totalStudents || 1} color="bg-muted-foreground/40" />
               </div>
             </Card>
 
-            <Card className="p-4 mt-4">
-              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
-                Laboratorios en Vivo
+            <Card className="p-4">
+              <h2 className="text-lg font-display uppercase tracking-tight mb-3 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-primary" /> Currículum
               </h2>
-              <div className="space-y-2">
-                <div className="p-2 bg-muted/50 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-success" />
-                  <span className="text-sm font-mono">
-                    {stats?.totalLabs || 0} sesiones configuradas
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Ver calendario completo en Labs
-                </p>
-              </div>
-            </Card>
-
-            <Card className="p-4 mt-4">
-              <h2 className="text-lg font-display uppercase tracking-tight mb-4">
-                Actividad Reciente
-              </h2>
-              {paymentsLoading ? (
-                <p className="font-mono text-muted-foreground text-sm">
-                  Cargando...
-                </p>
-              ) : !payments || payments.length === 0 ? (
-                <div className="text-center py-4">
-                  <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-mono text-muted-foreground">
-                    Sin transacciones aún
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {payments.slice(0, 5).map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="flex items-center justify-between p-2 bg-muted/50 rounded"
-                      data-testid={`activity-${payment.id}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-success flex items-center justify-center rounded">
-                          <ArrowUpRight className="w-3.5 h-3.5 text-success-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-mono text-xs font-medium truncate max-w-[120px]">
-                            {payment.userId.substring(0, 8)}...
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {tierLabels[payment.tier] || payment.tier}
-                        </Badge>
-                        <span className="font-mono font-bold text-xs">
-                          ${Number(payment.amount).toFixed(0)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <p className="text-[10px] text-muted-foreground text-center mt-2">
-                    Se actualiza cada 30 segundos
-                  </p>
-                </div>
-              )}
+              <p className="text-sm text-muted-foreground">Guiones de Labs por nivel. Revisa la cobertura y genera los que falten.</p>
+              <Button variant="ghost" size="sm" className="mt-2 px-0" asChild>
+                <Link href="/admin/labs" className="text-xs text-primary">Ver Laboratorios <ArrowRight className="w-3 h-3 ml-1" /></Link>
+              </Button>
             </Card>
           </div>
         </div>
       </div>
     </AdminLayout>
   );
+}
+
+function TierBar({ label, n, total, color }: { label: string; n: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="w-16 font-mono text-muted-foreground">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="font-bold w-6 text-right tabular-nums">{n}</span>
+    </div>
+  );
+}
+
+function topicTitle(title: string): string {
+  return title
+    .replace(/^Conversation Lab\s*·\s*[A-C][12]\s*·\s*/, "")
+    .replace(/\s*\((Morning|Evening(?:\s*TT|\s*MW)?)\)\s*$/, "")
+    .trim() || title;
+}
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit" });
+}
+function formatDay(iso: string): string {
+  const s = new Date(iso).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
