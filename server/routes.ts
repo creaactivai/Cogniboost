@@ -10995,7 +10995,7 @@ Each question tests vocabulary or a key expression from THIS lesson. Level-appro
       res.status(201).json({ ok: true, xpAwarded });
     } catch (e: any) {
       console.error('[lab-feedback POST]', e?.message);
-      res.status(500).json({ error: 'Failed to save feedback' });
+      res.status(500).json({ error: 'Failed to save feedback', debug: e?.message });
     }
   });
 
@@ -11020,7 +11020,7 @@ Each question tests vocabulary or a key expression from THIS lesson. Level-appro
       });
     } catch (e: any) {
       console.error('[lab-feedback summary]', e?.message);
-      res.status(500).json({ error: 'Failed to fetch summary' });
+      res.status(500).json({ error: 'Failed to fetch summary', debug: e?.message });
     }
   });
 

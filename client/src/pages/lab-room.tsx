@@ -231,6 +231,16 @@ export default function LabRoomPage() {
         <div className="grid lg:grid-cols-3 gap-4">
           {/* Video panel — left/main on desktop, top on mobile */}
           <div className="lg:col-span-2">
+            {showCierre ? (
+              // Class ended → drop the video (disposes Jitsi so the student
+              // actually leaves the call) and let the Cierre take over.
+              <div className="aspect-video rounded-xl bg-muted flex items-center justify-center text-center p-6">
+                <div>
+                  <p className="text-lg font-bold">La clase terminó</p>
+                  <p className="text-sm text-muted-foreground mt-1">Completa tu cierre para salir 👉</p>
+                </div>
+              </div>
+            ) : (
             <LiveVideoPanel
               meetingUrlOrRoom={session.meetingUrl || `cogniboost-${session.id}`}
               userName={userName}
@@ -250,6 +260,7 @@ export default function LabRoomPage() {
                 navigate("/dashboard/labs");
               }}
             />
+            )}
           </div>
 
           {/* Activity sidebar — right on desktop, below on mobile */}
