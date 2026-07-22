@@ -8095,6 +8095,18 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
   async function ensureLabFeedbackTable() {
     try {
       const { pool } = await import("./db");
+      // A `lab_feedback` table from the original (never-built) design may exist
+      // with an incompatible schema (e.g. a NOT NULL `rating` column our INSERT
+      // doesn't fill). If that legacy table exists AND is empty, drop it so we
+      // recreate a clean one. Idempotent: our clean table has no `rating`, so
+      // this never fires again once fixed.
+      const legacy = await (pool as any).query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = 'lab_feedback' AND column_name = 'rating'`
+      );
+      if (legacy.rows.length) {
+        const cnt = await (pool as any).query(`SELECT count(*)::int AS n FROM lab_feedback`);
+        if ((cnt.rows[0]?.n ?? 0) === 0) await (pool as any).query(`DROP TABLE IF EXISTS lab_feedback`);
+      }
       await (pool as any).query(`CREATE TABLE IF NOT EXISTS lab_feedback (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         lab_session_id varchar NOT NULL,
