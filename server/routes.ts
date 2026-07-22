@@ -8106,6 +8106,17 @@ Use the save_habla_plans tool to return exactly 4 plans.`;
         quiz_total integer,
         created_at timestamp DEFAULT now()
       )`);
+      // A `lab_feedback` table from the original (unbuilt) design already
+      // existed WITHOUT these columns, so CREATE IF NOT EXISTS was a no-op.
+      // Reconcile the columns we need (safe + idempotent).
+      for (const col of [
+        'lab_session_id varchar', 'student_id varchar',
+        'class_rating integer', 'teacher_rating integer', 'comment text',
+        'quiz_score integer', 'quiz_total integer',
+        'created_at timestamp DEFAULT now()',
+      ]) {
+        await (pool as any).query(`ALTER TABLE lab_feedback ADD COLUMN IF NOT EXISTS ${col}`);
+      }
       await (pool as any).query(`CREATE UNIQUE INDEX IF NOT EXISTS lab_feedback_session_student_idx ON lab_feedback(lab_session_id, student_id)`);
     } catch (err: any) {
       console.warn('[lab-feedback] defensive migration warning:', err?.message);
